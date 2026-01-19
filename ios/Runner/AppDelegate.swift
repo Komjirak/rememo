@@ -267,52 +267,12 @@ import NaturalLanguage
     }
     
     private func recognizeText(image: UIImage, completion: @escaping (String) -> Void) {
-        guard let cgImage = image.cgImage else {
-            completion("")
-            return
-        }
+        // 이미지 전처리 (OCR 정확도 향상)
+        let processedImage = PaddleOCRHelper.shared.preprocessImage(image) ?? image
         
-        let request = VNRecognizeTextRequest { (request, error) in
-            guard let observations = request.results as? [VNRecognizedTextObservation], error == nil else {
-                completion("")
-                return
-            }
-            
-            // 🎯 개선: 신뢰도 높은 텍스트만 추출하고, 위치 순서대로 정렬
-            let sortedObservations = observations.sorted { obs1, obs2 in
-                // Y 좌표(상단부터) 우선, 그 다음 X 좌표(왼쪽부터)
-                let y1 = obs1.boundingBox.origin.y
-                let y2 = obs2.boundingBox.origin.y
-                if abs(y1 - y2) > 0.05 { // 같은 줄로 간주되는 범위
-                    return y1 > y2 // Vision은 좌하단이 원점이므로 내림차순
-                }
-                return obs1.boundingBox.origin.x < obs2.boundingBox.origin.x
-            }
-            
-            // 신뢰도 0.5 이상인 텍스트만 추출
-            let recognizedTexts = sortedObservations.compactMap { observation -> String? in
-                guard let candidate = observation.topCandidates(1).first,
-                      candidate.confidence > 0.5 else {
-                    return nil
-                }
-                return candidate.string
-            }
-            
-            let text = recognizedTexts.joined(separator: "\n")
-            completion(text)
-        }
-        
-        // 🚀 개선: 최고 정확도 + 다국어 지원
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-        
-        // 다국어 지원 (Korean, English, Chinese, Japanese) - iOS 15+ 호환
-        request.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
-        
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        DispatchQueue.global(qos: .userInitiated).async {
-            try? handler.perform([request])
-        }
+        // PaddleOCR Helper를 사용하여 텍스트 인식
+        // 현재는 향상된 Vision Framework를 사용하며, 향후 PaddleOCR 모델이 추가되면 자동으로 전환됨
+        PaddleOCRHelper.shared.recognizeText(image: processedImage, completion: completion)
     }
 
     // 🎯 새로운 기능: 스마트 제목 생성 (20자 내외)

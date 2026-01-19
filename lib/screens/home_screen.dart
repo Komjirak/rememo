@@ -568,36 +568,36 @@ class _HomeScreenState extends State<HomeScreen> {
     String? sourceUrl,
   }) async {
     try {
-    // 🎯 iOS Vision Framework에서 제공한 제목 사용 (없으면 자동 생성)
-    final title = suggestedTitle ?? _generateSmartTitle(ocrText, suggestedTags);
+      // 🎯 제목: 스크린샷의 핵심을 표현하는 짧은 타이틀
+      final title = suggestedTitle ?? _generateSmartTitle(ocrText, suggestedTags);
 
-    // 🎯 AI Summary: 전체 OCR 텍스트를 그대로 사용 (원본 보존)
-    final summary = ocrText.isNotEmpty 
-        ? ocrText 
-        : "No text detected in image.";
+      // 🎯 AI Summary: 전체 텍스트를 기반으로 한 요약본
+      final summary = _generateSmartSummary(ocrText);
 
-    // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
-    String? finalUrl = sourceUrl;
-    if (finalUrl == null || finalUrl.isEmpty) {
-      final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)");
-      finalUrl = urlRegExp.firstMatch(ocrText)?.group(0);
-    }
+      // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
+      String? finalUrl = sourceUrl;
+      if (finalUrl == null || finalUrl.isEmpty) {
+        final urlRegExp = RegExp(
+          r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)",
+        );
+        finalUrl = urlRegExp.firstMatch(ocrText)?.group(0);
+      }
 
-    final newCard = MemoCard(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
-      summary: summary, // 전체 OCR 텍스트
-      category: suggestedCategory,
-      tags: suggestedTags.isEmpty ? ['Screenshot'] : suggestedTags,
-      captureDate: "Just now",
-      imageUrl: imagePath,
-      ocrText: ocrText, // 별도로 저장
-      sourceUrl: finalUrl,
-      personalNote: null,
-    );
+      final newCard = MemoCard(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
+        summary: summary, // 요약된 내용
+        category: suggestedCategory,
+        tags: suggestedTags.isEmpty ? ['Screenshot'] : suggestedTags,
+        captureDate: "Just now",
+        imageUrl: imagePath,
+        ocrText: ocrText, // 🔹 스크린샷의 전체 원본 텍스트
+        sourceUrl: finalUrl,
+        personalNote: null,
+      );
 
-    await DatabaseHelper.instance.create(newCard);
-    await _refreshCards();
+      await DatabaseHelper.instance.create(newCard);
+      await _refreshCards();
       
       setState(() => _isAnalyzing = false);
       

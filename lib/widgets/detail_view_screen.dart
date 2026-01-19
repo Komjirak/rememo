@@ -532,6 +532,10 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       _buildAISummarySection(),
                       const SizedBox(height: 24),
 
+                      // Original Message (full OCR text)
+                      _buildOriginalMessageSection(),
+                      const SizedBox(height: 24),
+
                       // Tags
                       _buildTagsSection(),
                       const SizedBox(height: 24),
@@ -911,6 +915,80 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             final tag = entry.value;
             return _buildTag(tag, isFirst: index == 0);
           }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOriginalMessageSection() {
+    // 원본 텍스트가 없으면 노출하지 않음
+    final original = _card.ocrText;
+    if (original == null || original.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.article_outlined, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              'ORIGINAL MESSAGE',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.textMuted,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.dividerColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                original,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
+                      fontSize: 14,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: original));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Original message copied'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.accentTeal,
+                  ),
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text(
+                    'Copy all',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
