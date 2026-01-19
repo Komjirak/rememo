@@ -12,7 +12,7 @@ import 'package:stribe/services/native_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+// Google ML Kit removed - using native Vision Framework (iOS) instead
 import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
@@ -321,19 +321,19 @@ class _HomeScreenState extends State<HomeScreen> {
     print('🔴 _importLastScreenshot started');
     // macOS에서는 permission_handler가 작동하지 않으므로, 플랫폼 체크
     if (Platform.isIOS) {
-      final status = await Permission.photos.request();
+    final status = await Permission.photos.request();
 
-      if (status.isPermanentlyDenied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Please enable Photo permissions in Settings")),
-          );
-          openAppSettings();
-        }
-        return;
+    if (status.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enable Photo permissions in Settings")),
+        );
+        openAppSettings();
       }
+      return;
+    }
 
-      if (!status.isGranted && !status.isLimited) return;
+    if (!status.isGranted && !status.isLimited) return;
     }
 
     setState(() => _isAnalyzing = true);
@@ -341,26 +341,36 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       // iOS에서는 네이티브 서비스 사용
       if (Platform.isIOS) {
-        final result = await NativeService.getLastScreenshotAnalysis();
+    final result = await NativeService.getLastScreenshotAnalysis();
 
-        if (result == null) {
-          setState(() => _isAnalyzing = false);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("No screenshot found or analysis failed")),
-            );
-          }
-          return;
-        }
+    if (result == null) {
+      setState(() => _isAnalyzing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No screenshot found or analysis failed")),
+        );
+      }
+      return;
+    }
 
-        final tempPath = result['imagePath'] as String;
-        final permanentPath = await _saveToDocuments(File(tempPath));
+    final tempPath = result['imagePath'] as String;
+    final permanentPath = await _saveToDocuments(File(tempPath));
 
-        final ocrText = result['ocrText'] as String;
-        final suggestedTags = List<String>.from(result['suggestedTags'] ?? []);
-        final suggestedCategory = result['suggestedCategory'] as String? ?? "Inbox";
+        // 🎯 iOS Vision Framework 결과 사용
+    final ocrText = result['ocrText'] as String;
+    final suggestedTags = List<String>.from(result['suggestedTags'] ?? []);
+    final suggestedCategory = result['suggestedCategory'] as String? ?? "Inbox";
+        final suggestedTitle = result['suggestedTitle'] as String? ?? "New Memory";
+        final sourceUrl = result['sourceUrl'] as String?;
 
-        await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
+        await _createCardFromAnalysis(
+          permanentPath, 
+          ocrText, 
+          suggestedTags, 
+          suggestedCategory,
+          suggestedTitle: suggestedTitle,
+          sourceUrl: sourceUrl,
+        );
       } else {
         // macOS/기타 플랫폼에서는 파일 선택기 사용
         await _pickImageFromGallery();
@@ -391,19 +401,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final permanentPath = await _saveToDocuments(File(image.path));
       print('🟣 Image saved to: $permanentPath');
     
-      // Google ML Kit으로 다국어 텍스트 인식
-      String ocrText = await _performMultiLanguageOCR(permanentPath);
-      
-      print('🟣 OCR Result: $ocrText');
-      
-      // OCR 결과가 없으면 기본 텍스트 사용
-      if (ocrText.isEmpty) {
-        ocrText = 'Image imported from gallery';
-      }
-
-      // 텍스트로부터 태그와 카테고리 추출
-      final suggestedTags = _extractTagsFromText(ocrText);
-      final suggestedCategory = _detectCategory(ocrText);
+      // macOS에서는 네이티브 서비스 사용 불가, fallback 사용
+      String ocrText = _generateMacOSFallback(permanentPath);
+      final suggestedTags = ['Imported', 'Screenshot'];
+      final suggestedCategory = 'Inbox';
 
       await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
     } catch (e) {
@@ -412,84 +413,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<String> _performMultiLanguageOCR(String imagePath) async {
-    print('🔵 Starting multi-language OCR...');
+  // macOS용 Fallback (iOS/Android는 네이티브 서비스 사용)
+  String _generateMacOSFallback(String imagePath) {
+    print('ℹ️ macOS detected - Using fallback content');
+    final fileName = imagePath.split('/').last;
+    final now = DateTime.now();
     
-    // macOS에서는 ML Kit이 지원되지 않으므로 더 나은 기본값 제공
-    if (Platform.isMacOS) {
-      print('ℹ️ macOS detected - Using enhanced default content');
-      final fileName = imagePath.split('/').last;
-      final now = DateTime.now();
-      
-      // 더 의미있는 기본 텍스트 생성
-      final extractedInfo = 'Visual Memory Captured\n'
-          'Import Date: ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}\n'
-          'Time: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n'
-          'Source: $fileName\n\n'
-          'Tap to edit and add your own notes and insights about this image. '
-          'You can describe what you see, add context, or save important details for future reference.\n\n'
-          'Note: Advanced OCR text extraction is available on iOS and Android devices.';
-      
-      print('✅ Generated enhanced default content');
-      return extractedInfo;
-    }
-    
-    // iOS/Android 실제 기기에서는 ML Kit 사용
-    try {
-      final inputImage = InputImage.fromFilePath(imagePath);
-      final allTexts = <String>[];
-
-      // 지원할 스크립트 목록
-      final scripts = [
-        TextRecognitionScript.latin,
-        TextRecognitionScript.korean,
-        TextRecognitionScript.chinese,
-        TextRecognitionScript.japanese,
-      ];
-
-      // 각 스크립트로 OCR 시도
-      for (final script in scripts) {
-        try {
-          print('🔵 Trying script: $script');
-          final textRecognizer = TextRecognizer(script: script);
-          final recognizedText = await textRecognizer.processImage(inputImage);
-          await textRecognizer.close();
-
-          if (recognizedText.text.isNotEmpty) {
-            print('✅ Found text with $script: ${recognizedText.text.substring(0, recognizedText.text.length > 50 ? 50 : recognizedText.text.length)}...');
-            allTexts.add(recognizedText.text);
-          }
-        } catch (e) {
-          print('⚠️ Script $script failed: $e');
-          continue;
-        }
-      }
-
-      // 모든 텍스트 결합 (중복 제거)
-      if (allTexts.isEmpty) {
-        print('❌ No text found in any language');
-        return 'No text detected in image.';
-      }
-
-      // 가장 긴 결과를 반환 (보통 가장 정확함)
-      allTexts.sort((a, b) => b.length.compareTo(a.length));
-      final result = allTexts.first;
-      print('✅ Final OCR result length: ${result.length} characters');
-
-      return result;
-    } catch (e) {
-      // ML Kit 실패 시 (시뮬레이터 등) fallback
-      print('⚠️ ML Kit failed (possibly simulator): $e');
-      final fileName = imagePath.split('/').last;
-      final now = DateTime.now();
-      
-      return 'Visual Memory Captured\n'
-          'Import Date: ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}\n'
-          'Time: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n'
-          'Source: $fileName\n\n'
-          'Tap to edit and add your own notes.\n\n'
-          'Note: OCR requires a real iOS device. Text extraction is not available on simulators.';
-    }
+    return 'Visual Memory Captured\n'
+        'Import Date: ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}\n'
+        'Time: ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}\n'
+        'Source: $fileName\n\n'
+        'Tap to edit and add your own notes and insights about this image. '
+        'You can describe what you see, add context, or save important details for future reference.\n\n'
+        'Note: Advanced OCR text extraction is available on iOS and Android devices.';
   }
 
   List<String> _extractTagsFromText(String text) {
@@ -627,30 +563,41 @@ class _HomeScreenState extends State<HomeScreen> {
     String imagePath,
     String ocrText,
     List<String> suggestedTags,
-    String suggestedCategory,
-  ) async {
+    String suggestedCategory, {
+    String? suggestedTitle,
+    String? sourceUrl,
+  }) async {
     try {
+    // 🎯 iOS Vision Framework에서 제공한 제목 사용 (없으면 자동 생성)
+    final title = suggestedTitle ?? _generateSmartTitle(ocrText, suggestedTags);
+
+    // 🎯 AI Summary: 전체 OCR 텍스트를 그대로 사용 (원본 보존)
+    final summary = ocrText.isNotEmpty 
+        ? ocrText 
+        : "No text detected in image.";
+
+    // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
+    String? finalUrl = sourceUrl;
+    if (finalUrl == null || finalUrl.isEmpty) {
       final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)");
-      final String? foundUrl = urlRegExp.firstMatch(ocrText)?.group(0);
+      finalUrl = urlRegExp.firstMatch(ocrText)?.group(0);
+    }
 
-      final summary = _generateSmartSummary(ocrText);
-      final title = _generateSmartTitle(ocrText, suggestedTags);
+    final newCard = MemoCard(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
+      summary: summary, // 전체 OCR 텍스트
+      category: suggestedCategory,
+      tags: suggestedTags.isEmpty ? ['Screenshot'] : suggestedTags,
+      captureDate: "Just now",
+      imageUrl: imagePath,
+      ocrText: ocrText, // 별도로 저장
+      sourceUrl: finalUrl,
+      personalNote: null,
+    );
 
-      final newCard = MemoCard(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
-        summary: summary,
-        category: suggestedCategory,
-        tags: suggestedTags,
-        captureDate: "Just now",
-        imageUrl: imagePath,
-        ocrText: ocrText,
-        sourceUrl: foundUrl,
-        personalNote: null,
-      );
-
-      await DatabaseHelper.instance.create(newCard);
-      await _refreshCards();
+    await DatabaseHelper.instance.create(newCard);
+    await _refreshCards();
       
       setState(() => _isAnalyzing = false);
       
@@ -745,23 +692,14 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      setState(() => _isAnalyzing = true);
+    setState(() => _isAnalyzing = true);
 
-      final permanentPath = await _saveToDocuments(File(image.path));
+    final permanentPath = await _saveToDocuments(File(image.path));
 
-      // 다국어 OCR 수행
-      String ocrText = await _performMultiLanguageOCR(permanentPath);
-      
-      print('🟠 OCR Result: $ocrText');
-      
-      // OCR 결과가 없으면 기본 텍스트 사용
-      if (ocrText.isEmpty) {
-        ocrText = 'Photo captured from camera/gallery';
-      }
-
-      // 텍스트로부터 태그와 카테고리 추출
-      final suggestedTags = _extractTagsFromText(ocrText);
-      final suggestedCategory = _detectCategory(ocrText);
+      // macOS에서는 네이티브 서비스 사용 불가, fallback 사용
+      String ocrText = _generateMacOSFallback(permanentPath);
+      final suggestedTags = ['Camera', 'Photo'];
+      final suggestedCategory = 'Inbox';
 
       await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
     } catch (e) {

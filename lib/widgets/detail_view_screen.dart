@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For Clipboard
 import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
@@ -27,21 +28,35 @@ class DetailViewScreen extends StatefulWidget {
 class _DetailViewScreenState extends State<DetailViewScreen> {
   late MemoCard _card;
   late TextEditingController _noteController;
+  late TextEditingController _urlController;
   bool _isNoteModified = false;
+  bool _isUrlModified = false;
 
   @override
   void initState() {
     super.initState();
     _card = widget.card;
     _noteController = TextEditingController(text: _card.personalNote ?? '');
+    _urlController = TextEditingController(text: _card.sourceUrl ?? '');
     _noteController.addListener(_onNoteChanged);
+    _urlController.addListener(_onUrlChanged);
   }
 
   @override
   void dispose() {
     _noteController.removeListener(_onNoteChanged);
+    _urlController.removeListener(_onUrlChanged);
     _noteController.dispose();
+    _urlController.dispose();
     super.dispose();
+  }
+
+  void _onUrlChanged() {
+    if (!_isUrlModified) {
+      setState(() {
+        _isUrlModified = true;
+      });
+    }
   }
 
   void _onNoteChanged() {
@@ -186,8 +201,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                             leading: Icon(
                               Icons.folder,
                               color: _hexToColor(folder.color),
-                            ),
-                            title: Text(
+        ),
+        title: Text(
                               folder.name,
                               style: TextStyle(
                                 color: AppTheme.textPrimary,
@@ -198,8 +213,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                               '${folder.itemCount}개 항목',
                               style: TextStyle(
                                 color: AppTheme.textMuted,
-                                fontSize: 12,
-                              ),
+                fontSize: 12,
+              ),
                             ),
                             trailing: _card.folderId == folder.id
                                 ? Icon(Icons.check_circle, color: AppTheme.accentTeal)
@@ -329,8 +344,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     }).toList(),
                   ),
                 ],
-              ),
-              actions: [
+        ),
+        actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: Text(
@@ -378,9 +393,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   }
 
   void _showDeleteDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
@@ -395,24 +410,24 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 color: AppTheme.textSecondary,
               ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
               widget.onDelete?.call();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
   void _shareCard() {
     // TODO: Implement share functionality
@@ -504,7 +519,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 48),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  children: [
                       // Image section
                       _buildImageSection(),
                       const SizedBox(height: 32),
@@ -531,10 +546,10 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
+                          ),
+                    ),
+                  ],
+                ),
     );
   }
 
@@ -601,9 +616,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 onPressed: _showMoreOptions,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -613,21 +628,21 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     return GestureDetector(
       onTap: _expandImage,
       child: Container(
-        decoration: BoxDecoration(
+                      decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.dividerColor),
-          boxShadow: [
-            BoxShadow(
+                        boxShadow: [
+                          BoxShadow(
               color: Colors.black.withOpacity(0.3),
               blurRadius: 24,
               offset: const Offset(0, 8),
-            ),
-          ],
-        ),
+                          ),
+                        ],
+                      ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
+                      child: Stack(
+                        children: [
               // Image
               AspectRatio(
                 aspectRatio: 3 / 4,
@@ -636,8 +651,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
               // Gradient overlay
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
+                            child: Container(
+                              decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -823,10 +838,10 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: [
-            Container(
+        children: [
+          Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
+            decoration: BoxDecoration(
                 color: AppTheme.accentTeal.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -863,9 +878,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   fontSize: 15,
                   fontWeight: FontWeight.w300,
                 ),
+            ),
           ),
-        ),
-      ],
+        ],
     );
   }
 
@@ -879,9 +894,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             const SizedBox(width: 8),
             Text(
               'AUTOMATED TAGS',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: AppTheme.textMuted,
-                    letterSpacing: 2,
+            letterSpacing: 2,
                     fontWeight: FontWeight.w700,
                   ),
             ),

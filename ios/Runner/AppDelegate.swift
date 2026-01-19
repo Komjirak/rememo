@@ -157,6 +157,8 @@ import NaturalLanguage
           "date": asset.creationDate?.description ?? "",
           "suggestedTags": analysis.tags,
           "suggestedCategory": analysis.category,
+          "suggestedTitle": analysis.title,
+          "sourceUrl": analysis.url ?? "",
           "assetId": asset.localIdentifier
         ]
 
@@ -208,7 +210,9 @@ import NaturalLanguage
                     "ocrText": ocrText,
                     "date": asset.creationDate?.description ?? "",
                     "suggestedTags": analysis.tags,
-                    "suggestedCategory": analysis.category
+                    "suggestedCategory": analysis.category,
+                    "suggestedTitle": analysis.title,
+                    "sourceUrl": analysis.url ?? ""
                  ])
             }
         }
@@ -240,7 +244,9 @@ import NaturalLanguage
                 "ocrText": ocrText,
                 "date": dateStr,
                 "suggestedTags": analysis.tags,
-                "suggestedCategory": analysis.category
+                "suggestedCategory": analysis.category,
+                "suggestedTitle": analysis.title,
+                "sourceUrl": analysis.url ?? ""
              ])
         }
     }
@@ -272,24 +278,121 @@ import NaturalLanguage
                 return
             }
             
-            let text = observations.compactMap({ $0.topCandidates(1).first?.string }).joined(separator: "\n")
+            // 🎯 개선: 신뢰도 높은 텍스트만 추출하고, 위치 순서대로 정렬
+            let sortedObservations = observations.sorted { obs1, obs2 in
+                // Y 좌표(상단부터) 우선, 그 다음 X 좌표(왼쪽부터)
+                let y1 = obs1.boundingBox.origin.y
+                let y2 = obs2.boundingBox.origin.y
+                if abs(y1 - y2) > 0.05 { // 같은 줄로 간주되는 범위
+                    return y1 > y2 // Vision은 좌하단이 원점이므로 내림차순
+                }
+                return obs1.boundingBox.origin.x < obs2.boundingBox.origin.x
+            }
+            
+            // 신뢰도 0.5 이상인 텍스트만 추출
+            let recognizedTexts = sortedObservations.compactMap { observation -> String? in
+                guard let candidate = observation.topCandidates(1).first,
+                      candidate.confidence > 0.5 else {
+                    return nil
+                }
+                return candidate.string
+            }
+            
+            let text = recognizedTexts.joined(separator: "\n")
             completion(text)
         }
         
+        // 🚀 개선: 최고 정확도 + 다국어 지원
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
-        // Important: Prioritize Korean and English
-        request.recognitionLanguages = ["ko-KR", "en-US"]
+        
+        // 다국어 지원 (Korean, English, Chinese, Japanese)
+        if #available(iOS 16.0, *) {
+            request.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
+        } else {
+            request.recognitionLanguages = ["ko-KR", "en-US"]
+        }
+        
+        // 자동 언어 감지
+        request.automaticallyDetectsLanguage = true
         
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try? handler.perform([request])
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? handler.perform([request])
+        }
     }
 
-    // New: On-Device NLP Analysis (Improved for Korean)
-    private func analyzeText(text: String) -> (tags: [String], category: String) {
+    // 🎯 새로운 기능: 스마트 제목 생성 (20자 내외)
+    private func generateSmartTitle(from text: String) -> String {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0.count > 2 }
+        
+        // 1순위: 첫 번째 의미있는 줄 (URL 제외, 짧은 단어 제외)
+        for line in lines {
+            if line.count >= 5 && line.count <= 30 && !line.contains("http") && !line.contains("www") {
+                // 특수 문자가 많으면 제외
+                let specialChars = CharacterSet.alphanumerics.union(.whitespaces).union(CharacterSet(charactersIn: "가-힣"))
+                let validChars = line.unicodeScalars.filter { specialChars.contains($0) }
+                if Double(validChars.count) / Double(line.count) > 0.7 {
+                    return String(line.prefix(20))
+                }
+            }
+        }
+        
+        // 2순위: NLP로 주요 명사 추출
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        var nouns: [String] = []
+        
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass, options: [.omitPunctuation, .omitWhitespace]) { tag, tokenRange in
+            if tag == .noun || tag == .personalName || tag == .organizationName {
+                let word = String(text[tokenRange])
+                if word.count >= 2 && word.count <= 10 {
+                    nouns.append(word)
+                }
+            }
+            return nouns.count < 3 // 최대 3개까지
+        }
+        
+        if !nouns.isEmpty {
+            return nouns.prefix(2).joined(separator: " ")
+        }
+        
+        // 3순위: 가장 긴 단어
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+            .filter { $0.count > 3 && $0.count < 20 && !$0.contains("http") }
+        if let longestWord = words.max(by: { $0.count < $1.count }) {
+            return String(longestWord.prefix(20))
+        }
+        
+        return "New Memory"
+    }
+    
+    // 🔗 URL 추출 개선
+    private func extractURL(from text: String) -> String? {
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let matches = detector?.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        
+        // 첫 번째 URL 반환
+        if let match = matches?.first, let url = match.url {
+            return url.absoluteString
+        }
+        
+        // Fallback: 정규식으로 URL 패턴 찾기
+        let urlPattern = "(https?://[^\\s]+)|(www\\.[^\\s]+)"
+        if let regex = try? NSRegularExpression(pattern: urlPattern),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range, in: text) {
+            return String(text[range])
+        }
+        
+        return nil
+    }
+    
+    // 📊 On-Device NLP Analysis (개선)
+    private func analyzeText(text: String) -> (tags: [String], category: String, title: String, url: String?) {
         var tags: [String] = []
-        // For Korean, NLTagger's .nameType support is limited on older efficient models.
-        // We use .lexicalClass (Parts of Speech) combined with whitespace tokenization.
         let tagger = NLTagger(tagSchemes: [.lexicalClass, .tokenType])
         tagger.string = text
         
@@ -297,36 +400,39 @@ import NaturalLanguage
         
         tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass, options: options) { tag, tokenRange in
             let word = String(text[tokenRange])
-            // Filter out short garbage tokens often found in OCR
             if word.count > 1 {
                  if tag == .noun || tag == .personalName || tag == .placeName || tag == .organizationName {
                      tags.append(word)
                  }
-                 // Korean specific heuristics (simple)
-                 // If the word ends with standard particles but is long enough, might be a noun (very naive)
             }
             return true
         }
         
         // Remove duplicates and limit
-        let uniqueTags = Array(Set(tags)).prefix(7).map { String($0) }
+        let uniqueTags = Array(Set(tags)).prefix(5).map { String($0) }
         
         
         // Categorization Heuristics (Korean + English)
         let lowerText = text.lowercased()
         var category = "Inbox"
         
-        if lowerText.contains("원") || lowerText.contains("결제") || lowerText.contains("주문") || lowerText.contains("price") {
+        if lowerText.contains("원") || lowerText.contains("결제") || lowerText.contains("주문") || lowerText.contains("price") || lowerText.contains("payment") {
              category = "Shopping"
-        } else if lowerText.contains("레시피") || lowerText.contains("요리") || lowerText.contains("재료") || lowerText.contains("cook") {
+        } else if lowerText.contains("레시피") || lowerText.contains("요리") || lowerText.contains("재료") || lowerText.contains("cook") || lowerText.contains("food") {
              category = "Food"
         } else if lowerText.contains("http") || lowerText.contains(".com") || lowerText.contains("www") {
              category = "Web"
-        } else if lowerText.contains("회의") || lowerText.contains("일정") || lowerText.contains("미팅") {
+        } else if lowerText.contains("회의") || lowerText.contains("일정") || lowerText.contains("미팅") || lowerText.contains("meeting") {
              category = "Work"
+        } else if lowerText.contains("design") || lowerText.contains("디자인") || lowerText.contains("ui") || lowerText.contains("ux") {
+             category = "Design"
         }
 
-        return (uniqueTags, category)
+        // 🎯 제목 및 URL 생성
+        let title = generateSmartTitle(from: text)
+        let url = extractURL(from: text)
+
+        return (uniqueTags, category, title, url)
     }
 
 }
