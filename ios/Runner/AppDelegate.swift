@@ -306,15 +306,8 @@ import NaturalLanguage
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
         
-        // 다국어 지원 (Korean, English, Chinese, Japanese)
-        if #available(iOS 16.0, *) {
-            request.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
-        } else {
-            request.recognitionLanguages = ["ko-KR", "en-US"]
-        }
-        
-        // 자동 언어 감지
-        request.automaticallyDetectsLanguage = true
+        // 다국어 지원 (Korean, English, Chinese, Japanese) - iOS 15+ 호환
+        request.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
         
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         DispatchQueue.global(qos: .userInitiated).async {
