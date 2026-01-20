@@ -42,6 +42,34 @@ class NativeService {
     }
   }
 
+  /// 🆕 Bounding Box 정보를 포함한 이미지 분석
+  /// Returns a Map with 'ocrBlocks' containing text, position, size info
+  static Future<Map<String, dynamic>?> analyzeImageWithBoxes(String path) async {
+    try {
+      final result = await _channel.invokeMethod('analyzeImageWithBoxes', {'path': path});
+      if (result != null) {
+        return Map<String, dynamic>.from(result);
+      }
+      return null;
+    } on PlatformException catch (e) {
+      print("Failed to analyze image with boxes: '${e.message}'.");
+      return null;
+    }
+  }
+
+  /// Helper: ocrBlocks 데이터를 OCRBlock 리스트로 변환
+  static List<Map<String, dynamic>> parseOCRBlocks(dynamic ocrBlocks) {
+    if (ocrBlocks == null) return [];
+    if (ocrBlocks is! List) return [];
+
+    return ocrBlocks.map<Map<String, dynamic>>((block) {
+      if (block is Map) {
+        return Map<String, dynamic>.from(block);
+      }
+      return <String, dynamic>{};
+    }).where((block) => block.isNotEmpty).toList();
+  }
+
   /// Start monitoring for new screenshots
   /// [onScreenshotDetected] is called whenever a new screenshot is added to the photo library
   static Future<bool> startScreenshotMonitoring({

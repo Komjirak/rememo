@@ -9,6 +9,7 @@ import 'package:stribe/widgets/empty_state_view.dart';
 import 'package:stribe/widgets/folder_management_view.dart';
 import 'package:stribe/services/database_helper.dart';
 import 'package:stribe/services/native_service.dart';
+import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
@@ -90,6 +91,20 @@ class _HomeScreenState extends State<HomeScreen> {
       final suggestedTags = List<String>.from(data['suggestedTags'] ?? []);
       final suggestedCategory = data['suggestedCategory'] as String? ?? 'Inbox';
 
+      // 🆕 Bounding Box 정보가 포함된 OCR 블록 파싱
+      final rawOcrBlocks = data['ocrBlocks'] as List? ?? [];
+      final ocrBlocks = rawOcrBlocks.map<OCRBlock>((block) {
+        if (block is Map) {
+          return OCRBlock.fromNative(Map<String, dynamic>.from(block));
+        }
+        return OCRBlock(
+          text: block.toString(),
+          boundingBox: BoundingBox(top: 0, left: 0, width: 0, height: 0),
+        );
+      }).toList();
+
+      print('   - OCR 블록 수: ${ocrBlocks.length}');
+
       // 이미지를 앱의 영구 저장소에 복사
       final permanentPath = await _saveToDocuments(File(imagePath));
 
@@ -105,17 +120,30 @@ class _HomeScreenState extends State<HomeScreen> {
       final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)");
       final String? foundUrl = urlRegExp.firstMatch(finalOcrText)?.group(0);
 
-      // 스마트 제목 및 요약 생성
-      final summary = _generateSmartSummary(finalOcrText);
-      final title = _generateSmartTitle(finalOcrText, suggestedTags);
+      // 🎯 온디바이스 분석으로 스마트한 제목과 요약 생성 (Bounding Box 포함)
+      final analysis = await _analyzeScreenshotOnDevice(finalOcrText, ocrBlocks: ocrBlocks);
+
+      String summary = analysis.summary;
+      if (analysis.keyInsights.isNotEmpty) {
+        summary += '\n\n핵심 내용:\n${analysis.keyInsights.map((i) => '• $i').join('\n')}';
+      }
+
+      // 태그 및 카테고리
+      List<String> finalTags = suggestedTags.isEmpty
+          ? _extractTagsFromText(finalOcrText)
+          : suggestedTags;
+
+      String finalCategory = suggestedCategory != 'Inbox'
+          ? suggestedCategory
+          : _detectCategory(finalOcrText);
 
       // 새 카드 생성
       final newCard = MemoCard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
+        title: analysis.title.length > 40 ? "${analysis.title.substring(0, 40)}..." : analysis.title,
         summary: summary,
-        category: suggestedCategory,
-        tags: suggestedTags.isEmpty ? ['Screenshot', 'Auto-Detected'] : suggestedTags,
+        category: finalCategory,
+        tags: finalTags,
         captureDate: "Just now",
         imageUrl: permanentPath,
         ocrText: finalOcrText,
@@ -568,11 +596,20 @@ class _HomeScreenState extends State<HomeScreen> {
     String? sourceUrl,
   }) async {
     try {
-      // 🎯 제목: 스크린샷의 핵심을 표현하는 짧은 타이틀
-      final title = suggestedTitle ?? _generateSmartTitle(ocrText, suggestedTags);
+      // 🎯 온디바이스 LLM으로 스마트한 제목과 요약 생성
+      // TODO: bounding box 정보를 iOS에서 받아오면 더 정확한 분석 가능
+      
+      // 현재는 규칙 기반 분석 사용 (빠르고 무료)
+      final analysis = await _analyzeScreenshotOnDevice(ocrText);
+      
+      // 최종 제목
+      final title = analysis.title;
 
-      // 🎯 AI Summary: 전체 텍스트를 기반으로 한 요약본
-      final summary = _generateSmartSummary(ocrText);
+      // 🎯 AI Summary: 요약 + Key Insights
+      String summary = analysis.summary;
+      if (analysis.keyInsights.isNotEmpty) {
+        summary += '\n\n핵심 내용:\n${analysis.keyInsights.map((i) => '• $i').join('\n')}';
+      }
 
       // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
       String? finalUrl = sourceUrl;
@@ -583,12 +620,22 @@ class _HomeScreenState extends State<HomeScreen> {
         finalUrl = urlRegExp.firstMatch(ocrText)?.group(0);
       }
 
+      // 🏷️ 태그: iOS 제안 + 온디바이스 추출
+      List<String> finalTags = suggestedTags.isEmpty 
+          ? _extractTagsFromText(ocrText)
+          : suggestedTags;
+      
+      // 📁 카테고리: iOS 제안 + 온디바이스 분류
+      String finalCategory = suggestedCategory != 'Inbox' 
+          ? suggestedCategory 
+          : _detectCategory(ocrText);
+
       final newCard = MemoCard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
-        summary: summary, // 요약된 내용
-        category: suggestedCategory,
-        tags: suggestedTags.isEmpty ? ['Screenshot'] : suggestedTags,
+        summary: summary,
+        category: finalCategory,
+        tags: finalTags,
         captureDate: "Just now",
         imageUrl: imagePath,
         ocrText: ocrText, // 🔹 스크린샷의 전체 원본 텍스트
@@ -611,6 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
+      print('❌ Error in _createCardFromAnalysis: $e');
       setState(() => _isAnalyzing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -619,63 +667,120 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
+  
+  /// 온디바이스 스크린샷 분석 (LLM 사용 + Bounding Box 기반 구조 분석)
+  Future<ScreenshotAnalysis> _analyzeScreenshotOnDevice(
+    String ocrText, {
+    List<OCRBlock>? ocrBlocks,
+  }) async {
+    if (ocrText.trim().isEmpty) {
+      return ScreenshotAnalysis(
+        title: "빈 스크린샷",
+        summary: "텍스트가 감지되지 않았습니다.",
+        keyInsights: [],
+      );
+    }
 
-  String _generateSmartTitle(String text, List<String> tags) {
-    final cleanTags = tags.where((t) =>
-        !RegExp(r'^\d+$').hasMatch(t) && t.length > 2 && !t.contains('http')
-    ).toList();
+    // 🆕 Bounding Box가 있으면 직접 사용, 없으면 줄 단위로 생성
+    List<OCRBlock> blocks;
+    if (ocrBlocks != null && ocrBlocks.isNotEmpty) {
+      blocks = ocrBlocks;
+      print('   ✅ Bounding Box 정보 사용: ${blocks.length}개 블록');
+    } else {
+      // Fallback: 줄 단위로 OCR 블록 생성 (Bounding Box 없음)
+      final lines = ocrText.split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty && line.length > 2)
+          .toList();
 
-    if (cleanTags.isNotEmpty) {
-      if (cleanTags.length >= 2) {
-        return "${cleanTags[0]} & ${cleanTags[1]}";
+      if (lines.isEmpty) {
+        return ScreenshotAnalysis(
+          title: "New Memory",
+          summary: "스크린샷이 저장되었습니다.",
+          keyInsights: [],
+        );
       }
-      return cleanTags.first;
+
+      // 줄 번호 기반으로 대략적인 위치 추정
+      blocks = lines.asMap().entries.map((entry) {
+        final index = entry.key;
+        final line = entry.value;
+        final estimatedTop = index / lines.length;
+
+        return OCRBlock(
+          text: line,
+          boundingBox: BoundingBox(
+            top: estimatedTop,
+            left: 0.05,
+            width: 0.9,
+            height: 0.03,
+          ),
+        );
+      }).toList();
+      print('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록');
     }
 
-    final lines = text.split('\n');
-    for (var line in lines) {
-      line = line.trim();
-      if (line.isEmpty) continue;
-      if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(line)) continue;
-      if (line.contains('http') || line.contains('www.')) continue;
-      if (['Search', 'Back', 'Edit', 'Done', 'Cancel'].contains(line)) continue;
-      if (line.length > 50) continue;
-      return line;
+    // 온디바이스 LLM 서비스 사용
+    try {
+      final analysis = await OnDeviceLLMService.analyzeScreenshot(
+        ocrText: ocrText,
+        ocrBlocks: blocks,
+      );
+
+      return analysis;
+    } catch (e) {
+      print('❌ 온디바이스 LLM 분석 실패: $e');
+
+      // Fallback: 간단한 규칙 기반
+      final cleanLines = blocks
+          .map((b) => b.text)
+          .where((line) {
+            if (line.length < 3) return false;
+            final uiKeywords = ['back', 'next', 'done', 'cancel', 'ok', 'yes', 'no',
+              '뒤로', '다음', '완료', '취소', '확인', '설정'];
+            if (uiKeywords.contains(line.toLowerCase())) return false;
+            if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(line)) return false;
+            if (RegExp(r'^\d+%$').hasMatch(line)) return false;
+            return true;
+          }).toList();
+
+      if (cleanLines.isEmpty) {
+        return ScreenshotAnalysis(
+          title: "New Capture",
+          summary: "화면 캡처가 저장되었습니다.",
+          keyInsights: [],
+        );
+      }
+
+      String title = cleanLines.first;
+      if (title.length > 20) {
+        final words = title.split(' ');
+        String shortTitle = '';
+        for (final word in words) {
+          if ((shortTitle + word).length > 20) break;
+          shortTitle += '$word ';
+        }
+        title = shortTitle.trim();
+        if (title.isEmpty) title = cleanLines.first.substring(0, 20);
+      }
+
+      final summaryText = cleanLines.take(3).join(' ');
+      final summary = summaryText.length > 120
+          ? '${summaryText.substring(0, 117)}...'
+          : summaryText;
+
+      final insights = cleanLines
+          .where((line) => line.length >= 10 && line.length <= 80)
+          .where((line) => !line.contains('http'))
+          .take(4)
+          .toList();
+
+      return ScreenshotAnalysis(
+        title: title,
+        summary: summary,
+        keyInsights: insights,
+      );
     }
-    return "New Capture";
-  }
-
-  String _generateSmartSummary(String text) {
-    if (text.isEmpty) return "No text content found.";
-
-    // macOS에서의 기본 텍스트인지 확인
-    if (text.contains('Visual Memory Captured') && Platform.isMacOS) {
-      return "Image imported successfully. Open the detail view to add your personal notes and insights about this visual memory.";
-    }
-
-    final lines = text.split('\n');
-    final cleanLines = <String>[];
-
-    for (var line in lines) {
-      line = line.trim();
-      if (line.isEmpty) continue;
-      if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(line)) continue;
-      if (line.contains('%') && line.length < 5) continue;
-      if (line.length < 3) continue;
-      if (['Search', 'Edit', 'Back', 'Share', 'Done', 'Cancel'].contains(line)) continue;
-      cleanLines.add(line);
-    }
-
-    if (cleanLines.isEmpty) return "Captured visual content.";
-
-    cleanLines.sort((a, b) {
-      int scoreA = a.length + (a.contains('http') ? 20 : 0);
-      int scoreB = b.length + (b.contains('http') ? 20 : 0);
-      return scoreB.compareTo(scoreA);
-    });
-
-    final summaryLines = cleanLines.take(4).toList();
-    return summaryLines.map((l) => "• $l").join("\n\n");
   }
 
   Future<void> _pickImage() async {

@@ -58,7 +58,7 @@ class PaddleOCRHelper {
             print("   Dictionary: \(dictPath)")
             
             // PaddleOCR 초기화
-            let success = PaddleOCRWrapper.shared().initializeWithDetModel(detPath, recModel: recPath, dictionary: dictPath)
+            let success = PaddleOCRWrapper.shared().initialize(withDetModel: detPath, recModel: recPath, dictionary: dictPath)
             if success {
                 self.isInitialized = true
                 print("✅ PaddleOCR 초기화 성공!")
@@ -85,7 +85,7 @@ class PaddleOCRHelper {
         // PaddleOCR이 초기화되어 있으면 사용
         if isInitialized {
             print("🚀 PaddleOCR를 사용하여 OCR 수행 중...")
-            PaddleOCRWrapper.shared().recognizeTextFromImage(image, textCompletion: { text in
+            PaddleOCRWrapper.shared().recognizeText(from: image, textCompletion: { text in
                 if let text = text, !text.isEmpty {
                     print("✅ PaddleOCR 결과: \(text.prefix(100))...")
                     completion(text)
@@ -102,6 +102,135 @@ class PaddleOCRHelper {
         recognizeTextWithVision(image: image, completion: completion)
     }
     
+    /// PaddleOCR을 사용하여 텍스트 인식 (Bounding Box 포함)
+    /// 각 텍스트 블록의 위치, 크기 정보를 함께 반환
+    func recognizeTextWithBoxes(image: UIImage, completion: @escaping ([[String: Any]]) -> Void) {
+        // PaddleOCR이 초기화되어 있으면 사용
+        if isInitialized {
+            print("🚀 PaddleOCR (+ Bounding Box) 수행 중...")
+            PaddleOCRWrapper.shared().recognizeText(from: image) { [weak self] results, error in
+                if let results = results, !results.isEmpty {
+                    let blocks = results.map { result in
+                        return [
+                            "text": result.text ?? "",
+                            "confidence": result.confidence,
+                            "top": result.boundingBox.origin.y / image.size.height,
+                            "left": result.boundingBox.origin.x / image.size.width,
+                            "width": result.boundingBox.size.width / image.size.width,
+                            "height": result.boundingBox.size.height / image.size.height,
+                            "rawTop": result.boundingBox.origin.y,
+                            "rawLeft": result.boundingBox.origin.x,
+                            "rawWidth": result.boundingBox.size.width,
+                            "rawHeight": result.boundingBox.size.height
+                        ] as [String: Any]
+                    }
+                    print("✅ PaddleOCR 결과: \(blocks.count)개 블록")
+                    completion(blocks)
+                } else {
+                    print("⚠️ PaddleOCR 결과가 비어있습니다. Vision Framework로 fallback...")
+                    self?.recognizeTextWithVisionBoxes(image: image, completion: completion)
+                }
+            }
+            return
+        }
+
+        // Fallback to Vision Framework with boxes
+        print("📸 Apple Vision Framework (+ Bounding Box) 수행 중...")
+        recognizeTextWithVisionBoxes(image: image, completion: completion)
+    }
+
+    /// Vision Framework를 사용한 텍스트 인식 (Bounding Box 포함)
+    private func recognizeTextWithVisionBoxes(image: UIImage, completion: @escaping ([[String: Any]]) -> Void) {
+        guard let cgImage = image.cgImage else {
+            completion([])
+            return
+        }
+
+        let imageWidth = image.size.width
+        let imageHeight = image.size.height
+
+        let request = VNRecognizeTextRequest { (request, error) in
+            guard let observations = request.results as? [VNRecognizedTextObservation], error == nil else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
+
+            var blocks: [[String: Any]] = []
+
+            for observation in observations {
+                guard let candidate = observation.topCandidates(1).first,
+                      candidate.confidence > 0.3 else { continue }
+
+                // Vision의 bounding box는 좌측 하단 기준, Y축이 뒤집혀 있음
+                let box = observation.boundingBox
+
+                // 정규화된 좌표 (0~1)
+                let normalizedTop = 1.0 - box.origin.y - box.size.height
+                let normalizedLeft = box.origin.x
+                let normalizedWidth = box.size.width
+                let normalizedHeight = box.size.height
+
+                // 실제 픽셀 좌표
+                let rawTop = normalizedTop * imageHeight
+                let rawLeft = normalizedLeft * imageWidth
+                let rawWidth = normalizedWidth * imageWidth
+                let rawHeight = normalizedHeight * imageHeight
+
+                let block: [String: Any] = [
+                    "text": candidate.string,
+                    "confidence": candidate.confidence,
+                    "top": normalizedTop,
+                    "left": normalizedLeft,
+                    "width": normalizedWidth,
+                    "height": normalizedHeight,
+                    "rawTop": rawTop,
+                    "rawLeft": rawLeft,
+                    "rawWidth": rawWidth,
+                    "rawHeight": rawHeight
+                ]
+
+                blocks.append(block)
+            }
+
+            // 위치순 정렬 (상단→하단, 왼쪽→오른쪽)
+            blocks.sort { b1, b2 in
+                let top1 = b1["top"] as? Double ?? 0
+                let top2 = b2["top"] as? Double ?? 0
+                if abs(top1 - top2) > 0.02 { // 2% 이상 차이나면 세로 기준
+                    return top1 < top2
+                }
+                let left1 = b1["left"] as? Double ?? 0
+                let left2 = b2["left"] as? Double ?? 0
+                return left1 < left2
+            }
+
+            DispatchQueue.main.async {
+                print("✅ Apple Vision 결과: \(blocks.count)개 블록")
+                completion(blocks)
+            }
+        }
+
+        // 최고 정확도 모드 + 다국어 지원
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+
+        if #available(iOS 16.0, *) {
+            request.automaticallyDetectsLanguage = true
+        } else if #available(iOS 15.0, *) {
+            request.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
+        }
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try handler.perform([request])
+            } catch {
+                print("Vision Framework 오류: \(error)")
+                DispatchQueue.main.async { completion([]) }
+            }
+        }
+    }
+
     /// 향상된 Vision Framework를 사용한 텍스트 인식
     private func recognizeTextWithVision(image: UIImage, completion: @escaping (String) -> Void) {
         guard let cgImage = image.cgImage else {

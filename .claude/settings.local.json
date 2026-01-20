@@ -11,7 +11,16 @@
       "Bash(flutter devices:*)",
       "Bash(flutter clean:*)",
       "Bash(pod install)",
-      "Bash(pod install:*)"
+      "Bash(pod install:*)",
+      "Bash(grep:*)",
+      "WebSearch",
+      "WebFetch(domain:azamsharp.com)",
+      "Bash(xcodebuild:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git submodule status:*)",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

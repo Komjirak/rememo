@@ -25,6 +25,32 @@ import NaturalLanguage
     let eventChannel = FlutterEventChannel(name: "com.komjirak.stribe/screenshot_detection",
                                            binaryMessenger: controller.binaryMessenger)
     eventChannel.setStreamHandler(self)
+    
+    // LLM Method Channel
+    let llmChannel = FlutterMethodChannel(name: "com.komjirak.stribe/llm",
+                                          binaryMessenger: controller.binaryMessenger)
+    
+    llmChannel.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      if call.method == "analyzeSummary" {
+        if let args = call.arguments as? [String: Any],
+           let paragraphs = args["paragraphs"] as? [String] {
+          let title = args["title"] as? String
+          let keyPoints = args["keyPoints"] as? [String] ?? []
+          
+          // 온디바이스 LLM으로 분석
+          let analysis = OnDeviceLLM.shared.analyzeSummary(
+            title: title,
+            paragraphs: paragraphs,
+            keyPoints: keyPoints
+          )
+          result(analysis)
+        } else {
+          result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        }
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    })
 
     channel.setMethodCallHandler({
       (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
@@ -34,6 +60,14 @@ import NaturalLanguage
           if let args = call.arguments as? [String: Any],
              let path = args["path"] as? String {
               self.analyzeImageFile(path: path, result: result)
+          } else {
+              result(FlutterError(code: "INVALID_ARGS", message: "Path argument missing", details: nil))
+          }
+      } else if call.method == "analyzeImageWithBoxes" {
+          // 🆕 Bounding Box 정보를 포함한 OCR 분석
+          if let args = call.arguments as? [String: Any],
+             let path = args["path"] as? String {
+              self.analyzeImageFileWithBoxes(path: path, result: result)
           } else {
               result(FlutterError(code: "INVALID_ARGS", message: "Path argument missing", details: nil))
           }
@@ -148,18 +182,24 @@ import NaturalLanguage
       guard let data = image.jpegData(compressionQuality: 0.8),
             let path = self.saveToTemp(data: data) else { return }
 
-      self.recognizeText(image: image) { ocrText in
+      // 🆕 Bounding Box 정보를 포함한 OCR 수행
+      self.recognizeTextWithBoxes(image: image) { ocrBlocks in
+        // ocrText 조합
+        let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
         let analysis = self.analyzeText(text: ocrText)
 
         let result: [String: Any] = [
           "imagePath": path,
           "ocrText": ocrText,
+          "ocrBlocks": ocrBlocks,  // 🆕 Bounding Box 포함
           "date": asset.creationDate?.description ?? "",
           "suggestedTags": analysis.tags,
           "suggestedCategory": analysis.category,
           "suggestedTitle": analysis.title,
           "sourceUrl": analysis.url ?? "",
-          "assetId": asset.localIdentifier
+          "assetId": asset.localIdentifier,
+          "imageWidth": image.size.width,
+          "imageHeight": image.size.height
         ]
 
         // Send to Flutter via EventChannel
@@ -223,15 +263,15 @@ import NaturalLanguage
             result(FlutterError(code: "LOAD_FAILED", message: "Failed to load image at path", details: nil))
             return
         }
-        
-        // Since we already have the path, we don't strictly need to re-save to temp 
+
+        // Since we already have the path, we don't strictly need to re-save to temp
         // unless the Flutter side sends a temporary pick path that gets cleaned up.
         // For consistency, let's just use the path provided if it's readable.
         // However, recognizeText needs UIImage.
-        
+
         self.recognizeText(image: image) { ocrText in
              let analysis = self.analyzeText(text: ocrText)
-             
+
              // Try to get creation date from file attributes if possible
              var dateStr = ""
              if let attr = try? FileManager.default.attributesOfItem(atPath: path),
@@ -248,6 +288,41 @@ import NaturalLanguage
                 "suggestedTitle": analysis.title,
                 "sourceUrl": analysis.url ?? ""
              ])
+        }
+    }
+
+    /// 🆕 Bounding Box 정보를 포함한 이미지 분석
+    private func analyzeImageFileWithBoxes(path: String, result: @escaping FlutterResult) {
+        guard let image = UIImage(contentsOfFile: path) else {
+            result(FlutterError(code: "LOAD_FAILED", message: "Failed to load image at path", details: nil))
+            return
+        }
+
+        // Bounding Box 정보를 포함한 OCR 수행
+        self.recognizeTextWithBoxes(image: image) { ocrBlocks in
+            // ocrText 조합
+            let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
+            let analysis = self.analyzeText(text: ocrText)
+
+            // 날짜 정보
+            var dateStr = ""
+            if let attr = try? FileManager.default.attributesOfItem(atPath: path),
+               let date = attr[.creationDate] as? Date {
+                dateStr = date.description
+            }
+
+            result([
+                "imagePath": path,
+                "ocrText": ocrText,
+                "ocrBlocks": ocrBlocks,  // 🆕 Bounding Box 포함된 블록 배열
+                "date": dateStr,
+                "suggestedTags": analysis.tags,
+                "suggestedCategory": analysis.category,
+                "suggestedTitle": analysis.title,
+                "sourceUrl": analysis.url ?? "",
+                "imageWidth": image.size.width,
+                "imageHeight": image.size.height
+            ])
         }
     }
 
@@ -273,6 +348,12 @@ import NaturalLanguage
         // PaddleOCR Helper를 사용하여 텍스트 인식
         // 현재는 향상된 Vision Framework를 사용하며, 향후 PaddleOCR 모델이 추가되면 자동으로 전환됨
         PaddleOCRHelper.shared.recognizeText(image: processedImage, completion: completion)
+    }
+    
+    /// Bounding Box 정보를 포함한 OCR 수행
+    private func recognizeTextWithBoxes(image: UIImage, completion: @escaping ([[String: Any]]) -> Void) {
+        let processedImage = PaddleOCRHelper.shared.preprocessImage(image) ?? image
+        PaddleOCRHelper.shared.recognizeTextWithBoxes(image: processedImage, completion: completion)
     }
 
     // 🎯 새로운 기능: 스마트 제목 생성 (20자 내외)
