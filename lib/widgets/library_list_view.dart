@@ -288,6 +288,111 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Widget _buildCard(MemoCard card) {
+    // If the card is processing, do not allow swipe-to-delete
+    if (card.isProcessing) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppTheme.accentTeal.withOpacity(0.3), // Highlight slightly
+          ),
+        ),
+        child: Row(
+          children: [
+            // Thumbnail with Loader
+            Container(
+              width: 80,
+              height: 96,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2937),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppTheme.accentTeal.withOpacity(0.2),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl, isProcessing: true),
+                  Container(
+                    color: Colors.black45, // Dim overlay
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.accentTeal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.only(right: 8),
+                        child: const CircularProgressIndicator(
+                            strokeWidth: 2, color: AppTheme.accentTeal),
+                      ),
+                      const Text(
+                        "Analyzing...",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.accentTeal,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    card.title.isEmpty ? "Processing..." : card.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textDisabled, // Dim text
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "AI is analyzing content to generate insights...",
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: AppTheme.textMuted,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Dismissible(
       key: Key(card.id.toString()),
       direction: DismissDirection.endToStart,
@@ -512,7 +617,7 @@ class _LibraryListViewState extends State<LibraryListView> {
     );
   }
 
-  Widget _buildThumbnail(String url, {String? sourceUrl}) {
+  Widget _buildThumbnail(String url, {String? sourceUrl, bool isProcessing = false}) {
     // 이미지 URL이 비어있는 경우
     if (url.isEmpty) {
       return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);

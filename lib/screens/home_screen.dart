@@ -87,26 +87,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// 공유된 항목들을 처리하고 MemoCard로 변환
   Future<void> _processSharedItems() async {
     if (_pendingSharedItems.isEmpty) return;
-
-    setState(() => _isAnalyzing = true);
+    
+    // Remove _isAnalyzing = true; -> No blocking
 
     try {
-      for (final item in _pendingSharedItems) {
+      // 1. Create temporary processing cards
+      final processingCards = _pendingSharedItems.map((item) {
+        return MemoCard(
+          id: 'temp_${item.timestamp}', // Temporary ID
+          title: item.displayTitle,
+          summary: "Processing...",
+          category: "Inbox",
+          tags: [],
+          captureDate: "Just now",
+          imageUrl: item.imagePath ?? '', // Use local image if available
+          sourceUrl: item.url,
+          isProcessing: true,
+        );
+      }).toList();
+
+      // 2. Add to list immediately
+      setState(() {
+         // Insert at top
+         _cards.insertAll(0, processingCards);
+      });
+
+      // 3. Process items in background
+      for (int i = 0; i < _pendingSharedItems.length; i++) {
+        final item = _pendingSharedItems[i];
+        final tempCardId = processingCards[i].id;
+
         print('📦 처리 중: ${item.type} - ${item.displayTitle}');
 
         // AI 분석 수행
         final processedItem = await _shareService.processSharedItem(item);
 
-        // MemoCard 생성
-        await _createCardFromSharedItem(processedItem);
+        // MemoCard 생성 (Real Card)
+        final newCard = await _createCardFromSharedItem(processedItem, saveToDb: true);
+
+        // 4. Update UI: Replace temp card with real card
+        if (mounted && newCard != null) {
+          setState(() {
+            final index = _cards.indexWhere((c) => c.id == tempCardId);
+             if (index != -1) {
+               _cards[index] = newCard;
+             } else {
+               _cards.insert(0, newCard); 
+             }
+          });
+        }
 
         // 처리된 항목 제거
         await _shareService.removePendingSharedItem(item.timestamp);
       }
-
-      // 목록 새로고침
-      await _refreshCards();
-      await _loadFolders();
+      
+      // Cleanup: Remove any remaining temp cards (just in case)
+      setState(() {
+         _cards.removeWhere((c) => c.id.startsWith('temp_'));
+      });
+      
+      // Force reload from DB to ensure consistency
+       await _refreshCards();
+       await _loadFolders();
 
       // 성공 알림
       if (mounted) {
@@ -126,6 +168,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       });
     } catch (e) {
       print('❌ 공유된 항목 처리 실패: $e');
+      // On error, remove temp cards
+      setState(() {
+         _cards.removeWhere((c) => c.id.startsWith('temp_'));
+      });
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -135,12 +182,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     } finally {
-      setState(() => _isAnalyzing = false);
+      // setState(() => _isAnalyzing = false); // Not needed
     }
   }
 
   /// SharedItem을 MemoCard로 변환하여 저장
-  Future<void> _createCardFromSharedItem(SharedItem item) async {
+  /// Returns the created card immediately
+  Future<MemoCard?> _createCardFromSharedItem(SharedItem item, {bool saveToDb = true}) async {
     String? imagePath;
 
     // 이미지가 있는 경우 영구 저장소로 복사
@@ -187,9 +235,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       personalNote: item.selectedText,
       folderId: _selectedFolder?.id,
     );
+     
+    if (saveToDb) {
+        await DatabaseHelper.instance.create(newCard);
+        print('✅ 공유된 항목 저장됨: ${newCard.title}');
+    }
 
-    await DatabaseHelper.instance.create(newCard);
-    print('✅ 공유된 항목 저장됨: ${newCard.title}');
+    return newCard;
   }
 
   /// 스크린샷 자동 모니터링 시작
@@ -224,13 +276,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _handleNewScreenshot(Map<String, dynamic> data) async {
     print('📸 New screenshot detected: ${data['imagePath']}');
 
-    // UI 업데이트: 분석 중 표시
+    final imagePath = data['imagePath'] as String;
+    
+    // Create Temporary Card
+    final tempId = "temp_ss_${DateTime.now().millisecondsSinceEpoch}";
+    final tempCard = MemoCard(
+        id: tempId,
+        title: "New Screenshot",
+        summary: "Analyzing content...",
+        category: "Inbox",
+        tags: [],
+        captureDate: "Just now",
+        imageUrl: imagePath,
+        isProcessing: true,
+    );
+
+    // Update UI immediately
     if (mounted) {
-      setState(() => _isAnalyzing = true);
+         setState(() {
+             _cards.insert(0, tempCard);
+         });
     }
 
     try {
-      final imagePath = data['imagePath'] as String;
       final ocrText = data['ocrText'] as String? ?? '';
       final suggestedTags = List<String>.from(data['suggestedTags'] ?? []);
       final suggestedCategory = data['suggestedCategory'] as String? ?? 'Inbox';
@@ -283,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ? suggestedCategory
           : _detectCategory(finalOcrText);
 
-      // 새 카드 생성
+      // 새 카드 생성 (Real Card)
       final newCard = MemoCard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: analysis.title.length > 40 ? "${analysis.title.substring(0, 40)}..." : analysis.title,
@@ -301,8 +369,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // 데이터베이스에 저장
       await DatabaseHelper.instance.create(newCard);
 
-      // UI 새로고침
-      await _refreshCards();
+      // 임시 카드 교체 및 목록 새로고침
+      if (mounted) {
+          setState(() {
+             final index = _cards.indexWhere((c) => c.id == tempId);
+             if (index != -1) {
+                 _cards[index] = newCard;
+             } else {
+                 _cards.insert(0, newCard);
+             }
+          });
+      }
+      
+      // Force reload to be sure
+      // await _refreshCards(); // Optional, avoiding flicker
       await _loadFolders();
 
       // 성공 알림
@@ -320,6 +400,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (e) {
       print('❌ Error processing new screenshot: $e');
       if (mounted) {
+          // Remove temp card on error
+          setState(() {
+               _cards.removeWhere((c) => c.id == tempId);
+          });
+          
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error processing screenshot: ${e.toString()}'),
@@ -328,9 +413,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-      }
+     // No global loading state to reset
     }
   }
 
