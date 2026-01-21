@@ -5,7 +5,20 @@ import 'package:flutter/services.dart';
 class SharedItem {
   final String type; // 'url', 'image', 'text', 'webpage'
   final String? url;
+  final String? imagePath;
   final String? imageUrl; // Remote URL for OG image
+  final String? text;
+  final String? title;
+  final String? selectedText;
+  final double timestamp;
+  final String status; // 'pending', 'processing', 'ready', 'error'
+
+  // AI-analyzed data (populated after processing)
+  final String? ocrText;
+  final String? summary;
+  final List<String>? tags;
+  final String? category;
+  final String? suggestedTitle;
 
   SharedItem({
     required this.type,
