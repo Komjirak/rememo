@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // Incremented version for favorites feature
+      version: 5, // Incremented version for keyInsights feature
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -41,6 +41,7 @@ CREATE TABLE memo_cards (
   summary $textType,
   category $textType,
   tags $listType,
+  keyInsights $textNullable, 
   captureDate $textType,
   sourceUrl $textNullable,
   imageUrl $textType,
@@ -86,13 +87,18 @@ CREATE TABLE folders (
       // Add isFavorite column to memo_cards
       await db.execute('ALTER TABLE memo_cards ADD COLUMN isFavorite INTEGER DEFAULT 0');
     }
+    if (oldVersion < 5) {
+      // Add keyInsights column to memo_cards
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN keyInsights TEXT');
+    }
   }
 
   Future<MemoCard> create(MemoCard card) async {
     final db = await instance.database;
     final map = card.toJson();
     // Convert List<String> to JSON string for storage
-    map['tags'] = (map['tags'] as List).join(','); 
+    map['tags'] = (map['tags'] as List).join(',');
+    map['keyInsights'] = (map['keyInsights'] as List? ?? []).join(',');
     
     await db.insert('memo_cards', map);
     return card;
@@ -108,8 +114,12 @@ CREATE TABLE folders (
       final mutableJson = Map<String, dynamic>.from(json);
       // Convert stored string back to List
       if (mutableJson['tags'] is String) {
-        mutableJson['tags'] = (mutableJson['tags'] as String).split(',');
-        if (mutableJson['tags'] == ['']) mutableJson['tags'] = []; // Handle empty case
+        final tagsStr = mutableJson['tags'] as String;
+        mutableJson['tags'] = tagsStr.isEmpty ? [] : tagsStr.split(',');
+      }
+      if (mutableJson['keyInsights'] is String) {
+        final insightsStr = mutableJson['keyInsights'] as String;
+        mutableJson['keyInsights'] = insightsStr.isEmpty ? [] : insightsStr.split(',');
       }
       return MemoCard.fromJson(mutableJson);
     }).toList();
@@ -120,6 +130,7 @@ CREATE TABLE folders (
     final map = card.toJson();
     // Convert List<String> to comma-separated string for storage
     map['tags'] = (map['tags'] as List).join(',');
+    map['keyInsights'] = (map['keyInsights'] as List? ?? []).join(',');
 
     return await db.update(
       'memo_cards',
@@ -226,8 +237,12 @@ CREATE TABLE folders (
     return result.map((json) {
       final mutableJson = Map<String, dynamic>.from(json);
       if (mutableJson['tags'] is String) {
-        mutableJson['tags'] = (mutableJson['tags'] as String).split(',');
-        if (mutableJson['tags'] == ['']) mutableJson['tags'] = [];
+        final tagsStr = mutableJson['tags'] as String;
+        mutableJson['tags'] = tagsStr.isEmpty ? [] : tagsStr.split(',');
+      }
+      if (mutableJson['keyInsights'] is String) {
+        final insightsStr = mutableJson['keyInsights'] as String;
+        mutableJson['keyInsights'] = insightsStr.isEmpty ? [] : insightsStr.split(',');
       }
       return MemoCard.fromJson(mutableJson);
     }).toList();

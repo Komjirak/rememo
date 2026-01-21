@@ -5,6 +5,7 @@ class MemoCard {
   final String summary;
   final String category;
   final List<String> tags;
+  final List<String> keyInsights; // New field
   final String captureDate;
   final String? sourceUrl;
   final String imageUrl;
@@ -12,7 +13,7 @@ class MemoCard {
   final String? personalNote;
   final String? folderId;
   final bool isFavorite;
-  final bool isProcessing; // New field
+  final bool isProcessing; 
 
   MemoCard({
     required this.id,
@@ -20,6 +21,7 @@ class MemoCard {
     required this.summary,
     required this.category,
     required this.tags,
+    this.keyInsights = const [], // Default empty
     required this.captureDate,
     this.sourceUrl,
     required this.imageUrl,
@@ -27,7 +29,7 @@ class MemoCard {
     this.personalNote,
     this.folderId,
     this.isFavorite = false,
-    this.isProcessing = false, // Default false
+    this.isProcessing = false, 
   });
 
   // Factory constructor for creating a new MemoCard from a map (JSON)
@@ -37,7 +39,8 @@ class MemoCard {
       title: json['title'] as String,
       summary: json['summary'] as String,
       category: json['category'] as String,
-      tags: List<String>.from(json['tags'] ?? []),
+      tags: _parseList(json['tags']),
+      keyInsights: _parseList(json['keyInsights']),
       captureDate: json['captureDate'] as String,
       sourceUrl: json['sourceUrl'] as String?,
       imageUrl: json['imageUrl'] as String,
@@ -56,7 +59,8 @@ class MemoCard {
       'title': title,
       'summary': summary,
       'category': category,
-      'tags': tags,
+      'tags': tags, // Handled by DB Helper (jsonEncode likely)
+      'keyInsights': keyInsights,
       'captureDate': captureDate,
       'sourceUrl': sourceUrl,
       'imageUrl': imageUrl,
@@ -75,6 +79,7 @@ class MemoCard {
     String? summary,
     String? category,
     List<String>? tags,
+    List<String>? keyInsights,
     String? captureDate,
     String? sourceUrl,
     String? imageUrl,
@@ -90,6 +95,7 @@ class MemoCard {
       summary: summary ?? this.summary,
       category: category ?? this.category,
       tags: tags ?? this.tags,
+      keyInsights: keyInsights ?? this.keyInsights,
       captureDate: captureDate ?? this.captureDate,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       imageUrl: imageUrl ?? this.imageUrl,
@@ -99,5 +105,17 @@ class MemoCard {
       isFavorite: isFavorite ?? this.isFavorite,
       isProcessing: isProcessing ?? this.isProcessing,
     );
+  }
+  
+  static List<String> _parseList(dynamic val) {
+      if (val == null) return [];
+      if (val is String) {
+          // If stored as comma separated string or json string, handle here if needed.
+          // But for now assuming List or null.
+          // Actually, if DB helper stores as JSON string, we might need to decode.
+          // Let's assume List<dynamic> for now as per `tags` implementation.
+          return [];
+      }
+      return List<String>.from(val ?? []);
   }
 }
