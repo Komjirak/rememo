@@ -939,7 +939,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
   
-  /// 온디바이스 스크린샷 분석 (LLM 사용 + Bounding Box 기반 구조 분석)
+  /// 온디바이스 스크린샷 분석 (규칙 기반 구조 분석 + 도메인 분류)
   Future<ScreenshotAnalysis> _analyzeScreenshotOnDevice(
     String ocrText, {
     List<OCRBlock>? ocrBlocks,
@@ -972,18 +972,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
 
-      // 줄 번호 기반으로 대략적인 위치 추정
+      // 줄 번호 기반으로 대략적인 위치 추정 (DocumentParserService를 위해 가짜 박스 생성)
       blocks = lines.asMap().entries.map((entry) {
         final index = entry.key;
         final line = entry.value;
         final estimatedTop = index / lines.length;
+        
+        // 텍스트 길이로 너비 대략 추정
+        final estimatedWidth = (line.length * 0.02).clamp(0.1, 0.9);
 
         return OCRBlock(
           text: line,
           boundingBox: BoundingBox(
             top: estimatedTop,
             left: 0.05,
-            width: 0.9,
+            width: estimatedWidth.toDouble(), // double casting
             height: 0.03,
           ),
         );
@@ -991,65 +994,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록');
     }
 
-    // 온디바이스 LLM 서비스 사용
+    // 🚀 DocumentParserService 사용 (LLM 없이 구조 및 도메인 분석)
     try {
-      final analysis = await OnDeviceLLMService.analyzeScreenshot(
-        ocrText: ocrText,
-        ocrBlocks: blocks,
-      );
-
+      print('🔍 DocumentParserService 시작...');
+      final analysis = DocumentParserService.parseDocument(blocks);
+      print('✅ 구조 분석 완료: Domain detected, Title="${analysis.title}"');
       return analysis;
     } catch (e) {
-      print('❌ 온디바이스 LLM 분석 실패: $e');
+      print('❌ 구조 분석 실패: $e');
 
-      // Fallback: 간단한 규칙 기반
-      final cleanLines = blocks
-          .map((b) => b.text)
-          .where((line) {
-            if (line.length < 3) return false;
-            final uiKeywords = ['back', 'next', 'done', 'cancel', 'ok', 'yes', 'no',
-              '뒤로', '다음', '완료', '취소', '확인', '설정'];
-            if (uiKeywords.contains(line.toLowerCase())) return false;
-            if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(line)) return false;
-            if (RegExp(r'^\d+%$').hasMatch(line)) return false;
-            return true;
-          }).toList();
-
-      if (cleanLines.isEmpty) {
-        return ScreenshotAnalysis(
-          title: "New Capture",
-          summary: "화면 캡처가 저장되었습니다.",
-          keyInsights: [],
-        );
-      }
-
-      String title = cleanLines.first;
-      if (title.length > 20) {
-        final words = title.split(' ');
-        String shortTitle = '';
-        for (final word in words) {
-          if ((shortTitle + word).length > 20) break;
-          shortTitle += '$word ';
-        }
-        title = shortTitle.trim();
-        if (title.isEmpty) title = cleanLines.first.substring(0, 20);
-      }
-
-      final summaryText = cleanLines.take(3).join(' ');
-      final summary = summaryText.length > 120
-          ? '${summaryText.substring(0, 117)}...'
-          : summaryText;
-
-      final insights = cleanLines
-          .where((line) => line.length >= 10 && line.length <= 80)
-          .where((line) => !line.contains('http'))
-          .take(4)
-          .toList();
-
+      // Fallback: 아주 단순한 기본 객체 반환
       return ScreenshotAnalysis(
-        title: title,
-        summary: summary,
-        keyInsights: insights,
+        title: "Screen Capture",
+        summary: ocrText.length > 100 ? "${ocrText.substring(0, 100)}..." : ocrText,
+        keyInsights: [],
       );
     }
   }
