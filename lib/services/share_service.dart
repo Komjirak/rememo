@@ -356,6 +356,7 @@ class ShareService {
             imageUrl: currentImageUrl,
             category: 'Web',
             tags: _extractTagsFromText(currentTitle + ' ' + currentSummary),
+            ocrText: currentText, // 🔹 Save web content to ocrText property so it persists in DB
         );
         
       } else if (item.type == 'text') {
