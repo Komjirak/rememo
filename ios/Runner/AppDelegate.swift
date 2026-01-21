@@ -3,14 +3,17 @@ import UIKit
 import Photos
 import Vision
 import NaturalLanguage
+import WebKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, PHPhotoLibraryChangeObserver {
+@objc class AppDelegate: FlutterAppDelegate, PHPhotoLibraryChangeObserver, WKNavigationDelegate {
   private var eventSink: FlutterEventSink?
   private var sharedDataEventSink: FlutterEventSink?
   private var lastProcessedAssetId: String?
   private var isMonitoring = false
   private let appGroupId = "group.com.rememo.komjirak"
+  private var webView: WKWebView?
+  private var currentResultCallback: FlutterResult?
 
   override func application(
     _ application: UIApplication,
@@ -570,49 +573,137 @@ extension AppDelegate {
     }
   }
 
-  /// Fetch URL metadata (title, description, image)
+  /// Fetch URL metadata (title, description, image) using WKWebView
   func fetchURLMetadata(urlString: String, result: @escaping FlutterResult) {
     guard let url = URL(string: urlString) else {
       result(FlutterError(code: "INVALID_URL", message: "Invalid URL", details: nil))
       return
     }
 
-    // Simple metadata fetch using URLSession
-    var request = URLRequest(url: url)
-    request.httpMethod = "GET"
-    request.timeoutInterval = 10
-    request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
+    // Cancel previous if any
+    if let callback = self.currentResultCallback {
+        callback(FlutterError(code: "CANCELLED", message: "New request started", details: nil))
+    }
+    self.currentResultCallback = result
 
-    URLSession.shared.dataTask(with: request) { data, response, error in
-      DispatchQueue.main.async {
-        guard let data = data, let html = String(data: data, encoding: .utf8) else {
-          // Return basic info even if fetch fails
-          result([
-            "url": urlString,
-            "title": url.host ?? "Link",
-            "description": "",
-            "imageUrl": ""
-          ])
-          return
+    DispatchQueue.main.async {
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+        
+        self.webView = WKWebView(frame: .zero, configuration: config)
+        self.webView?.navigationDelegate = self
+        self.webView?.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
+        
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 15.0)
+        self.webView?.load(request)
+        
+        // Timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) { [weak self] in
+            guard let self = self, self.webView?.isLoading == true else { return }
+            self.webView?.stopLoading()
+            self.finalizeMetadataExtraction(url: url)
         }
+    }
+  }
 
-        // Parse basic metadata from HTML
-        let title = self.extractMetaContent(from: html, property: "og:title")
-                    ?? self.extractTitleTag(from: html)
-                    ?? url.host ?? "Link"
-        let description = self.extractMetaContent(from: html, property: "og:description")
-                          ?? self.extractMetaContent(from: html, name: "description")
-                          ?? ""
-        let imageUrl = self.extractMetaContent(from: html, property: "og:image") ?? ""
-
-        result([
-          "url": urlString,
-          "title": title,
-          "description": description,
-          "imageUrl": imageUrl
-        ])
+  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+      // Small delay to let JS render
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+          self.finalizeMetadataExtraction(url: webView.url)
       }
-    }.resume()
+  }
+  
+  // No explicit property declaration here as it is declared at top level of class in previous step? 
+  // Wait, I declared `private var currentResultCallback: FlutterResult?` at line 603 in previous output, 
+  // but I must ensure it's in the class scope. The previous replace inserted it into method body?
+  // No, previous replace inserted it before finalizeMetadataExtraction.
+  // Let's assume it is there.
+  
+  private func finalizeMetadataExtraction(url: URL?) {
+    guard let callback = self.currentResultCallback, let webView = self.webView else { return }
+    self.currentResultCallback = nil // callback only once
+    
+    let js = """
+        function getMeta(prop) {
+            const meta = document.querySelector(`meta[property='${prop}']`) || document.querySelector(`meta[name='${prop}']`);
+            return meta ? meta.getAttribute('content') : null;
+        }
+        function getBodyText() {
+            const clone = document.body.cloneNode(true);
+            const toRemove = clone.querySelectorAll('script, style, noscript, iframe, svg, header, footer, nav');
+            toRemove.forEach(el => el.remove());
+            return clone.innerText.substring(0, 3000);
+        }
+        ({
+            title: getMeta('og:title') || getMeta('twitter:title') || document.title,
+            description: getMeta('og:description') || getMeta('twitter:description') || getMeta('description'),
+            image: getMeta('og:image') || getMeta('twitter:image'),
+            text: getBodyText()
+        })
+    """
+    
+    webView.evaluateJavaScript(js) { [weak self] (jsResult, error) in
+        guard let self = self else { 
+            callback(FlutterError(code: "ERROR", message: "Self released", details: nil))
+            return 
+        }
+        
+        var title = self.prettifyHost(url?.host) ?? "Link"
+        var description = ""
+        var imageUrl = ""
+        var text = ""
+        
+        if let dict = jsResult as? [String: Any] {
+            let extractedTitle = dict["title"] as? String
+            description = dict["description"] as? String ?? ""
+            imageUrl = dict["image"] as? String ?? ""
+            text = dict["text"] as? String ?? ""
+            
+            if let t = extractedTitle {
+                let lowerT = t.lowercased()
+                 let securityKeywords = ["security checkpoint", "just a moment", "attention required", "cloudflare", "vercel", "secruity"]
+                 if !securityKeywords.contains(where: { lowerT.contains($0) }) {
+                     title = t
+                 }
+            }
+        }
+        
+        callback([
+            "url": url?.absoluteString ?? "",
+            "title": self.decodeHTMLEntities(title),
+            "description": self.decodeHTMLEntities(description),
+            "imageUrl": imageUrl,
+            "text": text
+        ])
+        
+        self.webView = nil
+    }
+  }
+
+  /// 호스트 이름을 보기 좋게 변환
+  private func prettifyHost(_ host: String?) -> String? {
+    guard let host = host else { return nil }
+    var name = host
+    if name.hasPrefix("www.") {
+      name = String(name.dropFirst(4))
+    }
+    if let dotIndex = name.firstIndex(of: ".") {
+      name = String(name[..<dotIndex])
+    }
+    return name.prefix(1).uppercased() + name.dropFirst()
+  }
+
+  /// HTML 엔티티 디코딩
+  private func decodeHTMLEntities(_ string: String) -> String {
+    return string
+      .replacingOccurrences(of: "&amp;", with: "&")
+      .replacingOccurrences(of: "&lt;", with: "<")
+      .replacingOccurrences(of: "&gt;", with: ">")
+      .replacingOccurrences(of: "&quot;", with: "\"")
+      .replacingOccurrences(of: "&#39;", with: "'")
+      .replacingOccurrences(of: "&nbsp;", with: " ")
+      .replacingOccurrences(of: "&#x27;", with: "'")
+      .replacingOccurrences(of: "&#x2F;", with: "/")
   }
 
   private func extractMetaContent(from html: String, property: String) -> String? {

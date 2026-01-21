@@ -5,24 +5,13 @@ import 'package:flutter/services.dart';
 class SharedItem {
   final String type; // 'url', 'image', 'text', 'webpage'
   final String? url;
-  final String? imagePath;
-  final String? text;
-  final String? title;
-  final String? selectedText;
-  final double timestamp;
-  final String status; // 'pending', 'processing', 'ready', 'error'
-
-  // AI-analyzed data (populated after processing)
-  String? ocrText;
-  String? summary;
-  List<String>? tags;
-  String? category;
-  String? suggestedTitle;
+  final String? imageUrl; // Remote URL for OG image
 
   SharedItem({
     required this.type,
     this.url,
     this.imagePath,
+    this.imageUrl, // Added
     this.text,
     this.title,
     this.selectedText,
@@ -36,17 +25,22 @@ class SharedItem {
   });
 
   factory SharedItem.fromMap(Map<String, dynamic> map) {
+    // ShareViewController에서 전달한 description 필드를 summary로 매핑
+    final description = map['description'] as String?;
+    final summary = map['summary'] as String? ?? description;
+
     return SharedItem(
       type: map['type'] as String? ?? 'unknown',
       url: map['url'] as String?,
       imagePath: map['imagePath'] as String?,
+      imageUrl: map['imageUrl'] as String?, // Added
       text: map['text'] as String?,
       title: map['title'] as String?,
       selectedText: map['selectedText'] as String?,
       timestamp: (map['timestamp'] as num?)?.toDouble() ?? 0,
       status: map['status'] as String? ?? 'pending',
       ocrText: map['ocrText'] as String?,
-      summary: map['summary'] as String?,
+      summary: summary,
       tags: (map['tags'] as List?)?.cast<String>(),
       category: map['category'] as String?,
       suggestedTitle: map['suggestedTitle'] as String?,
@@ -58,6 +52,7 @@ class SharedItem {
       'type': type,
       'url': url,
       'imagePath': imagePath,
+      'imageUrl': imageUrl, // Added
       'text': text,
       'title': title,
       'selectedText': selectedText,
@@ -92,7 +87,7 @@ class SharedItem {
   String? get sourceUrl => url;
 
   /// Check if this item has an image
-  bool get hasImage => imagePath != null && imagePath!.isNotEmpty;
+  bool get hasImage => (imagePath != null && imagePath!.isNotEmpty) || (imageUrl != null && imageUrl!.isNotEmpty);
 
   /// Check if this item has a URL
   bool get hasUrl => url != null && url!.isNotEmpty;
@@ -101,6 +96,7 @@ class SharedItem {
     String? status,
     String? ocrText,
     String? summary,
+    String? imageUrl,
     List<String>? tags,
     String? category,
     String? suggestedTitle,
@@ -109,6 +105,7 @@ class SharedItem {
       type: type,
       url: url,
       imagePath: imagePath,
+      imageUrl: imageUrl ?? this.imageUrl, // Added
       text: text,
       title: title,
       selectedText: selectedText,
@@ -129,12 +126,14 @@ class URLMetadata {
   final String title;
   final String description;
   final String? imageUrl;
+  final String? text; // Added extracted text
 
   URLMetadata({
     required this.url,
     required this.title,
     required this.description,
     this.imageUrl,
+    this.text,
   });
 
   factory URLMetadata.fromMap(Map<String, dynamic> map) {
@@ -143,6 +142,7 @@ class URLMetadata {
       title: map['title'] as String? ?? '',
       description: map['description'] as String? ?? '',
       imageUrl: map['imageUrl'] as String?,
+      text: map['text'] as String?,
     );
   }
 }
@@ -150,6 +150,7 @@ class URLMetadata {
 /// Service for handling Share Extension data
 class ShareService {
   static const _channel = MethodChannel('com.rememo.komjirak/share');
+  static const _llmChannel = MethodChannel('com.rememo.komjirak/llm'); // Added
 
   static final ShareService _instance = ShareService._internal();
   factory ShareService() => _instance;
@@ -230,6 +231,33 @@ class ShareService {
     }
   }
 
+  /// Generate AI Summary using On-Device LLM
+  Future<Map<String, dynamic>?> _generateAISummary(String title, String content) async {
+    try {
+        // Split content into paragraphs for the LLM API
+        final paragraphs = content.split(RegExp(r'\n+'))
+            .map((p) => p.trim())
+            .where((p) => p.length > 20)
+            .toList();
+            
+        if (paragraphs.isEmpty) return null;
+
+        final result = await _llmChannel.invokeMethod('analyzeSummary', {
+            'title': title,
+            'paragraphs': paragraphs,
+            'keyPoints': [], // Empty for now, LLM might extract them
+        });
+        
+        if (result != null) {
+            return Map<String, dynamic>.from(result);
+        }
+        return null;
+    } catch (e) {
+        print("Failed to generate AI summary: $e");
+        return null;
+    }
+  }
+
   /// Process a shared item with AI analysis
   /// Returns the processed SharedItem with OCR text, tags, category etc.
   Future<SharedItem> processSharedItem(SharedItem item) async {
@@ -272,19 +300,51 @@ class ShareService {
           }
         }
       } else if (item.type == 'url' || item.type == 'webpage') {
-        // Fetch URL metadata
-        if (item.url != null) {
-          final metadata = await fetchURLMetadata(item.url!);
-          if (metadata != null) {
-            processedItem = processedItem.copyWith(
-              status: 'ready',
-              suggestedTitle: metadata.title,
-              summary: metadata.description,
-              category: 'Web',
-              tags: _extractTagsFromText(metadata.title + ' ' + metadata.description),
-            );
-          }
+        // Share Extension에서 이미 메타데이터를 가져왔는지 확인
+        final hasValidTitle = item.title != null &&
+            item.title!.isNotEmpty &&
+            !_isSecurityPageTitle(item.title!);
+        
+        String currentTitle = item.title ?? '';
+        String currentSummary = item.summary ?? '';
+        String? currentImageUrl = item.imageUrl;
+        String currentText = item.text ?? '';
+
+        if (!hasValidTitle && item.url != null) {
+           // Retry fetching
+           final metadata = await fetchURLMetadata(item.url!);
+           if (metadata != null) {
+               if (!_isSecurityPageTitle(metadata.title)) {
+                   currentTitle = metadata.title;
+                   currentSummary = metadata.description;
+                   currentImageUrl = metadata.imageUrl;
+                   if (metadata.text != null && metadata.text!.isNotEmpty) {
+                       currentText = metadata.text!;
+                   }
+               } else {
+                   currentTitle = _prettifyHost(item.url!);
+               }
+           }
         }
+        
+        // AI Summarization if text is available
+        if (currentText.isNotEmpty) {
+            final aiResult = await _generateAISummary(currentTitle, currentText);
+            if (aiResult != null) {
+                if (aiResult['summary'] != null) currentSummary = aiResult['summary'];
+                // Could also use aiResult['keyInsights'] for tags or separate field
+            }
+        }
+
+        processedItem = processedItem.copyWith(
+            status: 'ready',
+            suggestedTitle: currentTitle.isNotEmpty ? currentTitle : _prettifyHost(item.url ?? ''),
+            summary: currentSummary,
+            imageUrl: currentImageUrl,
+            category: 'Web',
+            tags: _extractTagsFromText(currentTitle + ' ' + currentSummary),
+        );
+        
       } else if (item.type == 'text') {
         // Process text content
         final text = item.text ?? item.selectedText ?? '';
@@ -293,20 +353,34 @@ class ShareService {
         if (extractedUrl != null) {
           // If text contains URL, fetch its metadata
           final metadata = await fetchURLMetadata(extractedUrl);
+          final hasValidMetadata = metadata != null && !_isSecurityPageTitle(metadata.title);
+          
+          String summary = hasValidMetadata ? metadata.description : '';
+          String title = hasValidMetadata ? metadata.title : _prettifyHost(extractedUrl);
+          
+          // Try AI Summary for URL content if available from metadata
+          if (metadata?.text != null && metadata!.text!.isNotEmpty) {
+               final aiResult = await _generateAISummary(title, metadata.text!);
+               if (aiResult != null && aiResult['summary'] != null) {
+                   summary = aiResult['summary'];
+               }
+          }
+
           processedItem = SharedItem(
             type: 'text',
             url: extractedUrl,
             imagePath: item.imagePath,
+            imageUrl: metadata?.imageUrl, // Use fetched image URL
             text: text,
-            title: metadata?.title ?? item.title,
+            title: title,
             selectedText: item.selectedText,
             timestamp: item.timestamp,
             status: 'ready',
             ocrText: item.ocrText,
-            summary: metadata?.description,
+            summary: summary.isNotEmpty ? summary : null,
             tags: _extractTagsFromText(text),
             category: 'Web',
-            suggestedTitle: metadata?.title ?? _generateTitleFromText(text),
+            suggestedTitle: title,
           );
         } else {
           processedItem = processedItem.copyWith(
@@ -322,6 +396,39 @@ class ShareService {
     } catch (e) {
       print("Error processing shared item: $e");
       return item.copyWith(status: 'error');
+    }
+  }
+
+  /// 보안 페이지 제목인지 확인
+  bool _isSecurityPageTitle(String title) {
+    final lower = title.toLowerCase();
+    return lower.contains('security checkpoint') ||
+           lower.contains('checking your browser') ||
+           lower.contains('just a moment') ||
+           lower.contains('verify') && lower.contains('human') ||
+           lower.contains('captcha') ||
+           lower.contains('cloudflare');
+  }
+
+  /// URL 호스트를 보기 좋은 제목으로 변환
+  String _prettifyHost(String urlString) {
+    try {
+      final uri = Uri.parse(urlString);
+      var host = uri.host;
+      if (host.startsWith('www.')) {
+        host = host.substring(4);
+      }
+      final dotIndex = host.indexOf('.');
+      if (dotIndex > 0) {
+        host = host.substring(0, dotIndex);
+      }
+      // 첫 글자 대문자
+      if (host.isNotEmpty) {
+        return host[0].toUpperCase() + host.substring(1);
+      }
+      return 'Web Link';
+    } catch (e) {
+      return 'Web Link';
     }
   }
 

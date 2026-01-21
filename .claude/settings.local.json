@@ -22,7 +22,13 @@
       "Bash(curl:*)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gem update:*)",
+      "Bash(sudo gem update:*)",
+      "Bash(gem list:*)",
+      "Bash(gem search:*)",
+      "Bash(gem install:*)",
+      "Bash(sudo gem install:*)"
     ]
   }
 }

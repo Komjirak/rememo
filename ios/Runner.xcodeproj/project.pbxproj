@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 74;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -100,7 +100,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		F2E3AF962F2087A500A15F5F /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		F2E3AF962F2087A500A15F5F /* Exceptions for "ShareExtension" folder in "ShareExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				/Localized/MainInterface.storyboard,
@@ -111,7 +111,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		F2E3AF882F2087A500A15F5F /* ShareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (F2E3AF962F2087A500A15F5F /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = ShareExtension; sourceTree = "<group>"; };
+		F2E3AF882F2087A500A15F5F /* ShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F2E3AF962F2087A500A15F5F /* Exceptions for "ShareExtension" folder in "ShareExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -260,10 +271,10 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				F2E3AF922F2087A500A15F5F /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				6DA87094771CC05721BB2732 /* [CP] Embed Pods Frameworks */,
 				BD8D9343F9272FCDAE2474F9 /* [CP] Copy Pods Resources */,
-				F2E3AF922F2087A500A15F5F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -291,8 +302,6 @@
 				F2E3AF882F2087A500A15F5F /* ShareExtension */,
 			);
 			name = ShareExtension;
-			packageProductDependencies = (
-			);
 			productName = ShareExtension;
 			productReference = F2E3AF872F2087A500A15F5F /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -417,13 +426,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -475,13 +480,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -640,7 +641,7 @@
 					"-lpaddle_api_light_bundled",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.rememo.komjirak;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Rememo;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -845,7 +846,7 @@
 					"-lpaddle_api_light_bundled",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.rememo.komjirak;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Rememo;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -888,7 +889,7 @@
 					"-lpaddle_api_light_bundled",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.rememo.komjirak;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Rememo;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

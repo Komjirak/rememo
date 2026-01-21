@@ -9,8 +9,9 @@ import UIKit
 import Social
 import MobileCoreServices
 import UniformTypeIdentifiers
+import WebKit
 
-class ShareViewController: UIViewController {
+class ShareViewController: UIViewController, WKNavigationDelegate {
 
     private let appGroupId = "group.com.rememo.komjirak"
     private var sharedItems: [[String: Any]] = []
@@ -237,20 +238,192 @@ class ShareViewController: UIViewController {
     // MARK: - Handle Different Content Types
 
     private func handleURL(_ url: URL) {
-        let sharedItem: [String: Any] = [
-            "type": "url",
-            "url": url.absoluteString,
-            "title": url.host ?? "Web Link",
-            "timestamp": Date().timeIntervalSince1970,
-            "status": "pending"
-        ]
-        sharedItems.append(sharedItem)
-
         urlLabel.text = url.absoluteString
         previewImageView.image = UIImage(systemName: "link.circle.fill")
         previewImageView.tintColor = .systemBlue
+        statusLabel.text = "메타데이터 가져오는 중..."
 
-        processingComplete()
+        // URL 메타데이터를 직접 가져오기
+        fetchURLMetadata(url: url) { [weak self] title, description, imageUrl, text in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                let finalTitle = title ?? url.host ?? "Web Link"
+
+                var sharedItem: [String: Any] = [
+                    "type": "url",
+                    "url": url.absoluteString,
+                    "title": finalTitle,
+                    "description": description ?? "",
+                    "imageUrl": imageUrl ?? "",
+                    "timestamp": Date().timeIntervalSince1970,
+                    "status": "pending"
+                ]
+                
+                if let t = text, !t.isEmpty {
+                    sharedItem["text"] = t // Store extracted text
+                }
+                
+                self.sharedItems.append(sharedItem)
+
+                // UI 업데이트
+                self.titleLabel.text = finalTitle.count > 25 ? String(finalTitle.prefix(25)) + "..." : finalTitle
+                self.statusLabel.text = description?.prefix(50).description ?? "링크 저장됨"
+
+                self.processingComplete()
+            }
+        }
+    }
+
+    // MARK: - WKWebView for Metadata Fetching
+    private var webView: WKWebView?
+    
+    private func fetchURLMetadata(url: URL, completion: @escaping (String?, String?, String?, String?) -> Void) {
+        DispatchQueue.main.async {
+            let config = WKWebViewConfiguration()
+            config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
+            
+            self.webView = WKWebView(frame: .zero, configuration: config)
+            self.webView?.navigationDelegate = self
+            
+            // Set User-Agent to look like a real iPhone browser
+            self.webView?.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
+            
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 15.0)
+            self.webView?.load(request)
+            
+            // Timeout handler
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) { [weak self] in
+                guard let self = self, self.webView?.isLoading == true else { return }
+                self.webView?.stopLoading()
+                self.extractMetadataFromWebView(completion: completion)
+            }
+        }
+    }
+
+    private func extractMetadataFromWebView(completion: @escaping (String?, String?, String?, String?) -> Void) {
+        guard let webView = self.webView else {
+            completion(nil, nil, nil, nil)
+            return
+        }
+        
+        // Execute JavaScript to extract metadata
+        let js = """
+            function getMeta(prop) {
+                const meta = document.querySelector(`meta[property='${prop}']`) || document.querySelector(`meta[name='${prop}']`);
+                return meta ? meta.getAttribute('content') : null;
+            }
+            function getBodyText() {
+                // Clone body to avoid modifying page
+                const clone = document.body.cloneNode(true);
+                // Remove scripts, styles, etc.
+                const toRemove = clone.querySelectorAll('script, style, noscript, iframe, svg, header, footer, nav');
+                toRemove.forEach(el => el.remove());
+                return clone.innerText.substring(0, 3000); // Limit to 3000 chars
+            }
+            ({
+                title: getMeta('og:title') || getMeta('twitter:title') || document.title,
+                description: getMeta('og:description') || getMeta('twitter:description') || getMeta('description'),
+                image: getMeta('og:image') || getMeta('twitter:image'),
+                text: getBodyText()
+            })
+        """
+        
+        webView.evaluateJavaScript(js) { [weak self] (result, error) in
+            guard let self = self else { return }
+            
+            if let dict = result as? [String: Any] {
+                let title = dict["title"] as? String
+                let description = dict["description"] as? String
+                let imageUrl = dict["image"] as? String
+                let text = dict["text"] as? String
+                
+                // Security Checkpoint Detection
+                if let t = title?.lowercased() {
+                    let securityKeywords = ["security checkpoint", "just a moment", "attention required", "cloudflare", "vercel", "secruity"] // Added typo "secruity" just in case
+                    if securityKeywords.contains(where: { t.contains($0) }) {
+                         completion(self.prettifyHost(webView.url?.host), description, imageUrl, text)
+                         return
+                    }
+                }
+                
+                completion(title ?? self.prettifyHost(webView.url?.host), description, imageUrl, text)
+            } else {
+                // Fallback if JS fails
+                completion(webView.title ?? self.prettifyHost(webView.url?.host), nil, nil, nil)
+            }
+            
+            // Clean up
+            self.webView = nil
+        }
+    }
+
+    /// 호스트 이름을 보기 좋게 변환 (예: www.example.com -> Example)
+    private func prettifyHost(_ host: String?) -> String? {
+        guard let host = host else { return nil }
+        var name = host
+        if name.hasPrefix("www.") {
+            name = String(name.dropFirst(4))
+        }
+        // 도메인에서 .com, .co.kr 등 제거하고 첫 글자 대문자
+        if let dotIndex = name.firstIndex(of: ".") {
+            name = String(name[..<dotIndex])
+        }
+        return name.prefix(1).uppercased() + name.dropFirst()
+    }
+
+    private func extractMetaContent(from html: String, property: String) -> String? {
+        // property="og:title" content="..." 또는 content="..." property="og:title"
+        let patterns = [
+            "<meta[^>]+property=[\"']\(property)[\"'][^>]+content=[\"']([^\"']+)[\"']",
+            "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']\(property)[\"']"
+        ]
+
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+               let range = Range(match.range(at: 1), in: html) {
+                let content = String(html[range])
+                // HTML 엔티티 디코딩
+                return content.replacingOccurrences(of: "&amp;", with: "&")
+                              .replacingOccurrences(of: "&lt;", with: "<")
+                              .replacingOccurrences(of: "&gt;", with: ">")
+                              .replacingOccurrences(of: "&quot;", with: "\"")
+                              .replacingOccurrences(of: "&#39;", with: "'")
+            }
+        }
+        return nil
+    }
+
+    private func extractMetaContent(from html: String, name: String) -> String? {
+        let patterns = [
+            "<meta[^>]+name=[\"']\(name)[\"'][^>]+content=[\"']([^\"']+)[\"']",
+            "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']\(name)[\"']"
+        ]
+
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+               let range = Range(match.range(at: 1), in: html) {
+                let content = String(html[range])
+                return content.replacingOccurrences(of: "&amp;", with: "&")
+                              .replacingOccurrences(of: "&lt;", with: "<")
+                              .replacingOccurrences(of: "&gt;", with: ">")
+                              .replacingOccurrences(of: "&quot;", with: "\"")
+                              .replacingOccurrences(of: "&#39;", with: "'")
+            }
+        }
+        return nil
+    }
+
+    private func extractTitleTag(from html: String) -> String? {
+        let pattern = "<title[^>]*>([^<]+)</title>"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+           let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+           let range = Range(match.range(at: 1), in: html) {
+            return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return nil
     }
 
     private func handleImage(_ data: Any?) {
