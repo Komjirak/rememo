@@ -989,12 +989,67 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final permanentPath = await _saveToDocuments(File(image.path));
 
-      // macOS에서는 네이티브 서비스 사용 불가, fallback 사용
-      String ocrText = _generateMacOSFallback(permanentPath);
-      final suggestedTags = ['Camera', 'Photo'];
-      final suggestedCategory = 'Inbox';
+    if (Platform.isIOS) {
+        // iOS: Native Vision Framework Analysis
+        print('🟠 Running native analysis on iOS...');
+        final result = await NativeService.analyzeImageWithBoxes(permanentPath);
+        
+        if (result != null) {
+             final ocrText = result['ocrText'] as String? ?? '';
+             final suggestedTags = List<String>.from(result['suggestedTags'] ?? ['Photo']);
+             final suggestedCategory = result['suggestedCategory'] as String? ?? 'Inbox';
+             final suggestedTitle = result['suggestedTitle'] as String? ?? "New Capture";
+             
+             // 🆕 Bounding Box 정보가 포함된 OCR 블록 파싱 (Checking for existence)
+             final rawOcrBlocks = result['ocrBlocks'] as List? ?? [];
+             List<OCRBlock>? ocrBlocks;
 
-      await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
+             if (rawOcrBlocks.isNotEmpty) {
+                 ocrBlocks = rawOcrBlocks.map<OCRBlock>((block) {
+                    if (block is Map) {
+                      return OCRBlock.fromNative(Map<String, dynamic>.from(block));
+                    }
+                    return OCRBlock(
+                      text: block.toString(),
+                      boundingBox: BoundingBox(top: 0, left: 0, width: 0, height: 0),
+                    );
+                  }).toList();
+             }
+
+             // On-device analysis using extracted text and blocks
+             final analysis = await _analyzeScreenshotOnDevice(
+                ocrText, 
+                ocrBlocks: ocrBlocks
+             );
+             
+             // Create card with analyzed data
+             await _createCardFromAnalysis(
+                permanentPath, 
+                ocrText, 
+                analysis.keyInsights.isNotEmpty ? suggestedTags : suggestedTags, // Can refine tags
+                suggestedCategory,
+                suggestedTitle: analysis.title,
+             );
+        } else {
+             // Fallback if native analysis fails
+             print('🔴 Native analysis returned null');
+             await _createCardFromAnalysis(
+                permanentPath, 
+                "", 
+                ['Photo'], 
+                'Inbox',
+                suggestedTitle: 'New Photo'
+             );
+        }
+
+      } else {
+        // macOS / Other: Fallback
+        String ocrText = _generateMacOSFallback(permanentPath);
+        final suggestedTags = ['Camera', 'Photo'];
+        final suggestedCategory = 'Inbox';
+
+        await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
+      }
     } catch (e) {
       print('🔴 Error in _pickImage: $e');
       setState(() => _isAnalyzing = false);
