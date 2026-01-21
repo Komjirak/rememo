@@ -421,7 +421,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: _buildThumbnail(card.imageUrl),
+                child: _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl),
               ),
               const SizedBox(width: 16),
 
@@ -512,7 +512,12 @@ class _LibraryListViewState extends State<LibraryListView> {
     );
   }
 
-  Widget _buildThumbnail(String url) {
+  Widget _buildThumbnail(String url, {String? sourceUrl}) {
+    // 이미지 URL이 비어있는 경우
+    if (url.isEmpty) {
+      return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
+    }
+
     if (url.startsWith('http')) {
       return Image.network(
         url,
@@ -520,7 +525,7 @@ class _LibraryListViewState extends State<LibraryListView> {
         width: double.infinity,
         height: double.infinity,
         opacity: const AlwaysStoppedAnimation(0.8),
-        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+        errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
       );
     } else {
       final file = File(url);
@@ -531,22 +536,35 @@ class _LibraryListViewState extends State<LibraryListView> {
           width: double.infinity,
           height: double.infinity,
           opacity: const AlwaysStoppedAnimation(0.8),
-          errorBuilder: (_, __, ___) => _buildPlaceholder(),
+          errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
         );
       }
-      return _buildPlaceholder();
+      return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
     }
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildPlaceholder({bool hasUrl = false}) {
     return Container(
       color: const Color(0xFF1F2937),
       child: Center(
-        child: Icon(
-          Icons.image,
-          color: AppTheme.textDisabled,
-          size: 24,
-        ),
+        child: hasUrl
+            ? Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentTeal.withAlpha(26),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.link,
+                  color: AppTheme.accentTeal,
+                  size: 24,
+                ),
+              )
+            : Icon(
+                Icons.image,
+                color: AppTheme.textDisabled,
+                size: 24,
+              ),
       ),
     );
   }

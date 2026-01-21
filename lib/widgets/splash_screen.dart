@@ -110,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     // Title
                     Text(
-                      'Folio',
+                      'Rememo',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
                             fontSize: 40,
                             fontWeight: FontWeight.w700,

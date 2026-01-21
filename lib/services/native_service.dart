@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 typedef ScreenshotDetectedCallback = void Function(Map<String, dynamic> data);
 
 class NativeService {
-  static const platform = MethodChannel('com.komjirak.stribe/vision');
-  static const _channel = MethodChannel('com.komjirak.stribe/vision');
-  static const _eventChannel = EventChannel('com.komjirak.stribe/screenshot_detection');
+  static const platform = MethodChannel('com.rememo.komjirak/vision');
+  static const _channel = MethodChannel('com.rememo.komjirak/vision');
+  static const _eventChannel = EventChannel('com.rememo.komjirak/screenshot_detection');
 
   static StreamSubscription? _screenshotSubscription;
   static ScreenshotDetectedCallback? _onScreenshotDetected;

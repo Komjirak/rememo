@@ -7,8 +7,10 @@ import NaturalLanguage
 @main
 @objc class AppDelegate: FlutterAppDelegate, PHPhotoLibraryChangeObserver {
   private var eventSink: FlutterEventSink?
+  private var sharedDataEventSink: FlutterEventSink?
   private var lastProcessedAssetId: String?
   private var isMonitoring = false
+  private let appGroupId = "group.com.rememo.komjirak"
 
   override func application(
     _ application: UIApplication,
@@ -18,16 +20,61 @@ import NaturalLanguage
     let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
 
     // Method Channel for direct calls
-    let channel = FlutterMethodChannel(name: "com.komjirak.stribe/vision",
+    let channel = FlutterMethodChannel(name: "com.rememo.komjirak/vision",
                                               binaryMessenger: controller.binaryMessenger)
 
     // Event Channel for screenshot detection stream
-    let eventChannel = FlutterEventChannel(name: "com.komjirak.stribe/screenshot_detection",
+    let eventChannel = FlutterEventChannel(name: "com.rememo.komjirak/screenshot_detection",
                                            binaryMessenger: controller.binaryMessenger)
     eventChannel.setStreamHandler(self)
+
+    // Share Extension Method Channel
+    let shareChannel = FlutterMethodChannel(name: "com.rememo.komjirak/share",
+                                            binaryMessenger: controller.binaryMessenger)
+
+    shareChannel.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard let self = self else { return }
+
+      switch call.method {
+      case "getPendingSharedItems":
+        result(self.getPendingSharedItems())
+
+      case "clearPendingSharedItems":
+        self.clearPendingSharedItems()
+        result(true)
+
+      case "removePendingSharedItem":
+        if let args = call.arguments as? [String: Any],
+           let timestamp = args["timestamp"] as? Double {
+          self.removePendingSharedItem(timestamp: timestamp)
+          result(true)
+        } else {
+          result(FlutterError(code: "INVALID_ARGS", message: "timestamp required", details: nil))
+        }
+
+      case "analyzeSharedImage":
+        if let args = call.arguments as? [String: Any],
+           let path = args["path"] as? String {
+          self.analyzeSharedImage(path: path, result: result)
+        } else {
+          result(FlutterError(code: "INVALID_ARGS", message: "path required", details: nil))
+        }
+
+      case "fetchURLMetadata":
+        if let args = call.arguments as? [String: Any],
+           let urlString = args["url"] as? String {
+          self.fetchURLMetadata(urlString: urlString, result: result)
+        } else {
+          result(FlutterError(code: "INVALID_ARGS", message: "url required", details: nil))
+        }
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
     
     // LLM Method Channel
-    let llmChannel = FlutterMethodChannel(name: "com.komjirak.stribe/llm",
+    let llmChannel = FlutterMethodChannel(name: "com.rememo.komjirak/llm",
                                           binaryMessenger: controller.binaryMessenger)
     
     llmChannel.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
@@ -469,6 +516,159 @@ import NaturalLanguage
         return (uniqueTags, category, title, url)
     }
 
+}
+
+// MARK: - Share Extension Data Handling
+
+extension AppDelegate {
+
+  /// Get pending shared items from App Group UserDefaults
+  func getPendingSharedItems() -> [[String: Any]] {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      return []
+    }
+    return userDefaults.array(forKey: "pendingSharedItems") as? [[String: Any]] ?? []
+  }
+
+  /// Clear all pending shared items
+  func clearPendingSharedItems() {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else { return }
+    userDefaults.removeObject(forKey: "pendingSharedItems")
+    userDefaults.synchronize()
+  }
+
+  /// Remove a specific pending shared item by timestamp
+  func removePendingSharedItem(timestamp: Double) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else { return }
+    var items = userDefaults.array(forKey: "pendingSharedItems") as? [[String: Any]] ?? []
+    items.removeAll { ($0["timestamp"] as? Double) == timestamp }
+    userDefaults.set(items, forKey: "pendingSharedItems")
+    userDefaults.synchronize()
+  }
+
+  /// Analyze shared image with OCR
+  func analyzeSharedImage(path: String, result: @escaping FlutterResult) {
+    guard let image = UIImage(contentsOfFile: path) else {
+      result(FlutterError(code: "LOAD_FAILED", message: "Failed to load image", details: nil))
+      return
+    }
+
+    self.recognizeTextWithBoxes(image: image) { ocrBlocks in
+      let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
+      let analysis = self.analyzeText(text: ocrText)
+
+      result([
+        "ocrText": ocrText,
+        "ocrBlocks": ocrBlocks,
+        "suggestedTags": analysis.tags,
+        "suggestedCategory": analysis.category,
+        "suggestedTitle": analysis.title,
+        "sourceUrl": analysis.url ?? "",
+        "imageWidth": image.size.width,
+        "imageHeight": image.size.height
+      ])
+    }
+  }
+
+  /// Fetch URL metadata (title, description, image)
+  func fetchURLMetadata(urlString: String, result: @escaping FlutterResult) {
+    guard let url = URL(string: urlString) else {
+      result(FlutterError(code: "INVALID_URL", message: "Invalid URL", details: nil))
+      return
+    }
+
+    // Simple metadata fetch using URLSession
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.timeoutInterval = 10
+    request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
+
+    URLSession.shared.dataTask(with: request) { data, response, error in
+      DispatchQueue.main.async {
+        guard let data = data, let html = String(data: data, encoding: .utf8) else {
+          // Return basic info even if fetch fails
+          result([
+            "url": urlString,
+            "title": url.host ?? "Link",
+            "description": "",
+            "imageUrl": ""
+          ])
+          return
+        }
+
+        // Parse basic metadata from HTML
+        let title = self.extractMetaContent(from: html, property: "og:title")
+                    ?? self.extractTitleTag(from: html)
+                    ?? url.host ?? "Link"
+        let description = self.extractMetaContent(from: html, property: "og:description")
+                          ?? self.extractMetaContent(from: html, name: "description")
+                          ?? ""
+        let imageUrl = self.extractMetaContent(from: html, property: "og:image") ?? ""
+
+        result([
+          "url": urlString,
+          "title": title,
+          "description": description,
+          "imageUrl": imageUrl
+        ])
+      }
+    }.resume()
+  }
+
+  private func extractMetaContent(from html: String, property: String) -> String? {
+    let pattern = "<meta[^>]+property=[\"']\(property)[\"'][^>]+content=[\"']([^\"']+)[\"']"
+    let altPattern = "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']\(property)[\"']"
+
+    for p in [pattern, altPattern] {
+      if let regex = try? NSRegularExpression(pattern: p, options: .caseInsensitive),
+         let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+         let range = Range(match.range(at: 1), in: html) {
+        return String(html[range])
+      }
+    }
+    return nil
+  }
+
+  private func extractMetaContent(from html: String, name: String) -> String? {
+    let pattern = "<meta[^>]+name=[\"']\(name)[\"'][^>]+content=[\"']([^\"']+)[\"']"
+    let altPattern = "<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']\(name)[\"']"
+
+    for p in [pattern, altPattern] {
+      if let regex = try? NSRegularExpression(pattern: p, options: .caseInsensitive),
+         let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+         let range = Range(match.range(at: 1), in: html) {
+        return String(html[range])
+      }
+    }
+    return nil
+  }
+
+  private func extractTitleTag(from html: String) -> String? {
+    let pattern = "<title[^>]*>([^<]+)</title>"
+    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+       let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+       let range = Range(match.range(at: 1), in: html) {
+      return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    return nil
+  }
+}
+
+// MARK: - URL Scheme Handling
+
+extension AppDelegate {
+
+  override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    // Handle rememo:// URL scheme
+    if url.scheme == "rememo" {
+      if url.host == "shared" {
+        // Notify Flutter about new shared content
+        NotificationCenter.default.post(name: NSNotification.Name("FolioSharedContent"), object: nil)
+      }
+      return true
+    }
+    return super.application(app, open: url, options: options)
+  }
 }
 
 // MARK: - FlutterStreamHandler

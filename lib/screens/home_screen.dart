@@ -10,6 +10,7 @@ import 'package:stribe/widgets/folder_management_view.dart';
 import 'package:stribe/services/database_helper.dart';
 import 'package:stribe/services/native_service.dart';
 import 'package:stribe/services/ondevice_llm_service.dart';
+import 'package:stribe/services/share_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,8 +24,9 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final ImagePicker _picker = ImagePicker();
+  final ShareService _shareService = ShareService();
   bool _isAnalyzing = false;
   List<MemoCard> _cards = [];
   List<Folder> _folders = [];
@@ -33,19 +35,161 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Share Extension: Inbox 상태 관리
+  List<SharedItem> _pendingSharedItems = [];
+  bool _hasNewSharedItems = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshCards();
     _loadFolders();
     _startScreenshotMonitoring(); // 스크린샷 자동 모니터링 시작
+    _checkPendingSharedItems(); // 공유된 항목 확인
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _stopScreenshotMonitoring(); // 스크린샷 모니터링 중지
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아왔을 때 공유된 항목 확인
+      _checkPendingSharedItems();
+    }
+  }
+
+  /// Share Extension에서 공유된 항목 확인
+  Future<void> _checkPendingSharedItems() async {
+    try {
+      final items = await _shareService.getPendingSharedItems();
+      if (items.isNotEmpty) {
+        print('📥 ${items.length}개의 공유된 항목 발견');
+        setState(() {
+          _pendingSharedItems = items;
+          _hasNewSharedItems = true;
+        });
+
+        // 자동으로 공유된 항목 처리
+        _processSharedItems();
+      }
+    } catch (e) {
+      print('❌ 공유된 항목 확인 실패: $e');
+    }
+  }
+
+  /// 공유된 항목들을 처리하고 MemoCard로 변환
+  Future<void> _processSharedItems() async {
+    if (_pendingSharedItems.isEmpty) return;
+
+    setState(() => _isAnalyzing = true);
+
+    try {
+      for (final item in _pendingSharedItems) {
+        print('📦 처리 중: ${item.type} - ${item.displayTitle}');
+
+        // AI 분석 수행
+        final processedItem = await _shareService.processSharedItem(item);
+
+        // MemoCard 생성
+        await _createCardFromSharedItem(processedItem);
+
+        // 처리된 항목 제거
+        await _shareService.removePendingSharedItem(item.timestamp);
+      }
+
+      // 목록 새로고침
+      await _refreshCards();
+      await _loadFolders();
+
+      // 성공 알림
+      if (mounted) {
+        final count = _pendingSharedItems.length;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📥 $count개의 공유된 항목이 저장되었습니다!'),
+            backgroundColor: AppTheme.accentTeal,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      setState(() {
+        _pendingSharedItems = [];
+        _hasNewSharedItems = false;
+      });
+    } catch (e) {
+      print('❌ 공유된 항목 처리 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('공유된 항목 처리 중 오류: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isAnalyzing = false);
+    }
+  }
+
+  /// SharedItem을 MemoCard로 변환하여 저장
+  Future<void> _createCardFromSharedItem(SharedItem item) async {
+    String? imagePath;
+
+    // 이미지가 있는 경우 영구 저장소로 복사
+    if (item.hasImage && item.imagePath != null) {
+      final sourceFile = File(item.imagePath!);
+      if (await sourceFile.exists()) {
+        imagePath = await _saveToDocuments(sourceFile);
+      }
+    }
+
+    // 이미지가 없는 경우 플레이스홀더 이미지 경로 사용
+    final finalImagePath = imagePath ?? '';
+
+    // 요약 생성
+    String summary = item.summary ?? '';
+    if (item.text != null && item.text!.isNotEmpty) {
+      summary = item.text!.length > 200
+          ? '${item.text!.substring(0, 200)}...'
+          : item.text!;
+    }
+    if (summary.isEmpty && item.ocrText != null) {
+      summary = item.ocrText!.length > 200
+          ? '${item.ocrText!.substring(0, 200)}...'
+          : item.ocrText!;
+    }
+    if (summary.isEmpty) {
+      summary = item.hasUrl
+          ? '웹 링크가 저장되었습니다.'
+          : '공유된 컨텐츠가 저장되었습니다.';
+    }
+
+    final newCard = MemoCard(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: item.displayTitle.length > 40
+          ? '${item.displayTitle.substring(0, 40)}...'
+          : item.displayTitle,
+      summary: summary,
+      category: item.category ?? 'Inbox',
+      tags: item.tags ?? ['Shared'],
+      captureDate: 'Just now',
+      imageUrl: finalImagePath,
+      ocrText: item.ocrText ?? item.text,
+      sourceUrl: item.sourceUrl,
+      personalNote: item.selectedText,
+      folderId: _selectedFolder?.id,
+    );
+
+    await DatabaseHelper.instance.create(newCard);
+    print('✅ 공유된 항목 저장됨: ${newCard.title}');
   }
 
   /// 스크린샷 자동 모니터링 시작
@@ -108,8 +252,15 @@ class _HomeScreenState extends State<HomeScreen> {
       // 이미지를 앱의 영구 저장소에 복사
       final permanentPath = await _saveToDocuments(File(imagePath));
 
-      // OCR 텍스트가 비어있으면 플레이스홀더 사용
-      String finalOcrText = ocrText;
+      // 🎯 온디바이스 분석으로 스마트한 제목과 요약 생성 (Bounding Box 포함)
+      final analysis = await _analyzeScreenshotOnDevice(ocrText, ocrBlocks: ocrBlocks);
+
+      // UI 노이즈가 필터링된 OCR 텍스트 생성
+      String finalOcrText = _generateCleanOcrText(ocrBlocks);
+      if (finalOcrText.isEmpty) {
+        // 필터링 결과가 비어있으면 원본 사용
+        finalOcrText = ocrText;
+      }
       if (finalOcrText.isEmpty) {
         final fileName = imagePath.split('/').last;
         final now = DateTime.now();
@@ -120,13 +271,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)");
       final String? foundUrl = urlRegExp.firstMatch(finalOcrText)?.group(0);
 
-      // 🎯 온디바이스 분석으로 스마트한 제목과 요약 생성 (Bounding Box 포함)
-      final analysis = await _analyzeScreenshotOnDevice(finalOcrText, ocrBlocks: ocrBlocks);
-
+      // Summary는 간결하게 유지 (블릿 포인트 제거)
       String summary = analysis.summary;
-      if (analysis.keyInsights.isNotEmpty) {
-        summary += '\n\n핵심 내용:\n${analysis.keyInsights.map((i) => '• $i').join('\n')}';
-      }
 
       // 태그 및 카테고리
       List<String> finalTags = suggestedTags.isEmpty
@@ -456,6 +602,50 @@ class _HomeScreenState extends State<HomeScreen> {
         'Note: Advanced OCR text extraction is available on iOS and Android devices.';
   }
 
+  /// UI 노이즈가 필터링된 깨끗한 OCR 텍스트 생성
+  String _generateCleanOcrText(List<OCRBlock> blocks) {
+    // OnDeviceLLMService의 필터링 로직 재사용
+    final cleanedBlocks = OnDeviceLLMService.filterUINoiseBlocksPublic(blocks);
+
+    if (cleanedBlocks.isEmpty) return '';
+
+    // 블록을 위치 기준으로 정렬 (위에서 아래로, 왼쪽에서 오른쪽으로)
+    cleanedBlocks.sort((a, b) {
+      // Y 위치가 비슷하면 (3% 이내) X 위치로 정렬
+      if ((a.boundingBox.top - b.boundingBox.top).abs() < 0.03) {
+        return a.boundingBox.left.compareTo(b.boundingBox.left);
+      }
+      return a.boundingBox.top.compareTo(b.boundingBox.top);
+    });
+
+    // 문단 그룹화 (줄 간격 기반)
+    final paragraphs = <String>[];
+    List<String> currentLine = [];
+    double lastBottom = 0;
+
+    for (final block in cleanedBlocks) {
+      final text = block.text.trim();
+      if (text.isEmpty) continue;
+
+      final verticalGap = block.boundingBox.top - lastBottom;
+
+      // 줄 간격이 크면 새 문단
+      if (lastBottom > 0 && verticalGap > 0.04 && currentLine.isNotEmpty) {
+        paragraphs.add(currentLine.join(' '));
+        currentLine = [];
+      }
+
+      currentLine.add(text);
+      lastBottom = block.boundingBox.bottom;
+    }
+
+    if (currentLine.isNotEmpty) {
+      paragraphs.add(currentLine.join(' '));
+    }
+
+    return paragraphs.join('\n\n');
+  }
+
   List<String> _extractTagsFromText(String text) {
     final tags = <String>[];
     final lowerText = text.toLowerCase();
@@ -606,10 +796,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final title = analysis.title;
 
       // 🎯 AI Summary: 요약 + Key Insights
+      // Summary는 간결하게 유지 (블릿 포인트 제거)
       String summary = analysis.summary;
-      if (analysis.keyInsights.isNotEmpty) {
-        summary += '\n\n핵심 내용:\n${analysis.keyInsights.map((i) => '• $i').join('\n')}';
-      }
 
       // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
       String? finalUrl = sourceUrl;
@@ -882,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                "Folio",
+                "Rememo",
                 style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 20,

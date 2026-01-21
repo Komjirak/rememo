@@ -20,7 +20,9 @@
       "WebFetch(domain:github.com)",
       "Bash(git submodule status:*)",
       "Bash(curl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

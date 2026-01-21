@@ -544,6 +544,10 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       _buildPersonalNoteSection(),
                       const SizedBox(height: 32),
 
+                      // Return to Original button
+                      _buildReturnToOriginalSection(),
+                      const SizedBox(height: 24),
+
                       // Action buttons
                       _buildActionButtons(),
                     ],
@@ -1078,6 +1082,306 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         ),
       ],
     );
+  }
+
+  /// PRD 7. 원본 복귀 UX 정책
+  /// - source_url 있음: 1탭으로 URL 열기
+  /// - URL 없음: 스크린샷 열기
+  /// - 둘 다 있음: URL 우선, 스크린샷 보조
+  /// - 둘 다 없음: OCR 키워드 기반 검색 링크
+  Widget _buildReturnToOriginalSection() {
+    final hasUrl = _card.sourceUrl != null && _card.sourceUrl!.isNotEmpty;
+    final hasImage = _card.imageUrl.isNotEmpty && !_card.imageUrl.startsWith('http');
+    final hasOcrText = _card.ocrText != null && _card.ocrText!.isNotEmpty;
+
+    // 둘 다 없는 경우: 검색 링크 제공
+    if (!hasUrl && !hasImage) {
+      if (!hasOcrText) return const SizedBox.shrink();
+
+      return _buildSearchFallbackButton();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.history, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              'RETURN TO ORIGINAL',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.textMuted,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // URL 버튼 (있는 경우 - 우선 표시)
+        if (hasUrl)
+          GestureDetector(
+            onTap: () => widget.onOpenLink?.call(_card.sourceUrl!),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.accentTeal.withOpacity(0.15),
+                    AppTheme.accentTeal.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.accentTeal.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentTeal.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.open_in_new,
+                      color: AppTheme.accentTeal,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '원본 페이지 열기',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _extractDomain(_card.sourceUrl!),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.accentTeal,
+                              ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.accentTeal,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 스크린샷이 있고 URL도 있는 경우 (보조 옵션)
+        if (hasUrl && hasImage) ...[
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _expandImage,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.03),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.dividerColor),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.image_outlined,
+                    color: AppTheme.textSecondary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '스크린샷 보기',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                  const Spacer(),
+                  const Icon(
+                    Icons.fullscreen,
+                    color: AppTheme.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+
+        // URL 없고 스크린샷만 있는 경우 (메인 옵션)
+        if (!hasUrl && hasImage)
+          GestureDetector(
+            onTap: _expandImage,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.dividerColor),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.image,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '원본 스크린샷 보기',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '탭하여 전체 화면으로 보기',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.textMuted,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.fullscreen,
+                    color: AppTheme.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// OCR 텍스트 기반 검색 링크 (URL도 이미지도 없는 경우)
+  Widget _buildSearchFallbackButton() {
+    final searchQuery = _extractSearchKeywords(_card.ocrText ?? '');
+    final searchUrl = 'https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              'FIND RELATED CONTENT',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.textMuted,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: () => widget.onOpenLink?.call(searchUrl),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.dividerColor),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.travel_explore,
+                    color: Colors.blue.shade400,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '키워드로 검색하기',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '"$searchQuery"',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.textMuted,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.open_in_new,
+                  color: Colors.blue.shade400,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// OCR 텍스트에서 검색 키워드 추출
+  String _extractSearchKeywords(String text) {
+    // 줄 단위로 나누고 의미있는 텍스트 추출
+    final lines = text.split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.length > 3 && l.length < 50)
+        .where((l) => !RegExp(r'^\d{1,2}:\d{2}$').hasMatch(l)) // 시간 제외
+        .where((l) => !RegExp(r'^\d+%$').hasMatch(l)) // 배터리 % 제외
+        .where((l) => !l.contains('http')) // URL 제외
+        .toList();
+
+    if (lines.isEmpty) return _card.title;
+
+    // 첫 번째 의미있는 줄 사용 (최대 50자)
+    final firstLine = lines.first;
+    return firstLine.length > 50 ? firstLine.substring(0, 50) : firstLine;
   }
 
   Widget _buildActionButtons() {
