@@ -203,38 +203,70 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // 이미지가 없는 경우 플레이스홀더 이미지 경로 사용
     final finalImagePath = imagePath ?? '';
 
-    // 요약 생성
-    String summary = item.summary ?? '';
-    if (item.text != null && item.text!.isNotEmpty) {
-      summary = item.text!.length > 200
-          ? '${item.text!.substring(0, 200)}...'
-          : item.text!;
+    // 🚀 Advanced Analysis using DocumentParserService logic
+    // Even for web links, we can use the parser to extract better summary & insights
+    String finalTitle = item.displayTitle;
+    String finalSummary = item.summary ?? '';
+    List<String> finalInsights = [];
+    String finalCategory = item.category ?? 'Inbox';
+    List<String> finalTags = item.tags ?? ['Shared'];
+    String finalOcrText = item.ocrText ?? item.text ?? '';
+
+    if (finalOcrText.isNotEmpty) {
+        try {
+            print("🔍 Analyzing shared content via DocumentParserService...");
+            // Reuse the screenshot analysis logic which handles text->blocks conversion and structural parsing
+            final analysis = await _analyzeScreenshotOnDevice(
+                finalOcrText,
+                suggestedCategory: finalCategory == 'Web' ? 'Web' : finalCategory
+            );
+            
+            // Merge results
+            if (analysis.summary.length > finalSummary.length) {
+                // If parser generated a more comprehensive summary (or if original was empty)
+                finalSummary = analysis.summary;
+            }
+            if (finalTitle.isEmpty || finalTitle == 'Web Link') {
+                finalTitle = analysis.title;
+            }
+            finalInsights = analysis.keyInsights;
+            
+            // Add detailed insights to tags if tags are sparse
+            if (finalTags.length < 3) {
+                 finalTags.addAll(finalInsights.take(2));
+                 finalTags = finalTags.toSet().toList(); // Dedup
+            }
+
+            print("✅ Web content analyzed: ${analysis.title}");
+        } catch (e) {
+            print("⚠️ Shared content analysis passed (using defaults): $e");
+        }
     }
-    if (summary.isEmpty && item.ocrText != null) {
-      summary = item.ocrText!.length > 200
-          ? '${item.ocrText!.substring(0, 200)}...'
-          : item.ocrText!;
-    }
-    if (summary.isEmpty) {
-      summary = item.hasUrl
-          ? '웹 링크가 저장되었습니다.'
-          : '공유된 컨텐츠가 저장되었습니다.';
+
+    // Fallback Summary Logic
+    if (finalSummary.isEmpty) {
+        if (finalOcrText.isNotEmpty) {
+           finalSummary = finalOcrText.length > 200 
+               ? '${finalOcrText.substring(0, 200)}...' 
+               : finalOcrText;
+        } else {
+           finalSummary = item.hasUrl ? '웹 링크가 저장되었습니다.' : '공유된 컨텐츠가 저장되었습니다.';
+        }
     }
 
     final newCard = MemoCard(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: item.displayTitle.length > 40
-          ? '${item.displayTitle.substring(0, 40)}...'
-          : item.displayTitle,
-      summary: summary,
-      category: item.category ?? 'Inbox',
-      tags: item.tags ?? ['Shared'],
+      title: finalTitle.length > 50 ? "${finalTitle.substring(0, 47)}..." : finalTitle,
+      summary: finalSummary,
+      category: finalCategory,
+      tags: finalTags,
       captureDate: 'Just now',
       imageUrl: finalImagePath,
-      ocrText: item.ocrText ?? item.text,
+      ocrText: finalOcrText,
       sourceUrl: item.sourceUrl,
       personalNote: item.selectedText,
       folderId: _selectedFolder?.id,
+      keyInsights: finalInsights, // Now we have insights!
     );
      
     if (saveToDb) {
