@@ -322,7 +322,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final permanentPath = await _saveToDocuments(File(imagePath));
 
       // 🎯 온디바이스 분석으로 스마트한 제목과 요약 생성 (Bounding Box 포함)
-      final analysis = await _analyzeScreenshotOnDevice(ocrText, ocrBlocks: ocrBlocks);
+      final analysis = await _analyzeScreenshotOnDevice(
+          ocrText, 
+          ocrBlocks: ocrBlocks,
+          suggestedCategory: suggestedCategory
+      );
 
       // UI 노이즈가 필터링된 OCR 텍스트 생성
       String finalOcrText = _generateCleanOcrText(ocrBlocks);
@@ -357,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: analysis.title.length > 40 ? "${analysis.title.substring(0, 40)}..." : analysis.title,
         summary: summary,
-        category: finalCategory,
+        category: analysis.title == 'Shopping Item' ? 'Shopping' : finalCategory, // Simple override check
         tags: finalTags,
         captureDate: "Just now",
         imageUrl: permanentPath,
@@ -861,6 +865,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 'Inbox';
   }
 
+  /// 가장 최근 스크린샷 불러오기 (Photos Library)
+  Future<void> _importLastScreenshot() async {
+    setState(() => _isAnalyzing = true);
+    
+    // 권한 요청
+    if (await Permission.photos.request().isGranted) {
+      try {
+        final analysis = await NativeService.getLastScreenshotAnalysis(); // returns extracted data
+        if (analysis != null) {
+          final imagePath = analysis['imagePath'];
+          final ocrText = analysis['ocrText'];
+          final date = analysis['date'];
+          final sourceUrl = analysis['sourceUrl'];
+          
+          final suggestedTags = List<String>.from(analysis['suggestedTags'] ?? ['Screenshot']);
+          final suggestedCategory = analysis['suggestedCategory'] as String? ?? 'Inbox'; // Native AI Category
+          final suggestedTitle = analysis['suggestedTitle'] as String?;
+          
+          print("✅ Imported Last Screenshot: $imagePath, Category: $suggestedCategory");
+
+          // Save to permanent storage
+          final permanentPath = await _saveToDocuments(File(imagePath));
+
+          // Create Card
+          await _createCardFromAnalysis(
+              permanentPath, 
+              ocrText, 
+              suggestedTags, 
+              suggestedCategory, // Pass native category
+              suggestedTitle: suggestedTitle,
+              sourceUrl: sourceUrl.isNotEmpty ? sourceUrl : null
+          );
+
+        } else {
+             Map<String, dynamic>? data = await NativeService.getLastScreenshotAnalysis(); 
+             // ... handle legacy error if any
+             if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text('No screenshot found or analysis failed.')),
+                 );
+             }
+        }
+      } catch (e) {
+        print('Error importing last screenshot: $e');
+      }
+    }
+    setState(() => _isAnalyzing = false);
+  }
+
+  /// AI 분석 결과를 바탕으로 카드 생성 및 저장
   Future<void> _createCardFromAnalysis(
     String imagePath,
     String ocrText,
@@ -868,75 +922,78 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String suggestedCategory, {
     String? suggestedTitle,
     String? sourceUrl,
+    List<OCRBlock>? ocrBlocks, // Optional blocks for better analysis
+    ScreenshotAnalysis? preAnalysis, // Optional pre-computed analysis
   }) async {
     try {
-      // 🎯 온디바이스 LLM으로 스마트한 제목과 요약 생성
-      // TODO: bounding box 정보를 iOS에서 받아오면 더 정확한 분석 가능
-      
-      // 현재는 규칙 기반 분석 사용 (빠르고 무료)
-      final analysis = await _analyzeScreenshotOnDevice(ocrText);
-      
-      // 최종 제목
-      final title = analysis.title;
-
-      // 🎯 AI Summary: 요약 + Key Insights
-      // Summary는 간결하게 유지 (블릿 포인트 제거)
-      String summary = analysis.summary;
-
-      // 🔗 iOS에서 추출한 URL 사용 (없으면 추가 검색)
-      String? finalUrl = sourceUrl;
-      if (finalUrl == null || finalUrl.isEmpty) {
-        final urlRegExp = RegExp(
-          r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)",
-        );
-        finalUrl = urlRegExp.firstMatch(ocrText)?.group(0);
+      // 1. Analyze Content (Structure, Summary)
+      // If we already analyzed it (e.g. in _pickImage or _handleNewScreenshot), use it.
+      ScreenshotAnalysis analysis;
+      if (preAnalysis != null) {
+          analysis = preAnalysis;
+      } else {
+          // Otherwise, analyze now.
+          // Note: If ocrBlocks is null, it falls back to line-based estimation.
+          analysis = await _analyzeScreenshotOnDevice(
+              ocrText, 
+              ocrBlocks: ocrBlocks, 
+              suggestedCategory: suggestedCategory
+          );
       }
 
-      // 🏷️ 태그: iOS 제안 + 온디바이스 추출
-      List<String> finalTags = suggestedTags.isEmpty 
-          ? _extractTagsFromText(ocrText)
-          : suggestedTags;
+      // 2. Finalize Metadata
+      // Use suggested title if analysis title is generic or empty, but prefer analysis if structured
+      String title = analysis.title;
+      if ((title == "New Memory" || title.isEmpty) && suggestedTitle != null && suggestedTitle.isNotEmpty) {
+           title = suggestedTitle;
+      }
       
-      // 📁 카테고리: iOS 제안 + 온디바이스 분류
-      String finalCategory = suggestedCategory != 'Inbox' 
-          ? suggestedCategory 
-          : _detectCategory(ocrText);
+      // Force Shopping category if determined by parser
+      String category = suggestedCategory;
+      if (analysis.title == "Shopping Item" || (analysis.keyInsights.any((k) => k.contains("가격")))) {
+           category = "Shopping";
+      }
 
+      // 3. Create Card Object
       final newCard = MemoCard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: title.length > 40 ? "${title.substring(0, 40)}..." : title,
-        summary: summary,
-        category: finalCategory,
-        tags: finalTags,
+        title: title.length > 50 ? "${title.substring(0, 47)}..." : title,
+        summary: analysis.summary,
+        category: category,
+        tags: suggestedTags, // Can merge with analysis.keyInsights if desired
         captureDate: "Just now",
         imageUrl: imagePath,
-        ocrText: ocrText, // 🔹 스크린샷의 전체 원본 텍스트
-        sourceUrl: finalUrl,
-        personalNote: null,
+        ocrText: ocrText,
+        sourceUrl: sourceUrl,
+        keyInsights: analysis.keyInsights
       );
 
+      // 4. Save to DB
       await DatabaseHelper.instance.create(newCard);
-      await _refreshCards();
-      
-      setState(() => _isAnalyzing = false);
-      
+
+      // 5. Refresh UI
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Memory card created successfully!"),
-            backgroundColor: AppTheme.accentTeal,
-            duration: Duration(seconds: 2),
-          ),
-        );
+          setState(() {
+            _cards.insert(0, newCard);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(
+               content: Text('Memo created from screenshot!'),
+               backgroundColor: AppTheme.accentTeal,
+               duration: Duration(seconds: 2),
+             ),
+          );
       }
+      
     } catch (e) {
-      print('❌ Error in _createCardFromAnalysis: $e');
-      setState(() => _isAnalyzing = false);
+      print("Error creating card: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error creating card: ${e.toString()}")),
         );
       }
+    } finally {
+      setState(() => _isAnalyzing = false);
     }
   }
   
@@ -944,6 +1001,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<ScreenshotAnalysis> _analyzeScreenshotOnDevice(
     String ocrText, {
     List<OCRBlock>? ocrBlocks,
+    String? suggestedCategory,
   }) async {
     if (ocrText.trim().isEmpty) {
       return ScreenshotAnalysis(
@@ -997,8 +1055,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     // 🚀 DocumentParserService 사용 (LLM 없이 구조 및 도메인 분석)
     try {
-      print('🔍 DocumentParserService 시작...');
-      final analysis = DocumentParserService.parseDocument(blocks);
+      print('🔍 DocumentParserService 시작... Native Category: $suggestedCategory');
+      final analysis = DocumentParserService.parseDocument(
+          blocks, 
+          externalCategory: suggestedCategory
+      );
       print('✅ 구조 분석 완료: Domain detected, Title="${analysis.title}"');
       return analysis;
     } catch (e) {

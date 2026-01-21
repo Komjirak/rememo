@@ -474,49 +474,107 @@ import WebKit
         return nil
     }
     
-    // 📊 On-Device NLP Analysis (개선)
+    // 📊 On-Device NLP Analysis (Apple NLTagger + Weighted Scoring)
     private func analyzeText(text: String) -> (tags: [String], category: String, title: String, url: String?) {
-        var tags: [String] = []
-        let tagger = NLTagger(tagSchemes: [.lexicalClass, .tokenType])
-        tagger.string = text
+        // 1. NLP로 명사/동사 추출 및 정규화 (Lemmatization)
+        let (lemmas, nouns) = extractLemmasAndNouns(from: text)
         
-        let options: NLTagger.Options = [.omitPunctuation, .omitWhitespace]
+        // 2. 가중치 기반 카테고리 분류 (Native AI Logic)
+        let category = classifyCategory(lemmas: lemmas)
         
-        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass, options: options) { tag, tokenRange in
-            let word = String(text[tokenRange])
-            if word.count > 1 {
-                 if tag == .noun || tag == .personalName || tag == .placeName || tag == .organizationName {
-                     tags.append(word)
-                 }
-            }
-            return true
-        }
+        // 3. 태그 생성 (상위 빈도 명사)
+        let uniqueTags = Array(Set(nouns)).prefix(5).map { String($0) }
         
-        // Remove duplicates and limit
-        let uniqueTags = Array(Set(tags)).prefix(5).map { String($0) }
-        
-        
-        // Categorization Heuristics (Korean + English)
-        let lowerText = text.lowercased()
-        var category = "Inbox"
-        
-        if lowerText.contains("원") || lowerText.contains("결제") || lowerText.contains("주문") || lowerText.contains("price") || lowerText.contains("payment") {
-             category = "Shopping"
-        } else if lowerText.contains("레시피") || lowerText.contains("요리") || lowerText.contains("재료") || lowerText.contains("cook") || lowerText.contains("food") {
-             category = "Food"
-        } else if lowerText.contains("http") || lowerText.contains(".com") || lowerText.contains("www") {
-             category = "Web"
-        } else if lowerText.contains("회의") || lowerText.contains("일정") || lowerText.contains("미팅") || lowerText.contains("meeting") {
-             category = "Work"
-        } else if lowerText.contains("design") || lowerText.contains("디자인") || lowerText.contains("ui") || lowerText.contains("ux") {
-             category = "Design"
-        }
-
-        // 🎯 제목 및 URL 생성
+        // 4. 제목 및 URL 생성
         let title = generateSmartTitle(from: text)
         let url = extractURL(from: text)
-
+        
         return (uniqueTags, category, title, url)
+    }
+
+    /// NLTagger를 사용하여 표제어(Lemma)와 명사 추출
+    private func extractLemmasAndNouns(from text: String) -> ([String], [String]) {
+        var lemmas: [String] = []
+        var nouns: [String] = []
+        
+        let tagger = NLTagger(tagSchemes: [.lexicalClass, .lemma])
+        tagger.string = text
+        
+        let options: NLTagger.Options = [.omitPunctuation, .omitWhitespace, .joinNames]
+        
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass, options: options) { tag, tokenRange in
+            let word = String(text[tokenRange]).lowercased()
+            
+            // 표제어 추출 (예: 'running' -> 'run', 'dogs' -> 'dog')
+            // 한국어는 형태소 분석 결과가 됨
+            if let lemmaTag = tagger.tag(at: tokenRange.lowerBound, unit: .word, scheme: .lemma)?.rawValue {
+                 lemmas.append(lemmaTag.lowercased())
+            } else {
+                 lemmas.append(word)
+            }
+            
+            if tag == .noun || tag == .personalName || tag == .placeName || tag == .organizationName {
+                if word.count > 1 { nouns.append(word) }
+            }
+            
+            return true
+        }
+        return (lemmas, nouns)
+    }
+
+    /// 키워드 가중치 기반 카테고리 분류
+    private func classifyCategory(lemmas: [String]) -> String {
+        // 카테고리별 키워드 사전 (가중치 포함)
+        // 한국어 처리를 위해 NLTagger가 분석한 기본형(Lemma) 기준 키워드 사용
+        let categories: [String: [String: Double]] = [
+            "Shopping": [
+                "가격": 3.0, "원": 1.0, "주문": 3.0, "결제": 3.0, "배송": 2.0, "장바구니": 3.0, "구매": 3.0, "할인": 2.0, "쿠폰": 2.0, "품절": 3.0,
+                "price": 3.0, "won": 1.0, "order": 3.0, "pay": 2.0, "cart": 3.0, "buy": 3.0, "shipping": 2.0, "sale": 2.0, "sold": 2.0
+            ],
+            "Food": [
+                "요리": 3.0, "레시피": 4.0, "맛": 2.0, "식당": 2.0, "메뉴": 2.0, "재료": 2.0, "먹다": 2.0, "맛집": 3.0,
+                "recipe": 4.0, "cook": 3.0, "food": 2.0, "menu": 2.0, "ingredient": 2.0, "delicious": 2.0, "restaurant": 3.0
+            ],
+            "Work": [
+                "회의": 3.0, "일정": 2.0, "업무": 2.0, "프로젝트": 3.0, "마감": 3.0, "승인": 2.0, "요청": 1.0, "팀": 1.0, "슬랙": 4.0, "지라": 4.0,
+                "meeting": 3.0, "schedule": 2.0, "project": 3.0, "deadline": 3.0, "approve": 2.0, "team": 1.0, "task": 2.0, "jira": 4.0, "slack": 4.0
+            ],
+            "Social": [
+                "좋아요": 3.0, "댓글": 3.0, "공유": 1.0, "팔로우": 3.0, "구독": 2.0, "피드": 2.0, "스토리": 2.0, "인스타": 4.0,
+                "like": 3.0, "comment": 3.0, "share": 1.0, "follow": 3.0, "subscribe": 2.0, "feed": 2.0, "story": 2.0, "post": 1.0
+            ],
+            "Finance": [
+                "송금": 4.0, "입금": 3.0, "출금": 3.0, "계좌": 3.0, "잔액": 3.0, "카드": 2.0, "은행": 2.0, "이체": 3.0,
+                "transfer": 4.0, "deposit": 3.0, "account": 3.0, "balance": 3.0, "bank": 2.0, "credit": 1.0
+            ],
+            "Map": [
+                "도착": 2.0, "출발": 2.0, "경로": 3.0, "지도": 4.0, "네비": 3.0, "거리": 1.0, "위치": 2.0, "주소": 2.0,
+                "map": 4.0, "route": 3.0, "navigation": 3.0, "arrive": 2.0, "location": 2.0, "km": 1.0
+            ]
+        ]
+        
+        var scores: [String: Double] = [:]
+        
+        for lemma in lemmas {
+            for (category, keywords) in categories {
+                if let weight = keywords[lemma] {
+                    scores[category, default: 0.0] += weight
+                }
+            }
+        }
+        
+        // 특정 임계값 이상인 경우에만 카테고리 반환
+        let sorted = scores.sorted { $0.value > $1.value }
+        if let top = sorted.first, top.value >= 3.0 {
+            return top.key
+        }
+        
+        // URL이 있으면 Web, 없으면 Inbox
+        if lemmas.contains("http") || lemmas.contains("https") || lemmas.contains("www") {
+            return "Web"
+        }
+        
+        return "Inbox"
     }
 
 }

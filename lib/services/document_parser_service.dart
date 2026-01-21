@@ -16,7 +16,7 @@ class DocumentParserService {
   
   /// Main Entry Point: Parse OCR blocks into a structured analysis
   /// purely using layout heuristics and rule-based extraction.
-  static ScreenshotAnalysis parseDocument(List<OCRBlock> rawBlocks) {
+  static ScreenshotAnalysis parseDocument(List<OCRBlock> rawBlocks, {String? externalCategory}) {
     // 1. Basic Cleaning & Sort
     // Use the existing noise filter but add sorting
     final noiseFreeBlocks = OnDeviceLLMService.filterUINoiseBlocksPublic(rawBlocks);
@@ -34,11 +34,36 @@ class DocumentParserService {
     final visualLines = _clusterVisualLines(noiseFreeBlocks);
     
     // 3. Domain Classification
-    final domain = _identifyDomain(visualLines);
-    print('📊 Detected Domain: $domain');
+    // Prefer external category (from Native AI) if available
+    DocumentDomain domain = DocumentDomain.generic;
+    if (externalCategory != null) {
+        domain = _mapCategoryToDomain(externalCategory);
+        if (domain == DocumentDomain.generic) {
+             // Fallback to internal heuristic if native mapped to generic
+             domain = _identifyDomain(visualLines);
+        } else {
+             print('📊 Using Native Category: $externalCategory -> $domain');
+        }
+    } else {
+        domain = _identifyDomain(visualLines);
+        print('📊 Detected Domain (Rule-based): $domain');
+    }
 
     // 4. Domain-Specific Extraction
     return _extractContentByDomain(domain, visualLines, noiseFreeBlocks);
+  }
+  
+  static DocumentDomain _mapCategoryToDomain(String category) {
+      switch (category) {
+          case 'Shopping': return DocumentDomain.shopping;
+          case 'Food': return DocumentDomain.generic; // Or handle food specific
+          case 'Work': return DocumentDomain.workTool;
+          case 'Social': return DocumentDomain.sns;
+          case 'Finance': return DocumentDomain.finance;
+          case 'Map': return DocumentDomain.mapReservation;
+          case 'Design': return DocumentDomain.generic;
+          default: return DocumentDomain.generic;
+      }
   }
 
   // ===========================================================================
