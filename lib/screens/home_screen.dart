@@ -11,6 +11,7 @@ import 'package:stribe/services/database_helper.dart';
 import 'package:stribe/services/native_service.dart';
 import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/share_service.dart';
+import 'package:stribe/services/document_parser_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
