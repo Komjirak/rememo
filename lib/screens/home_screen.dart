@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     // 이미지가 없는 경우 플레이스홀더 이미지 경로 사용
-    final finalImagePath = imagePath ?? '';
+    final finalImagePath = imagePath ?? item.imageUrl ?? '';
 
     // 🚀 Advanced Analysis using DocumentParserService logic
     // Even for web links, we can use the parser to extract better summary & insights
@@ -1554,6 +1554,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => DetailViewScreen(
           card: card,
+          folders: _folders,
           onDelete: () async {
             await _deleteCard(card);
           },

@@ -5,6 +5,7 @@ import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
 
 enum FilterOption { all, recent, favorites, folder }
+enum MediaType { all, link, screenshot, photo }
 
 class LibraryListView extends StatefulWidget {
   final List<MemoCard> cards;
@@ -30,27 +31,49 @@ class LibraryListView extends StatefulWidget {
 
 class _LibraryListViewState extends State<LibraryListView> {
   FilterOption _currentFilter = FilterOption.all;
+  MediaType _mediaType = MediaType.all;
   String? _selectedFolderId;
 
   List<MemoCard> get _filteredCards {
-    List<MemoCard> result;
+    List<MemoCard> result = widget.cards;
 
+    // 1. Basic Filters
     switch (_currentFilter) {
       case FilterOption.all:
-        result = widget.cards;
         break;
       case FilterOption.recent:
-        result = widget.cards.take(5).toList();
+        result = result.take(5).toList();
         break;
       case FilterOption.favorites:
-        result = widget.cards.where((c) => c.isFavorite).toList();
+        result = result.where((c) => c.isFavorite).toList();
         break;
       case FilterOption.folder:
         if (_selectedFolderId != null) {
-          result = widget.cards.where((c) => c.folderId == _selectedFolderId).toList();
-        } else {
-          result = widget.cards;
+          result = result.where((c) => c.folderId == _selectedFolderId).toList();
         }
+        break;
+    }
+
+    // 2. Media Type Filter
+    switch (_mediaType) {
+      case MediaType.all:
+        break;
+      case MediaType.link:
+        result = result.where((c) => c.sourceUrl != null && c.sourceUrl!.isNotEmpty).toList();
+        break;
+      case MediaType.screenshot:
+        // Filter by 'Screenshot' tag or 'Imported' tag as proxy
+        result = result.where((c) => 
+            (c.sourceUrl == null || c.sourceUrl!.isEmpty) && 
+            (c.tags.contains('Screenshot') || c.tags.contains('Imported'))
+        ).toList();
+        break;
+      case MediaType.photo:
+         // Everything else (Directly taken or just images without link/screenshot tag)
+         result = result.where((c) => 
+            (c.sourceUrl == null || c.sourceUrl!.isEmpty) && 
+            (!c.tags.contains('Screenshot') && !c.tags.contains('Imported'))
+         ).toList();
         break;
     }
 
@@ -82,28 +105,41 @@ class _LibraryListViewState extends State<LibraryListView> {
   Widget _buildFilterChips() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 기본 필터 칩들
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildChip("All Memories", FilterOption.all),
-                  const SizedBox(width: 8),
-                  _buildChip("Recent", FilterOption.recent),
-                  const SizedBox(width: 8),
-                  _buildChip("Favorites", FilterOption.favorites),
-                ],
+          // Row 1: Main View Options
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildChip("All", FilterOption.all),
+                      const SizedBox(width: 8),
+                      // _buildChip("Recent", FilterOption.recent), // Removed as requested default sort is recent
+                      // const SizedBox(width: 8),
+                      _buildChip("Favorites", FilterOption.favorites),
+                      const SizedBox(width: 12),
+                      Container(width: 1, height: 20, color: Colors.white.withAlpha(26)),
+                      const SizedBox(width: 12),
+                      _buildMediaTypeChip("Link", MediaType.link),
+                      const SizedBox(width: 8),
+                      _buildMediaTypeChip("Screenshot", MediaType.screenshot),
+                      const SizedBox(width: 8),
+                      _buildMediaTypeChip("Photo", MediaType.photo),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              // 폴더 드롭다운
+              if (widget.folders.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                _buildFolderDropdown(),
+              ],
+            ],
           ),
-          // 폴더 드롭다운
-          if (widget.folders.isNotEmpty) ...[
-            const SizedBox(width: 12),
-            _buildFolderDropdown(),
-          ],
         ],
       ),
     );
@@ -261,7 +297,11 @@ class _LibraryListViewState extends State<LibraryListView> {
   Widget _buildChip(String label, FilterOption option) {
     final isSelected = _currentFilter == option;
     return GestureDetector(
-      onTap: () => setState(() => _currentFilter = option),
+      onTap: () => setState(() {
+        _currentFilter = option;
+        // Reset Media Filter if switching to Favorites (optional, but keeps it simple)
+        // _mediaType = MediaType.all; 
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -281,6 +321,35 @@ class _LibraryListViewState extends State<LibraryListView> {
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: isSelected ? Colors.white : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaTypeChip(String label, MediaType type) {
+    final isSelected = _mediaType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _mediaType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.accentTeal.withAlpha(26)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.accentTeal.withOpacity(0.5)
+                : Colors.white.withAlpha(13),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -618,34 +687,34 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Widget _buildThumbnail(String url, {String? sourceUrl, bool isProcessing = false}) {
-    // 이미지 URL이 비어있는 경우
-    if (url.isEmpty) {
-      return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
-    }
-
-    if (url.startsWith('http')) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        opacity: const AlwaysStoppedAnimation(0.8),
-        errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
-      );
-    } else {
-      final file = File(url);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          opacity: const AlwaysStoppedAnimation(0.8),
-          errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
+    // If we have a URL, try to load it (whether local or network)
+    if (url.isNotEmpty) {
+        if (url.startsWith('http')) {
+        return Image.network(
+            url,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            opacity: const AlwaysStoppedAnimation(0.8),
+            errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
         );
-      }
-      return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
+        } else {
+        final file = File(url);
+        if (file.existsSync()) {
+            return Image.file(
+            file,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            opacity: const AlwaysStoppedAnimation(0.8),
+            errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
+            );
+        }
+        }
     }
+    
+    // If no URL or file loading failed, show placeholder based on type
+    return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
   }
 
   Widget _buildPlaceholder({bool hasUrl = false}) {
