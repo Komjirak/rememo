@@ -106,7 +106,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: Theme.of(context).cardColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -129,7 +129,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       Text(
                         '폴더로 이동',
                         style: TextStyle(
-                          color: AppTheme.textPrimary,
+                          color: Theme.of(context).textTheme.titleLarge?.color,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
@@ -170,12 +170,12 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                           ListTile(
                             leading: Icon(
                               Icons.folder_off_outlined,
-                              color: AppTheme.textSecondary,
+                              color: Theme.of(context).iconTheme.color,
                             ),
                             title: Text(
                               '폴더 없음',
                               style: TextStyle(
-                                color: AppTheme.textPrimary,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -188,7 +188,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: const Text('폴더에서 제거됨'),
-                                    backgroundColor: AppTheme.cardDark,
+                                    backgroundColor: Theme.of(context).cardColor,
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -196,7 +196,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                             },
                           ),
 
-                          const Divider(color: AppTheme.dividerColor),
+                          Divider(color: Theme.of(context).dividerColor),
 
                           // Folders list
                           ...folders.map((folder) => ListTile(
@@ -207,14 +207,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         title: Text(
                               folder.name,
                               style: TextStyle(
-                                color: AppTheme.textPrimary,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             subtitle: Text(
                               '${folder.itemCount}개 항목',
                               style: TextStyle(
-                                color: AppTheme.textMuted,
+                                color: Theme.of(context).disabledColor,
                 fontSize: 12,
               ),
                             ),
@@ -230,7 +230,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('${folder.name}로 이동됨'),
-                                    backgroundColor: AppTheme.cardDark,
+                                    backgroundColor: Theme.of(context).cardColor,
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -271,15 +271,15 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: AppTheme.cardDark,
+              backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Colors.white.withAlpha(20)),
+                side: BorderSide(color: Theme.of(context).dividerColor),
               ),
-              title: const Text(
+              title: Text(
                 '새 폴더 만들기',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).textTheme.titleLarge?.color,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -291,12 +291,12 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   TextField(
                     controller: nameController,
                     autofocus: true,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                     decoration: InputDecoration(
                       hintText: '폴더 이름',
-                      hintStyle: TextStyle(color: AppTheme.textMuted),
+                      hintStyle: TextStyle(color: Theme.of(context).hintColor),
                       filled: true,
-                      fillColor: Colors.white.withAlpha(13),
+                      fillColor: Theme.of(context).dividerColor.withAlpha(50),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -311,7 +311,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   Text(
                     '폴더 색상',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -335,11 +335,11 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                             color: _hexToColor(color),
                             shape: BoxShape.circle,
                             border: isSelected
-                                ? Border.all(color: Colors.white, width: 3)
+                                ? Border.all(color: Theme.of(context).indicatorColor, width: 3)
                                 : null,
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              ? Icon(Icons.check, color: Colors.white, size: 20)
                               : null,
                         ),
                       );
@@ -353,7 +353,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   child: Text(
                     '취소',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -398,7 +398,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Delete Memory',
@@ -444,7 +444,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   void _showMoreOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -463,16 +463,16 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             ),
             const SizedBox(height: 24),
             ListTile(
-              leading: const Icon(Icons.folder_outlined, color: AppTheme.textSecondary),
-              title: const Text('Move to Folder', style: TextStyle(color: AppTheme.textPrimary)),
+              leading: Icon(Icons.folder_outlined, color: Theme.of(context).iconTheme.color),
+              title: Text('Move to Folder', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
               onTap: () {
                 Navigator.pop(ctx);
                 _showFolderPicker();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share_outlined, color: AppTheme.textSecondary),
-              title: const Text('Share', style: TextStyle(color: AppTheme.textPrimary)),
+              leading: Icon(Icons.share_outlined, color: Theme.of(context).iconTheme.color),
+              title: Text('Share', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
               onTap: () {
                 Navigator.pop(ctx);
                 _shareCard();
@@ -497,7 +497,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
@@ -590,16 +590,16 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             right: 16,
           ),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundDark.withOpacity(0.8),
+            color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
             border: const Border(
-              bottom: BorderSide(color: AppTheme.dividerColor, width: 1),
+              bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left, size: 28, color: AppTheme.textSecondary),
+                icon: Icon(Icons.chevron_left, size: 28, color: Theme.of(context).iconTheme.color),
                 onPressed: () => Navigator.pop(context),
               ),
               Row(
@@ -617,7 +617,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   Text(
                     'MEMORY INSIGHT',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppTheme.textPrimary,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                           letterSpacing: 2,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -626,7 +626,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.more_horiz, size: 24, color: AppTheme.textSecondary),
+                icon: Icon(Icons.more_horiz, size: 24, color: Theme.of(context).iconTheme.color),
                 onPressed: _showMoreOptions,
               ),
             ],
@@ -665,7 +665,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(13),
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textMuted),
@@ -681,18 +681,18 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   Widget _buildMetadataSection() {
     return Row(
       children: [
-        Icon(Icons.schedule, size: 14, color: AppTheme.textMuted),
+        Icon(Icons.schedule, size: 14, color: Theme.of(context).disabledColor),
         const SizedBox(width: 6),
         Text(
           _card.captureDate,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textMuted,
+                color: Theme.of(context).disabledColor,
                 fontSize: 13,
               ),
         ),
         if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) ...[
           const SizedBox(width: 16),
-          Container(width: 1, height: 12, color: AppTheme.dividerColor),
+          Container(width: 1, height: 12, color: Theme.of(context).dividerColor),
           const SizedBox(width: 16),
           Icon(Icons.link, size: 14, color: AppTheme.accentTeal),
           const SizedBox(width: 6),
@@ -727,12 +727,12 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.label_outline, size: 18, color: AppTheme.textSecondary),
+                Icon(Icons.label_outline, size: 18, color: Theme.of(context).iconTheme.color),
                 const SizedBox(width: 8),
                 Text(
                   'TAGS',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.textMuted,
+                        color: Theme.of(context).disabledColor,
                         letterSpacing: 2,
                         fontWeight: FontWeight.w700,
                       ),
@@ -767,7 +767,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             if (_card.tags.isEmpty)
               Text(
                 'No tags yet',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13, fontStyle: FontStyle.italic),
+                style: TextStyle(color: Theme.of(context).disabledColor, fontSize: 13, fontStyle: FontStyle.italic),
               ),
           ],
         ),
@@ -832,7 +832,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   Text(
                     hasUrl ? 'Open Original Link' : 'View Original Image',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppTheme.textPrimary,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -880,7 +880,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 Text(
                   'AI SUMMARY',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.textMuted,
+                        color: Theme.of(context).disabledColor,
                         letterSpacing: 2,
                         fontWeight: FontWeight.w700,
                       ),
@@ -897,7 +897,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.copy, size: 16, color: AppTheme.textSecondary),
+                child: Icon(Icons.copy, size: 16, color: Theme.of(context).iconTheme.color),
               ),
             ),
           ],
@@ -995,7 +995,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 Text(
                   'ORIGINAL MESSAGE',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.textMuted,
+                        color: Theme.of(context).disabledColor,
                         letterSpacing: 2,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1012,7 +1012,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.copy, size: 16, color: AppTheme.textSecondary),
+                child: Icon(Icons.copy, size: 16, color: Theme.of(context).iconTheme.color),
               ),
             ),
           ],

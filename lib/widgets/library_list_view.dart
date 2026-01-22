@@ -140,9 +140,9 @@ class _LibraryListViewState extends State<LibraryListView> {
       offset: const Offset(0, 40),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withAlpha(20)),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
-      color: AppTheme.cardDark,
+      color: Theme.of(context).cardColor,
       itemBuilder: (context) => [
          _buildTypePopupItem('All Types', MediaType.all),
          const PopupMenuDivider(),
@@ -235,9 +235,9 @@ class _LibraryListViewState extends State<LibraryListView> {
       offset: const Offset(0, 40),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withAlpha(20)),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
-      color: AppTheme.cardDark,
+      color: Theme.of(context).cardColor,
       itemBuilder: (context) => [
         // 전체 보기 옵션
         PopupMenuItem<String?>(
@@ -314,15 +314,15 @@ class _LibraryListViewState extends State<LibraryListView> {
           color: isSelected
               ? (selectedFolder != null
                   ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withAlpha(51)
-                  : Colors.white.withAlpha(26))
-              : Colors.white.withAlpha(13),
+                  : Theme.of(context).colorScheme.onSurface.withAlpha(26))
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? (selectedFolder != null
                     ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withAlpha(128)
-                    : Colors.white.withAlpha(26))
-                : Colors.white.withAlpha(13),
+                    : Theme.of(context).dividerColor)
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: Row(
@@ -372,21 +372,28 @@ class _LibraryListViewState extends State<LibraryListView> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.white.withAlpha(26) // 10%
-              : Colors.white.withAlpha(13), // 5%
+              ? Theme.of(context).colorScheme.onSurface // Text Charcoal
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white.withAlpha(26)
-                : Colors.white.withAlpha(13),
+          border: isSelected ? null : Border.all(
+             color: Theme.of(context).dividerColor,
           ),
+          boxShadow: isSelected ? null : [
+             BoxShadow(
+               color: Colors.black.withOpacity(0.04),
+               blurRadius: 4,
+               offset: const Offset(0, 2),
+             ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected 
+              ? Theme.of(context).colorScheme.onPrimary // White
+              : Theme.of(context).textTheme.bodyMedium?.color, // Gray 500
           ),
         ),
       ),
@@ -641,11 +648,14 @@ class _LibraryListViewState extends State<LibraryListView> {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.cardDark,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withAlpha(20), // ~8%
+              color: Theme.of(context).dividerColor,
             ),
+            boxShadow: [
+               AppTheme.shadowSoft,
+            ],
           ),
           child: Row(
             children: [
@@ -654,10 +664,10 @@ class _LibraryListViewState extends State<LibraryListView> {
                 width: 80,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F2937), // gray-800
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withAlpha(13),
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -691,7 +701,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     height: 1.2,
                                   ),
                                 ),
@@ -715,7 +725,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w300,
-                            color: AppTheme.textSecondary,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
                             height: 1.5,
                           ),
                         ),

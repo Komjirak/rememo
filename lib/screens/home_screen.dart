@@ -12,6 +12,7 @@ import 'package:stribe/services/native_service.dart';
 import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/share_service.dart';
 import 'package:stribe/services/document_parser_service.dart';
+import 'package:stribe/screens/settings_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
@@ -127,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         // MemoCard 생성 (Real Card)
         final newCard = await _createCardFromSharedItem(processedItem, saveToDb: true);
 
-        // 4. Update UI: Replace temp card with real card
+              // 4. Update UI: Replace temp card with real card
         if (mounted && newCard != null) {
           setState(() {
             final index = _cards.indexWhere((c) => c.id == tempCardId);
@@ -503,12 +504,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
-          color: AppTheme.cardDark,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(
-            top: BorderSide(color: AppTheme.borderColor),
-            left: BorderSide(color: AppTheme.borderColor),
-            right: BorderSide(color: AppTheme.borderColor),
+            top: BorderSide(color: Theme.of(context).dividerColor),
+            left: BorderSide(color: Theme.of(context).dividerColor),
+            right: BorderSide(color: Theme.of(context).dividerColor),
           ),
         ),
         child: Column(
@@ -518,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.textDisabled,
+                color: Theme.of(context).disabledColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -565,9 +566,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundDark,
+            color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderColor),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [
@@ -588,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                        color: Theme.of(context).textTheme.titleLarge?.color,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -597,7 +598,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: AppTheme.textMuted,
+                        color: Theme.of(context).disabledColor,
                         fontSize: 13,
                       ),
                     ),
@@ -1151,7 +1152,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           Column(
@@ -1186,9 +1187,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         right: 24,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundDark.withAlpha(204),
-        border: const Border(
-          bottom: BorderSide(color: AppTheme.dividerColor),
+        color: Theme.of(context).appBarTheme.backgroundColor,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
       child: Row(
@@ -1197,48 +1198,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Logo
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.psychology,
-                color: AppTheme.accentTeal,
+                color: Theme.of(context).primaryColor,
                 size: 28,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 "Rememo",
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
-                ),
+                style: Theme.of(context).appBarTheme.titleTextStyle,
               ),
             ],
           ),
 
-          // Right actions
+          // Right actions: Search | Settings
           Row(
             children: [
-              // Folder button
-              GestureDetector(
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FolderManagementView(
-                        onFolderSelected: _selectFolder,
-                      ),
-                    ),
-                  );
-                  _loadFolders();
-                },
-                child: Icon(
-                  Icons.folder_outlined,
-                  color: _selectedFolder != null ? AppTheme.accentTeal : AppTheme.textSecondary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-
               // Search button
               GestureDetector(
                 onTap: () => setState(() {
@@ -1250,7 +1225,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 }),
                 child: Icon(
                   _showSearch ? Icons.close : Icons.search,
-                  color: _showSearch ? AppTheme.accentTeal : AppTheme.textSecondary,
+                  color: _showSearch ? Theme.of(context).primaryColor : Theme.of(context).iconTheme.color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                width: 1,
+                height: 16,
+                color: Theme.of(context).dividerColor,
+              ),
+              const SizedBox(width: 16),
+              // Settings button
+              GestureDetector(
+                onTap: () {
+                   Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                   ).then((_) => _loadFolders()); // Reload in case folders changed
+                },
+                child: Icon(
+                  Icons.settings_outlined,
+                  color: Theme.of(context).iconTheme.color,
                   size: 24,
                 ),
               ),
@@ -1264,29 +1260,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-      color: AppTheme.backgroundDark,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: TextField(
         controller: _searchController,
         autofocus: true,
         onChanged: (value) => setState(() => _searchQuery = value),
-        style: const TextStyle(color: AppTheme.textPrimary),
+        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
         decoration: InputDecoration(
           hintText: "Search memories...",
-          hintStyle: const TextStyle(color: AppTheme.textMuted),
-          prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted),
+          hintStyle: TextStyle(color: Theme.of(context).hintColor),
+          prefixIcon: Icon(Icons.search, color: Theme.of(context).hintColor),
           filled: true,
-          fillColor: AppTheme.cardDark,
+          fillColor: Theme.of(context).cardColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.borderColor),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.borderColor),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppTheme.accentTeal),
+            borderSide: BorderSide(color: Theme.of(context).primaryColor),
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -1306,7 +1302,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-      color: AppTheme.backgroundDark,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -1388,7 +1384,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: Icon(
                 Icons.search_off_outlined,
                 size: 48,
-                color: AppTheme.textMuted,
+                color: Theme.of(context).disabledColor,
               ),
             ),
             const SizedBox(height: 24),
@@ -1397,7 +1393,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                color: Theme.of(context).textTheme.titleLarge?.color,
               ),
             ),
             const SizedBox(height: 12),
@@ -1406,7 +1402,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textSecondary,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 height: 1.5,
               ),
             ),
@@ -1421,11 +1417,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               icon: const Icon(Icons.clear, size: 18),
               label: const Text('검색어 지우기'),
               style: TextButton.styleFrom(
-                foregroundColor: AppTheme.accentTeal,
+                foregroundColor: Theme.of(context).primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: AppTheme.accentTeal.withAlpha(77)),
+                  side: BorderSide(color: Theme.of(context).primaryColor.withAlpha(77)),
                 ),
               ),
             ),
@@ -1437,7 +1433,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildLoadingOverlay() {
     return Container(
-      color: AppTheme.backgroundDark.withAlpha(230),
+      color: Theme.of(context).scaffoldBackgroundColor.withAlpha(230),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1446,13 +1442,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.cardDark,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: const Center(
                 child: CircularProgressIndicator(
-                  color: AppTheme.accentTeal,
+                  color: Theme.of(context).primaryColor,
                   strokeWidth: 2,
                 ),
               ),
@@ -1461,7 +1457,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const Text(
               "Analyzing...",
               style: TextStyle(
-                color: AppTheme.textPrimary,
+                color: Theme.of(context).textTheme.titleLarge?.color,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -1479,19 +1475,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: AppTheme.accentTeal,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.accentTeal.withAlpha(51),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
+          color: Theme.of(context).primaryColor,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [
+             AppTheme.shadowFab,
           ],
         ),
         child: const Icon(
           Icons.add,
-          color: AppTheme.backgroundDark,
+          color: Colors.white,
           size: 28,
         ),
       ),
@@ -1522,7 +1514,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('제목이 수정되었습니다'),
-          backgroundColor: AppTheme.cardDark,
+          backgroundColor: Theme.of(context).cardColor,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

@@ -78,17 +78,17 @@ class _FolderManagementViewState extends State<FolderManagementView> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: Colors.white.withAlpha(20),
+            color: Theme.of(context).dividerColor,
           ),
         ),
         title: const Text(
           '폴더 삭제',
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -96,7 +96,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
         content: Text(
           '${folder.name} 폴더를 삭제하시겠습니까?\n폴더 안의 메모는 유지되며, 폴더가 지정되지 않은 상태로 변경됩니다.',
           style: TextStyle(
-            color: AppTheme.textSecondary,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
             fontSize: 14,
           ),
         ),
@@ -106,7 +106,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
             child: Text(
               '취소',
               style: TextStyle(
-                color: AppTheme.textSecondary,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -138,7 +138,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${folder.name} 삭제됨'),
-            backgroundColor: AppTheme.cardDark,
+            backgroundColor: Theme.of(context).cardColor,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -149,25 +149,24 @@ class _FolderManagementViewState extends State<FolderManagementView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundDark,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: Icon(Icons.close, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           '폴더 관리',
-          style: TextStyle(
-            color: Colors.white,
+          style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
+            icon: Icon(Icons.add, color: Theme.of(context).iconTheme.color),
             onPressed: _createFolder,
           ),
         ],
@@ -175,7 +174,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                color: AppTheme.accentTeal,
+                color: Theme.of(context).primaryColor,
               ),
             )
           : _folders.isEmpty
@@ -192,13 +191,13 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           Icon(
             Icons.folder_outlined,
             size: 64,
-            color: AppTheme.textMuted,
+            color: Theme.of(context).disabledColor,
           ),
           const SizedBox(height: 16),
           Text(
             '폴더가 없습니다',
             style: TextStyle(
-              color: AppTheme.textSecondary,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -207,7 +206,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           Text(
             '+ 버튼을 눌러 새 폴더를 만드세요',
             style: TextStyle(
-              color: AppTheme.textMuted,
+              color: Theme.of(context).disabledColor,
               fontSize: 14,
             ),
           ),
@@ -231,10 +230,10 @@ class _FolderManagementViewState extends State<FolderManagementView> {
   Widget _buildFolderCard(Folder folder) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withAlpha(20),
+          color: Theme.of(context).dividerColor,
         ),
       ),
       child: ListTile(
@@ -254,8 +253,8 @@ class _FolderManagementViewState extends State<FolderManagementView> {
         ),
         title: Text(
           folder.name,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -263,7 +262,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
         subtitle: Text(
           '${folder.itemCount}개 항목',
           style: TextStyle(
-            color: AppTheme.textMuted,
+            color: Theme.of(context).disabledColor,
             fontSize: 13,
           ),
         ),
@@ -273,7 +272,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
             IconButton(
               icon: Icon(
                 Icons.edit_outlined,
-                color: AppTheme.textSecondary,
+                color: Theme.of(context).iconTheme.color,
                 size: 20,
               ),
               onPressed: () => _editFolder(folder),
