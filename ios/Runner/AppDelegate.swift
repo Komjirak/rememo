@@ -507,7 +507,8 @@ import WebKit
             
             // 표제어 추출 (예: 'running' -> 'run', 'dogs' -> 'dog')
             // 한국어는 형태소 분석 결과가 됨
-            if let lemmaTag = tagger.tag(at: tokenRange.lowerBound, unit: .word, scheme: .lemma)?.rawValue {
+            if let (lemma, _) = Optional(tagger.tag(at: tokenRange.lowerBound, unit: .word, scheme: .lemma)),
+               let lemmaTag = lemma?.rawValue {
                  lemmas.append(lemmaTag.lowercased())
             } else {
                  lemmas.append(word)
