@@ -105,44 +105,110 @@ class _LibraryListViewState extends State<LibraryListView> {
   Widget _buildFilterChips() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: Main View Options
-          Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildChip("All", FilterOption.all),
-                      const SizedBox(width: 8),
-                      // _buildChip("Recent", FilterOption.recent), // Removed as requested default sort is recent
-                      // const SizedBox(width: 8),
-                      _buildChip("Favorites", FilterOption.favorites),
-                      const SizedBox(width: 12),
-                      Container(width: 1, height: 20, color: Colors.white.withAlpha(26)),
-                      const SizedBox(width: 12),
-                      _buildMediaTypeChip("Link", MediaType.link),
-                      const SizedBox(width: 8),
-                      _buildMediaTypeChip("Screenshot", MediaType.screenshot),
-                      const SizedBox(width: 8),
-                      _buildMediaTypeChip("Photo", MediaType.photo),
-                    ],
-                  ),
-                ),
-              ),
-              // 폴더 드롭다운
-              if (widget.folders.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                _buildFolderDropdown(),
-              ],
-            ],
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildChip("ALL", FilterOption.all),
+            const SizedBox(width: 8),
+            _buildChip("Favorites", FilterOption.favorites),
+            const SizedBox(width: 12),
+            Container(width: 1, height: 20, color: Colors.white.withAlpha(26)),
+            const SizedBox(width: 12),
+            _buildFolderDropdown(),
+             const SizedBox(width: 8),
+            _buildTypeDropdown(),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildTypeDropdown() {
+    final isSelected = _mediaType != MediaType.all;
+    String label = 'Type';
+    if (_mediaType == MediaType.link) label = 'Link';
+    if (_mediaType == MediaType.screenshot) label = 'Screenshot';
+    if (_mediaType == MediaType.photo) label = 'Photo';
+
+    return PopupMenuButton<MediaType>(
+      onSelected: (type) {
+        setState(() {
+           _mediaType = type;
+        });
+      },
+      offset: const Offset(0, 40),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.white.withAlpha(20)),
+      ),
+      color: AppTheme.cardDark,
+      itemBuilder: (context) => [
+         _buildTypePopupItem('All Types', MediaType.all),
+         const PopupMenuDivider(),
+         _buildTypePopupItem('Link', MediaType.link, icon: Icons.link),
+         _buildTypePopupItem('Screenshot', MediaType.screenshot, icon: Icons.smartphone),
+         _buildTypePopupItem('Photo', MediaType.photo, icon: Icons.image),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.accentTeal.withAlpha(51)
+              : Colors.white.withAlpha(13),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.accentTeal.withAlpha(128)
+                : Colors.white.withAlpha(13),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: 16,
+              color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<MediaType> _buildTypePopupItem(String text, MediaType type, {IconData? icon}) {
+      final isSelected = _mediaType == type;
+      return PopupMenuItem<MediaType>(
+          value: type,
+          child: Row(
+            children: [
+               if (icon != null) ...[
+                 Icon(icon, size: 18, color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary),
+                 const SizedBox(width: 12),
+               ],
+               Expanded(
+                 child: Text(
+                   text,
+                   style: TextStyle(
+                     color: isSelected ? AppTheme.accentTeal : AppTheme.textPrimary,
+                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                   ),
+                 ),
+               ),
+               if (isSelected) Icon(Icons.check, size: 18, color: AppTheme.accentTeal),
+            ],
+          ),
+      );
   }
 
   Widget _buildFolderDropdown() {
@@ -608,8 +674,8 @@ class _LibraryListViewState extends State<LibraryListView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Category badge
-                        _buildCategoryBadge(card.category),
+                        // Source/Category badge
+                        _buildCategoryBadge(card),
                         const SizedBox(height: 8),
 
                         // Title (editable)
@@ -743,8 +809,22 @@ class _LibraryListViewState extends State<LibraryListView> {
     );
   }
 
-  Widget _buildCategoryBadge(String category) {
-    final color = _getCategoryColor(category);
+  Widget _buildCategoryBadge(MemoCard card) {
+    String sourceLabel = 'MANUAL';
+    if (card.sourceUrl != null && card.sourceUrl!.isNotEmpty) {
+       try {
+         final uri = Uri.parse(card.sourceUrl!.startsWith('http') ? card.sourceUrl! : 'https://${card.sourceUrl!}');
+         sourceLabel = uri.host.replaceFirst('www.', '').toUpperCase();
+       } catch (e) {
+         sourceLabel = 'WEB';
+       }
+    } else if (card.tags.contains('Screenshot')) {
+        sourceLabel = 'SCREENSHOT';
+    } else if (card.tags.contains('Imported')) {
+        sourceLabel = 'IMPORTED';
+    } 
+
+    final color = _getCategoryColor(card.category);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -755,7 +835,7 @@ class _LibraryListViewState extends State<LibraryListView> {
         ),
       ),
       child: Text(
-        category.toUpperCase(),
+        sourceLabel,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,

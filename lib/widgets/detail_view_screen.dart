@@ -463,24 +463,16 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             ),
             const SizedBox(height: 24),
             ListTile(
-              leading: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary),
-              title: const Text('Edit'),
+              leading: const Icon(Icons.folder_outlined, color: AppTheme.textSecondary),
+              title: const Text('Move to Folder', style: TextStyle(color: AppTheme.textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
-                // TODO: Navigate to edit screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.archive_outlined, color: AppTheme.textSecondary),
-              title: const Text('Archive'),
-              onTap: () {
-                Navigator.pop(ctx);
-                // TODO: Archive functionality
+                _showFolderPicker();
               },
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined, color: AppTheme.textSecondary),
-              title: const Text('Share'),
+              title: const Text('Share', style: TextStyle(color: AppTheme.textPrimary)),
               onTap: () {
                 Navigator.pop(ctx);
                 _shareCard();

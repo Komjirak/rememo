@@ -316,7 +316,8 @@ class OnDeviceLLM {
         }
 
         // 2. 키워드 포함 여부 (중요, 결론, 요약, 합계 등)
-        let keywords = ["important", "summary", "conclusion", "total", "note", "중요", "요약", "결론", "합계", "참고"]
+        let keywords = ["important", "summary", "conclusion", "total", "note", "price", "order", "reservation", 
+                        "중요", "요약", "결론", "합계", "참고", "가격", "주문", "예약", "결제", "배송", "일정", "위치"]
         let lower = sentence.lowercased()
         for key in keywords {
             if lower.contains(key) { score += 20 }

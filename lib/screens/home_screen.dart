@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 // Google ML Kit removed - using native Vision Framework (iOS) instead
 import 'dart:io';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -100,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           summary: "Processing...",
           category: "Inbox",
           tags: [],
-          captureDate: "Just now",
+          captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
           imageUrl: item.imagePath ?? '', // Use local image if available
           sourceUrl: item.url,
           isProcessing: true,
@@ -260,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       summary: finalSummary,
       category: finalCategory,
       tags: finalTags,
-      captureDate: 'Just now',
+      captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
       imageUrl: finalImagePath,
       ocrText: finalOcrText,
       sourceUrl: item.sourceUrl,
@@ -319,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         summary: "Analyzing content...",
         category: "Inbox",
         tags: [],
-        captureDate: "Just now",
+        captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: imagePath,
         isProcessing: true,
     );
@@ -395,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         summary: summary,
         category: analysis.title == 'Shopping Item' ? 'Shopping' : finalCategory, // Simple override check
         tags: finalTags,
-        captureDate: "Just now",
+        captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: permanentPath,
         ocrText: finalOcrText,
         sourceUrl: foundUrl,
@@ -925,7 +926,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         summary: analysis.summary,
         category: category,
         tags: suggestedTags, // Can merge with analysis.keyInsights if desired
-        captureDate: "Just now",
+        captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: imagePath,
         ocrText: ocrText,
         sourceUrl: sourceUrl,
@@ -1017,24 +1018,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록');
     }
 
-    // 🚀 DocumentParserService 사용 (LLM 없이 구조 및 도메인 분석)
+    // 🚀 OnDeviceLLMService 사용 (iOS Native NLP 활용)
     try {
-      print('🔍 DocumentParserService 시작... Native Category: $suggestedCategory');
-      final analysis = DocumentParserService.parseDocument(
-          blocks, 
-          externalCategory: suggestedCategory
+      print('🔍 OnDeviceLLMService 시작 (Native NLP)...');
+      
+      // Native AI Analysis
+      final analysis = await OnDeviceLLMService.analyzeScreenshot(
+          ocrText: ocrText,
+          ocrBlocks: blocks ?? []
       );
-      print('✅ 구조 분석 완료: Domain detected, Title="${analysis.title}"');
+      
+      print('✅ 분석 완료: Title="${analysis.title}"');
       return analysis;
-    } catch (e) {
-      print('❌ 구조 분석 실패: $e');
 
-      // Fallback: 아주 단순한 기본 객체 반환
-      return ScreenshotAnalysis(
-        title: "Screen Capture",
-        summary: ocrText.length > 100 ? "${ocrText.substring(0, 100)}..." : ocrText,
-        keyInsights: [],
-      );
+    } catch (e) {
+      print('❌ Native LLM 분석 실패 (Fallback to Basic Parser): $e');
+      
+      // Fallback: DocumentParserService
+      try {
+         return DocumentParserService.parseDocument(
+            blocks ?? [], 
+            externalCategory: suggestedCategory
+         );
+      } catch (e2) {
+         return ScreenshotAnalysis(
+            title: "Screen Capture",
+            summary: ocrText.length > 100 ? "${ocrText.substring(0, 100)}..." : ocrText,
+            keyInsights: [],
+         );
+      }
     }
   }
 
