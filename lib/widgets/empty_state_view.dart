@@ -41,85 +41,89 @@ class EmptyStateView extends StatelessWidget {
   }
 
   Widget _buildGlowingIcon() {
-    return SizedBox(
-      width: 160,
-      height: 160,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Glow effect
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.accentTeal.withAlpha(51), // 20% opacity
-                  blurRadius: 60,
-                  spreadRadius: 20,
-                ),
-              ],
-            ),
-          ),
-
-          // Main container
-          Container(
-            width: 128,
-            height: 128,
-            decoration: BoxDecoration(
-              color: AppTheme.cardDark,
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: AppTheme.dividerColor,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(102), // 40% opacity
-                  blurRadius: 32,
-                  offset: const Offset(0, 16),
-                ),
-                // Teal glow
-                BoxShadow(
-                  color: AppTheme.accentTeal.withAlpha(38), // 15% opacity
-                  blurRadius: 40,
-                  spreadRadius: 10,
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Icon
-                Icon(
-                  Icons.blur_on,
-                  size: 56,
-                  color: AppTheme.accentTeal,
-                ),
-                // Bottom glow bar
-                Positioned(
-                  bottom: 20,
-                  child: Container(
-                    width: 48,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentTeal.withAlpha(102), // 40% opacity
-                      borderRadius: BorderRadius.circular(2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accentTeal.withAlpha(128),
-                          blurRadius: 8,
-                        ),
-                      ],
+    return Builder(
+      builder: (context) {
+        return SizedBox(
+          width: 160,
+          height: 160,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Glow effect
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).primaryColor.withAlpha(51), // 20% opacity
+                      blurRadius: 60,
+                      spreadRadius: 20,
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              // Main container
+              Container(
+                width: 128,
+                height: 128,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(
+                    color: Theme.of(context).dividerColor,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(102), // 40% opacity
+                      blurRadius: 32,
+                      offset: const Offset(0, 16),
+                    ),
+                    // Teal glow
+                    BoxShadow(
+                      color: Theme.of(context).primaryColor.withAlpha(38), // 15% opacity
+                      blurRadius: 40,
+                      spreadRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Icon
+                    Icon(
+                      Icons.blur_on,
+                      size: 56,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    // Bottom glow bar
+                    Positioned(
+                      bottom: 20,
+                      child: Container(
+                        width: 48,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withAlpha(102), // 40% opacity
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).primaryColor.withAlpha(128),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      }
     );
   }
 
@@ -129,7 +133,7 @@ class EmptyStateView extends StatelessWidget {
         Text(
           "Your memory starts here",
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
-            color: AppTheme.textPrimary,
+            color: Theme.of(context).textTheme.titleLarge?.color, // Adjusted for light theme visibility
             letterSpacing: -0.5,
           ),
           textAlign: TextAlign.center,
@@ -138,7 +142,7 @@ class EmptyStateView extends StatelessWidget {
         Text(
           "Capture screenshots anywhere and Folio will automatically turn them into organized, searchable knowledge.",
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textSecondary,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
             height: 1.6,
           ),
           textAlign: TextAlign.center,
@@ -156,8 +160,8 @@ class EmptyStateView extends StatelessWidget {
           child: ElevatedButton(
             onPressed: onAddFirst,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentTeal,
-              foregroundColor: AppTheme.backgroundDark,
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 18),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -174,7 +178,7 @@ class EmptyStateView extends StatelessWidget {
             child: Text(
               "Add your first memory",
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.backgroundDark,
+                color: Theme.of(context).colorScheme.onPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -189,7 +193,7 @@ class EmptyStateView extends StatelessWidget {
           child: Text(
             "Learn how it works",
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textMuted,
+              color: Theme.of(context).disabledColor,
               fontWeight: FontWeight.w500,
             ),
           ),

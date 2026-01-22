@@ -85,7 +85,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
             color: Theme.of(context).dividerColor,
           ),
         ),
-        title: const Text(
+        title: Text(
           '폴더 삭제',
           style: TextStyle(
             color: Theme.of(context).textTheme.titleLarge?.color,
@@ -172,7 +172,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
         ],
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
                 color: Theme.of(context).primaryColor,
               ),

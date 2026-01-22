@@ -503,9 +503,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border(
             top: BorderSide(color: Theme.of(context).dividerColor),
             left: BorderSide(color: Theme.of(context).dividerColor),
@@ -576,10 +576,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.accentTeal.withAlpha(26),
+                  color: Theme.of(context).primaryColor.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppTheme.accentTeal, size: 24),
+                child: Icon(icon, color: Theme.of(context).primaryColor, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -588,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Theme.of(context).textTheme.titleLarge?.color,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -597,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Theme.of(context).disabledColor,
                         fontSize: 13,
                       ),
@@ -605,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppTheme.textDisabled),
+              const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),
         ),
@@ -1446,7 +1446,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Theme.of(context).dividerColor),
               ),
-              child: const Center(
+              child: Center(
                 child: CircularProgressIndicator(
                   color: Theme.of(context).primaryColor,
                   strokeWidth: 2,
@@ -1454,7 +1454,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               "Analyzing...",
               style: TextStyle(
                 color: Theme.of(context).textTheme.titleLarge?.color,

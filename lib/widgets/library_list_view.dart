@@ -698,7 +698,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                                   card.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                     color: Theme.of(context).colorScheme.onSurface,
