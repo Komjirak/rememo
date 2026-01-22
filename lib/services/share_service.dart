@@ -338,6 +338,21 @@ class ShareService {
                    currentTitle = _prettifyHost(item.url!);
                }
            }
+        } else if (item.url != null && (currentSummary.isEmpty || currentImageUrl == null)) {
+           // 🔹 Title exists but Summary/Image missing? Fetch metadata anyway to enrich!
+           print('Title exists ($currentTitle) but missing details. Fetching metadata for ${item.url}...');
+           final metadata = await fetchURLMetadata(item.url!);
+           if (metadata != null) {
+               // Use longer/better content if available
+               if (metadata.description.isNotEmpty) currentSummary = metadata.description;
+               if (metadata.imageUrl != null && metadata.imageUrl!.isNotEmpty) currentImageUrl = metadata.imageUrl;
+               if (metadata.text != null && metadata.text!.isNotEmpty) currentText = metadata.text!;
+               
+               // Optionally update title if new one is better (not generic) and old one was short
+               if (!_isSecurityPageTitle(metadata.title) && metadata.title.length > currentTitle.length) {
+                   currentTitle = metadata.title;
+               }
+           }
         }
         
         // AI Summarization if text is available
