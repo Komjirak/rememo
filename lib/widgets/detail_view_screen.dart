@@ -588,13 +588,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                      crossAxisAlignment: CrossAxisAlignment.start,
                      children: [
                        const SizedBox(height: 24),
+                       const SizedBox(height: 24),
                        _buildTitleSection(),
-                       const SizedBox(height: 16),
+                       const SizedBox(height: 8), // Adjusted spacing
                        _buildMetadataSection(),
                        const SizedBox(height: 16),
                        _buildTagsSection(),
                        const SizedBox(height: 24),
-                       _buildImageSection(),
+                       _buildImageSection(), // Image moved here
                        const SizedBox(height: 24),
                        _buildAISummarySection(),
                        const SizedBox(height: 24),
@@ -794,7 +795,13 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   Widget _buildImageSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: _expandImage,
+      onTap: () {
+        if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) {
+           widget.onOpenLink?.call(_card.sourceUrl!);
+        } else {
+           _expandImage();
+        }
+      },
       child: Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 400),
@@ -814,6 +821,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           children: [
             _buildImage(_card.imageUrl),
             
+            // Link Indicator
+            if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty)
             Positioned(
               top: 16,
               right: 16,
@@ -825,35 +834,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white.withOpacity(0.1)),
                 ),
-                child: const Icon(Icons.link, color: Colors.white, size: 20),
-              ),
-            ),
-            
-             Positioned(
-              bottom: 16,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.black.withOpacity(0.4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.fullscreen, color: Colors.white, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          "View Original",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
+                child: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
               ),
             ),
           ],
@@ -982,47 +963,69 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     if (text.isEmpty) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sourceUrl = _card.sourceUrl;
+    final domain = sourceUrl != null ? _extractDomain(sourceUrl) : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
              Icon(
-               Icons.description, 
+               Icons.description_outlined, 
                size: 20, 
-               color: Colors.grey
+               color: isDark ? Colors.grey : Colors.grey.shade400
              ),
              const SizedBox(width: 8),
-             const Text(
+             Text(
                "ORIGINAL MESSAGE",
                style: TextStyle(
                  fontSize: 12,
                  fontWeight: FontWeight.bold,
-                 letterSpacing: 1.5,
-                 color: Colors.grey,
+                 letterSpacing: 1.0,
+                 color: isDark ? Colors.grey : Colors.grey.shade500,
                ),
              ),
           ],
         ),
         const SizedBox(height: 12),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: isDark 
-                ? Colors.white.withOpacity(0.02)
-                : Colors.transparent,
+            color: isDark ? Colors.white.withOpacity(0.02) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)
             )
           ),
-          child: Text(
-            text,
-            style: TextStyle(
-              color: isDark ? Colors.grey.shade500 : AppTheme.textLowLight.withOpacity(0.6),
-              fontSize: 14,
-              height: 1.6,
-            ),
+          child: Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    fontSize: 14,
+                    height: 1.6,
+                    fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+                  ),
+                ),
+                if (sourceUrl != null && sourceUrl.isNotEmpty) ...[
+                     const SizedBox(height: 16),
+                     GestureDetector(
+                         onTap: () => widget.onOpenLink?.call(sourceUrl),
+                         child: Text(
+                             "Source: $domain",
+                             style: const TextStyle(
+                                 fontSize: 13,
+                                 color: Colors.blue,
+                                 decoration: TextDecoration.underline,
+                             ),
+                         ),
+                     ),
+                ]
+             ],
           ),
         ),
       ],
