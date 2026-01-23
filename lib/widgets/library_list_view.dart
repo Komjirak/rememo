@@ -362,6 +362,8 @@ class _LibraryListViewState extends State<LibraryListView> {
 
   Widget _buildChip(String label, FilterOption option) {
     final isSelected = _currentFilter == option;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return GestureDetector(
       onTap: () => setState(() {
         _currentFilter = option;
@@ -369,31 +371,41 @@ class _LibraryListViewState extends State<LibraryListView> {
         // _mediaType = MediaType.all; 
       }),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.onSurface // Text Charcoal
-              : Theme.of(context).cardColor,
+          color: isDark
+              ? (isSelected ? AppTheme.bgWhite10 : AppTheme.bgWhite5)
+              : (isSelected
+                  ? Theme.of(context).colorScheme.onSurface
+                  : Theme.of(context).cardColor),
           borderRadius: BorderRadius.circular(20),
-          border: isSelected ? null : Border.all(
-             color: Theme.of(context).dividerColor,
+          border: Border.all(
+            color: isDark
+                ? (isSelected ? AppTheme.borderWhite10 : AppTheme.dividerColor)
+                : (isSelected
+                    ? Colors.transparent
+                    : Theme.of(context).dividerColor),
           ),
-          boxShadow: isSelected ? null : [
-             BoxShadow(
-               color: Colors.black.withOpacity(0.04),
-               blurRadius: 4,
-               offset: const Offset(0, 2),
-             ),
-          ],
+          boxShadow: isDark || isSelected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected 
-              ? Theme.of(context).colorScheme.onPrimary // White
-              : Theme.of(context).textTheme.bodyMedium?.color, // Gray 500
+            color: isDark
+                ? (isSelected ? AppTheme.textPrimary : AppTheme.textSecondary)
+                : (isSelected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).textTheme.bodyMedium?.color),
           ),
         ),
       ),
@@ -651,11 +663,15 @@ class _LibraryListViewState extends State<LibraryListView> {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Theme.of(context).dividerColor,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.borderColor
+                  : Theme.of(context).dividerColor,
             ),
-            boxShadow: [
-               AppTheme.shadowSoft,
-            ],
+            boxShadow: Theme.of(context).brightness == Brightness.dark
+                ? null
+                : [
+                    AppTheme.shadowSoft,
+                  ],
           ),
           child: Row(
             children: [
@@ -664,10 +680,14 @@ class _LibraryListViewState extends State<LibraryListView> {
                 width: 80,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF1F2937) // gray-800
+                      : Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Theme.of(context).dividerColor,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.dividerColor // white/5
+                        : Theme.of(context).dividerColor,
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,

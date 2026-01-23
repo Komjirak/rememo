@@ -82,21 +82,23 @@ import WebKit
     
     llmChannel.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
       if call.method == "analyzeSummary" {
-        if let args = call.arguments as? [String: Any],
-           let paragraphs = args["paragraphs"] as? [String] {
-          let title = args["title"] as? String
-          let keyPoints = args["keyPoints"] as? [String] ?? []
-          
-          // 온디바이스 LLM으로 분석
-          let analysis = OnDeviceLLM.shared.analyzeSummary(
-            title: title,
-            paragraphs: paragraphs,
-            keyPoints: keyPoints
-          )
-          result(analysis)
-        } else {
-          result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+        guard let args = call.arguments as? [String: Any],
+              let textBlocks = args["textBlocks"] as? [[String: Any]],
+              let imageSize = args["imageSize"] as? [String: CGFloat] else {
+            result(FlutterError(code: "INVALID_ARGS", message: "textBlocks and imageSize required", details: nil))
+            return
         }
+          
+        let layoutRegions = args["layoutRegions"] as? [[String: Any]]
+        let importantAreas = args["importantAreas"] as? [[String: Any]]
+        
+        let analysis = EnhancedContentAnalyzer.shared.analyzeSummary(
+            textBlocks: textBlocks,
+            layoutRegions: layoutRegions,
+            importantAreas: importantAreas,
+            imageSize: imageSize
+        )
+        result(analysis)
       } else {
         result(FlutterMethodNotImplemented)
       }
@@ -114,10 +116,10 @@ import WebKit
               result(FlutterError(code: "INVALID_ARGS", message: "Path argument missing", details: nil))
           }
       } else if call.method == "analyzeImageWithBoxes" {
-          // 🆕 Bounding Box 정보를 포함한 OCR 분석
           if let args = call.arguments as? [String: Any],
              let path = args["path"] as? String {
-              self.analyzeImageFileWithBoxes(path: path, result: result)
+              // Enhanced Analysis 호출
+              self.analyzeImageFileWithEnhanced(path: path, result: result)
           } else {
               result(FlutterError(code: "INVALID_ARGS", message: "Path argument missing", details: nil))
           }
@@ -341,39 +343,66 @@ import WebKit
         }
     }
 
-    /// 🆕 Bounding Box 정보를 포함한 이미지 분석
-    private func analyzeImageFileWithBoxes(path: String, result: @escaping FlutterResult) {
+    /// 🆕 Enhanced Vision Analysis (Async)
+    private func analyzeImageFileWithEnhanced(path: String, result: @escaping FlutterResult) {
         guard let image = UIImage(contentsOfFile: path) else {
             result(FlutterError(code: "LOAD_FAILED", message: "Failed to load image at path", details: nil))
             return
         }
 
-        // Bounding Box 정보를 포함한 OCR 수행
-        self.recognizeTextWithBoxes(image: image) { ocrBlocks in
-            // ocrText 조합
-            let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
-            let analysis = self.analyzeText(text: ocrText)
-
-            // 날짜 정보
-            var dateStr = ""
-            if let attr = try? FileManager.default.attributesOfItem(atPath: path),
-               let date = attr[.creationDate] as? Date {
-                dateStr = date.description
+        Task {
+            do {
+                // 향상된 Vision 분석 실행
+                let analysis = try await PaddleOCRHelper.shared.recognizeTextWithEnhancedAnalysis(image: image)
+                
+                // Result Unpacking
+                let textBlocks = analysis["textBlocks"] as? [[String: Any]] ?? []
+                
+                // OCR 텍스트 조합
+                let ocrText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+                
+                // 기존 분석 (카테고리, 태그 등) -> EnhancedContentAnalyzer로 대체 가능하지만
+                // 현재는 메타데이터 생성을 위해 유지
+                let nlp = self.analyzeText(text: ocrText)
+                
+                // 날짜 정보
+                var dateStr = ""
+                if let attr = try? FileManager.default.attributesOfItem(atPath: path),
+                   let date = attr[.creationDate] as? Date {
+                    dateStr = date.description
+                }
+                
+                let response: [String: Any] = [
+                    "imagePath": path,
+                    "ocrText": ocrText,
+                    "ocrBlocks": textBlocks, // for backward compatibility
+                    "textBlocks": textBlocks,
+                    "layoutRegions": analysis["layoutRegions"] ?? [],
+                    "importantAreas": analysis["importantAreas"] ?? [],
+                    "imageSize": analysis["imageSize"] ?? ["width": image.size.width, "height": image.size.height],
+                    "date": dateStr,
+                    "suggestedTags": nlp.tags,
+                    "suggestedCategory": nlp.category,
+                    "suggestedTitle": nlp.title,
+                    "sourceUrl": nlp.url ?? "",
+                    "imageWidth": image.size.width,
+                    "imageHeight": image.size.height
+                ]
+                
+                DispatchQueue.main.async {
+                    result(response)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    result(FlutterError(code: "ANALYSIS_FAILED", message: error.localizedDescription, details: nil))
+                }
             }
-
-            result([
-                "imagePath": path,
-                "ocrText": ocrText,
-                "ocrBlocks": ocrBlocks,  // 🆕 Bounding Box 포함된 블록 배열
-                "date": dateStr,
-                "suggestedTags": analysis.tags,
-                "suggestedCategory": analysis.category,
-                "suggestedTitle": analysis.title,
-                "sourceUrl": analysis.url ?? "",
-                "imageWidth": image.size.width,
-                "imageHeight": image.size.height
-            ])
         }
+    }
+    
+    // Legacy method - kept if needed but not used by handler
+    private func analyzeImageFileWithBoxes(path: String, result: @escaping FlutterResult) {
+        analyzeImageFileWithEnhanced(path: path, result: result)
     }
 
     // ... saveToTemp and recognizeText remain same ...

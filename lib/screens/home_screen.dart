@@ -831,53 +831,97 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 'Inbox';
   }
 
-  /// 가장 최근 스크린샷 불러오기 (Photos Library)
+  /// 가장 최근 스크린샷 불러오기 (Photos Library) - Enhanced
   Future<void> _importLastScreenshot() async {
     setState(() => _isAnalyzing = true);
     
     // 권한 요청
     if (await Permission.photos.request().isGranted) {
       try {
-        final analysis = await NativeService.getLastScreenshotAnalysis(); // returns extracted data
-        if (analysis != null) {
-          final imagePath = analysis['imagePath'];
-          final ocrText = analysis['ocrText'];
-          final date = analysis['date'];
-          final sourceUrl = analysis['sourceUrl'];
-          
-          final suggestedTags = List<String>.from(analysis['suggestedTags'] ?? ['Screenshot']);
-          final suggestedCategory = analysis['suggestedCategory'] as String? ?? 'Inbox'; // Native AI Category
-          final suggestedTitle = analysis['suggestedTitle'] as String?;
-          
-          print("✅ Imported Last Screenshot: $imagePath, Category: $suggestedCategory");
-
-          // Save to permanent storage
-          final permanentPath = await _saveToDocuments(File(imagePath));
-
-          // Create Card
-          await _createCardFromAnalysis(
-              permanentPath, 
-              ocrText, 
-              suggestedTags, 
-              suggestedCategory, // Pass native category
-              suggestedTitle: suggestedTitle,
-              sourceUrl: sourceUrl.isNotEmpty ? sourceUrl : null
-          );
-
-        } else {
-             Map<String, dynamic>? data = await NativeService.getLastScreenshotAnalysis(); 
-             // ... handle legacy error if any
-             if (mounted) {
-                 ScaffoldMessenger.of(context).showSnackBar(
-                     const SnackBar(content: Text('No screenshot found or analysis failed.')),
-                 );
-             }
+        // 1. Enhanced 분석 (NEW)
+        final analysisData = await NativeService.getLastScreenshotAnalysisEnhanced();
+        
+        if (analysisData.isEmpty) {
+          throw Exception('No screenshot found');
         }
+        
+        // 2. OCR 블록 변환
+        final ocrBlocks = (analysisData['ocrBlocks'] as List?)
+            ?.map((block) => OCRBlock.fromNative(Map<String, dynamic>.from(block)))
+            .toList() ?? [];
+        
+        if (ocrBlocks.isEmpty) {
+          throw Exception('No text detected');
+        }
+        
+        // 3. Enhanced LLM 분석 (NEW)
+        final llmResult = await OnDeviceLLMService.analyzeSummaryEnhanced(
+          blocks: ocrBlocks,
+          layoutRegions: analysisData['layoutRegions'],     // NEW
+          importantAreas: analysisData['importantAreas'],   // NEW
+          imageSize: analysisData['imageSize'],             // NEW
+        );
+        
+        String title = llmResult['title'] ?? 'New Memory';
+        String summary = llmResult['summary'] ?? '';
+        List<String> tags = List<String>.from(llmResult['tags'] ?? []);
+        String category = llmResult['contentType'] != 'general' ? llmResult['contentType'] : 'Inbox';
+        
+        // 대문자화 (Category)
+        if (category.isNotEmpty) {
+            category = category[0].toUpperCase() + category.substring(1);
+        }
+        
+        // Image Path Handling
+        final imagePath = analysisData['imagePath'];
+        final permanentPath = await _saveToDocuments(File(imagePath));
+
+        // 4. MemoCard 생성
+        final card = MemoCard(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: title,
+          summary: summary,
+          category: category,
+          tags: tags,
+          captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
+          imageUrl: permanentPath,
+          ocrText: analysisData['ocrText'] ?? '',
+          sourceUrl: '',
+          folderId: _selectedFolder?.id,
+        );
+        
+        // 5. DB 저장
+        await DatabaseHelper.instance.create(card);
+        
+        // 6. UI 업데이트
+        setState(() {
+          _cards.insert(0, card);
+        });
+        
+        // 성공 메시지
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✨ 메모가 생성되었습니다: ${card.title}'),
+                backgroundColor: AppTheme.accentTeal,
+              ),
+            );
+        }
+        
       } catch (e) {
-        print('Error importing last screenshot: $e');
+        print('Import failed: $e');
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('분석 실패: $e')),
+            );
+        }
+      } finally {
+        if (mounted) setState(() => _isAnalyzing = false);
       }
+    } else {
+        if (mounted) setState(() => _isAnalyzing = false);
+        openAppSettings();
     }
-    setState(() => _isAnalyzing = false);
   }
 
   /// AI 분석 결과를 바탕으로 카드 생성 및 저장

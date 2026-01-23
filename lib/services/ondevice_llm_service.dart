@@ -5,12 +5,71 @@ import 'package:flutter/services.dart';
 class OnDeviceLLMService {
   static const platform = MethodChannel('com.rememo.komjirak/llm');
 
-  /// 스크린샷 분석 파이프라인 (전체 흐름)
-  static Future<ScreenshotAnalysis> analyzeScreenshot({
+  /// 🆕 Enhanced Summary Analysis (calls Native EnhancedContentAnalyzer)
+  static Future<Map<String, dynamic>> analyzeSummaryEnhanced({
+    required List<OCRBlock> blocks,
+    List<dynamic>? layoutRegions,
+    List<dynamic>? importantAreas,
+    Map<dynamic, dynamic>? imageSize,
+  }) async {
+    try {
+      // OCR 블록을 Map 형태로 변환 (Native가 기대하는 형식)
+      final textBlocks = blocks.map((block) => {
+        'text': block.text,
+        'top': block.boundingBox.top,
+        'left': block.boundingBox.left,
+        'width': block.boundingBox.width,
+        'height': block.boundingBox.height,
+        'confidence': block.confidence,
+      }).toList();
+      
+      // 네이티브 LLM 채널 호출
+      final result = await platform.invokeMethod('analyzeSummary', {
+        'textBlocks': textBlocks,
+        'layoutRegions': layoutRegions ?? [],
+        'importantAreas': importantAreas ?? [],
+        'imageSize': imageSize ?? {'width': 0.0, 'height': 0.0},
+      });
+      
+      if (result == null) {
+        // 폴백: 기존 로직
+        print("⚠️ Native Enhanced Analysis returned null, falling back.");
+        final legacy = await analyzeScreenshotLegacy(ocrText: "", ocrBlocks: blocks);
+        return {
+          'title': legacy.title,
+          'summary': legacy.summary,
+          'tags': legacy.keyInsights,
+          'contentType': 'general'
+        };
+      }
+      
+      final resultMap = Map<String, dynamic>.from(result);
+      return {
+        'title': resultMap['title'] ?? '제목 없음',
+        'summary': resultMap['summary'] ?? '',
+        'tags': List<String>.from(resultMap['tags'] ?? []),
+        'contentType': resultMap['contentType'] ?? 'general',
+      };
+      
+    } catch (e) {
+      print('Enhanced LLM analysis failed: $e');
+      // 폴백
+      final legacy = await analyzeScreenshotLegacy(ocrText: "", ocrBlocks: blocks);
+      return {
+        'title': legacy.title,
+        'summary': legacy.summary,
+        'tags': legacy.keyInsights,
+        'contentType': 'general'
+      };
+    }
+  }
+
+  /// 스크린샷 분석 파이프라인 (전체 흐름) - Legacy
+  static Future<ScreenshotAnalysis> analyzeScreenshotLegacy({
     required String ocrText,
     required List<OCRBlock> ocrBlocks, // bounding box 포함
   }) async {
-    print('🔄 스크린샷 분석 파이프라인 시작...');
+    print('🔄 스크린샷 분석 파이프라인 (Legacy) 시작...');
     print('   - 입력 블록 수: ${ocrBlocks.length}');
 
     // Step 1: UI 노이즈 제거
@@ -28,6 +87,40 @@ class OnDeviceLLMService {
     print('✅ 스크린샷 분석 완료: ${summary.title}');
 
     return summary;
+  }
+  
+  // 테스트용 메서드
+  static Future<void> testEnhancedAnalysis() async {
+    print('=== Enhanced Analysis Test ===');
+    
+    final testBlocks = [
+      OCRBlock(
+        text: '10:30',
+        boundingBox: BoundingBox(top: 0.02, left: 0.5, width: 0.1, height: 0.02),
+        confidence: 0.95,
+      ),
+      OCRBlock(
+        text: '도로 폭발 사고와 정전 피해',
+        boundingBox: BoundingBox(top: 0.15, left: 0.1, width: 0.8, height: 0.05),
+        confidence: 0.92,
+      ),
+      OCRBlock(
+        text: '경기도 고양시에서 발생한 도로 폭발 사고로 인해 다수의 가구가 정전 피해를 입었다.',
+        boundingBox: BoundingBox(top: 0.25, left: 0.1, width: 0.8, height: 0.15),
+        confidence: 0.88,
+      ),
+    ];
+    
+    final result = await analyzeSummaryEnhanced(
+      blocks: testBlocks,
+      imageSize: {'width': 1170.0, 'height': 2532.0},
+    );
+    
+    print('Title: ${result['title']}');
+    print('Summary: ${result['summary']}');
+    print('Tags: ${result['tags']}');
+    print('Type: ${result['contentType']}');
+    print('=== Test Complete ===');
   }
 
   // ============================================

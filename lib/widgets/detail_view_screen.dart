@@ -274,7 +274,11 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: Theme.of(context).dividerColor),
+                side: BorderSide(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.borderColor
+                      : Theme.of(context).dividerColor,
+                ),
               ),
               title: Text(
                 '새 폴더 만들기',
@@ -399,7 +403,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderColor
+                : Colors.transparent,
+          ),
+        ),
         title: Text(
           'Delete Memory',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -521,19 +532,19 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
                       // 2. Time & Link Info
                       _buildMetadataSection(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
-                      // 3. Auto Tags & Add Tag
+                      // 3. Auto Tags
                       _buildTagsSection(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
-                      // 4. Return to Original (Moved up)
+                      // 4. Return to Original
                       _buildReturnToOriginalSection(),
                       const SizedBox(height: 32),
 
-                      // 5. AI Summary (with Copy)
+                      // 5. AI Summary
                       _buildAISummarySection(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
                       // 6. Personal Note
                       _buildPersonalNoteSection(),
@@ -542,7 +553,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       // 7. Original Message
                       _buildOriginalMessageSection(),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
                       // Image section (Optional, put at bottom or keep at top? 
                       // User didn't specify Image position in the numbered list, but usually it's top or part of content.
                       // User list: 1) Title 2) Time... 
@@ -571,7 +582,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             bottom: 24,
             left: 24,
             right: 24,
-            child: _buildFloatingActionBar(),
+            child: SafeArea(
+              child: _buildFloatingActionBar(),
+            ),
           ),
         ],
       ),
@@ -579,6 +592,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   }
 
   Widget _buildBlurHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -586,47 +600,55 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 8,
             bottom: 16,
-            left: 16,
-            right: 16,
+            left: 24,
+            right: 24,
           ),
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
-            border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-            ),
+            color: isDark
+                ? AppTheme.backgroundDark.withOpacity(0.8)
+                : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: Icon(Icons.chevron_left, size: 28, color: Theme.of(context).iconTheme.color),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.chevron_left,
+                  size: 28,
+                  color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(Icons.auto_awesome, size: 16, color: Theme.of(context).primaryColor),
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 20,
+                    color: AppTheme.accentTeal,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
-                    'MEMORY INSIGHT',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                          letterSpacing: 2,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    'Memory Insight',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.bodyLarge?.color,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),
               IconButton(
-                icon: Icon(Icons.more_horiz, size: 24, color: Theme.of(context).iconTheme.color),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  Icons.more_horiz,
+                  size: 24,
+                  color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
+                ),
                 onPressed: _showMoreOptions,
               ),
             ],
@@ -638,39 +660,25 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 1. Title Section (Editable)
   Widget _buildTitleSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Image at top (Context)
         _buildImageSection(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         
         GestureDetector(
           onTap: () => _showTitleEditDialog(),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  _card.title,
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        letterSpacing: -0.5,
-                      ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.edit_outlined, size: 16, color: Theme.of(context).disabledColor),
-              ),
-            ],
+          child: Text(
+            _card.title,
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              letterSpacing: -0.5,
+              color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.displayLarge?.color,
+            ),
           ),
         ),
       ],
@@ -679,38 +687,53 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 2. Metadata Section (Time & Link)
   Widget _buildMetadataSection() {
-    return Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Icon(Icons.schedule, size: 14, color: Theme.of(context).disabledColor),
-        const SizedBox(width: 6),
-        Text(
-          _card.captureDate,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).disabledColor,
-                fontSize: 13,
-              ),
-        ),
-        if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) ...[
-          const SizedBox(width: 16),
-          Container(width: 1, height: 12, color: Theme.of(context).dividerColor),
-          const SizedBox(width: 16),
-          Icon(Icons.link, size: 14, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 6),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => widget.onOpenLink?.call(_card.sourceUrl!),
-              child: Text(
-                _extractDomain(_card.sourceUrl!),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).primaryColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Theme.of(context).primaryColor.withOpacity(0.5),
-                    ),
-                overflow: TextOverflow.ellipsis,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 14,
+              color: isDark ? AppTheme.textSecondary : Theme.of(context).disabledColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _card.captureDate,
+              style: TextStyle(
+                color: isDark ? AppTheme.textSecondary : Theme.of(context).disabledColor,
+                fontSize: 14,
               ),
             ),
+          ],
+        ),
+        if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.public,
+                size: 14,
+                color: AppTheme.accentTeal,
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => widget.onOpenLink?.call(_card.sourceUrl!),
+                child: Text(
+                  _extractDomain(_card.sourceUrl!),
+                  style: TextStyle(
+                    color: AppTheme.accentTeal,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -719,41 +742,25 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 3. Tags Section (Auto Tags & Add)
   Widget _buildTagsSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(Icons.label_outline, size: 18, color: Theme.of(context).iconTheme.color),
-                const SizedBox(width: 8),
-                Text(
-                  'TAGS',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).disabledColor,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
+            Icon(
+              Icons.label_outline,
+              size: 20,
+              color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
             ),
-            GestureDetector(
-              onTap: _showAddTagDialog,
-              child: Row(
-                children: [
-                  Icon(Icons.add, size: 14, color: Theme.of(context).primaryColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Add Tag',
-                    style: TextStyle(
-                      color: Theme.of(context).primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 8),
+            Text(
+              'Automated Tags',
+              style: TextStyle(
+                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -763,11 +770,19 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            ..._card.tags.map((tag) => _buildTag(tag)),
+            ..._card.tags.asMap().entries.map((entry) {
+              final index = entry.key;
+              final tag = entry.value;
+              return _buildTag(tag, isFirst: index == 0);
+            }),
             if (_card.tags.isEmpty)
               Text(
                 'No tags yet',
-                style: TextStyle(color: Theme.of(context).disabledColor, fontSize: 13, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
           ],
         ),
@@ -777,11 +792,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 4. Return to Original
   Widget _buildReturnToOriginalSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasUrl = _card.sourceUrl != null && _card.sourceUrl!.isNotEmpty;
-    // ... logic consistent with original ...
-    // Reusing the logic from before but ensuring simplified display if needed
-    
-    // For brevity in valid replacement, I'll paste the full logic
     final hasImage = _card.imageUrl.isNotEmpty && !_card.imageUrl.startsWith('http');
     final hasOcrText = _card.ocrText != null && _card.ocrText!.isNotEmpty;
 
@@ -793,9 +805,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     return GestureDetector(
       onTap: () {
         if (hasUrl) {
-            widget.onOpenLink?.call(_card.sourceUrl!);
+          widget.onOpenLink?.call(_card.sourceUrl!);
         } else if (hasImage) {
-            _expandImage();
+          _expandImage();
         }
       },
       child: Container(
@@ -803,24 +815,26 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).primaryColor.withOpacity(0.15),
-              Theme.of(context).primaryColor.withOpacity(0.05),
+              AppTheme.accentTeal.withOpacity(0.15),
+              AppTheme.accentTeal.withOpacity(0.05),
             ],
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+          border: Border.all(
+            color: AppTheme.accentTeal.withOpacity(0.3),
+          ),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.2),
+                color: AppTheme.accentTeal.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 hasUrl ? Icons.open_in_new : Icons.image,
-                color: Theme.of(context).primaryColor,
+                color: AppTheme.accentTeal,
                 size: 20,
               ),
             ),
@@ -831,27 +845,32 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 children: [
                   Text(
                     hasUrl ? 'Open Original Link' : 'View Original Image',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  if (hasUrl)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      _extractDomain(_card.sourceUrl!),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).primaryColor,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
                     ),
                   ),
+                  if (hasUrl)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _extractDomain(_card.sourceUrl!),
+                        style: TextStyle(
+                          color: AppTheme.accentTeal,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Theme.of(context).primaryColor),
+            Icon(
+              Icons.chevron_right,
+              color: AppTheme.accentTeal,
+            ),
           ],
         ),
       ),
@@ -860,44 +879,25 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 5. AI Summary
   Widget _buildAISummarySection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(Icons.auto_awesome, size: 16, color: Theme.of(context).primaryColor),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'AI SUMMARY',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).disabledColor,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
+            Icon(
+              Icons.auto_awesome,
+              size: 20,
+              color: AppTheme.accentTeal,
             ),
-            // Copy Button
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: _card.summary));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Summary copied to clipboard'), duration: Duration(seconds: 1)),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.copy, size: 16, color: Theme.of(context).iconTheme.color),
+            const SizedBox(width: 8),
+            Text(
+              'AI Summary',
+              style: TextStyle(
+                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -905,20 +905,24 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.5),
+            color: isDark
+                ? AppTheme.cardDark.withOpacity(0.5)
+                : Theme.of(context).cardColor.withOpacity(0.5),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
+            ),
           ),
           child: Text(
             _card.summary.isEmpty ? 'No summary available.' : _card.summary,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                  height: 1.6,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w300,
-                ),
+            style: TextStyle(
+              color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
+              height: 1.6,
+              fontSize: 15,
+              fontWeight: FontWeight.w300,
+            ),
           ),
         ),
       ],
@@ -927,47 +931,76 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // 6. Personal Note
   Widget _buildPersonalNoteSection() {
-     return Column(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.edit_note_outlined, size: 18, color: Theme.of(context).textTheme.bodyMedium?.color),
+            Icon(
+              Icons.edit_note_outlined,
+              size: 20,
+              color: isDark ? AppTheme.textSecondary : Theme.of(context).textTheme.bodyMedium?.color,
+            ),
             const SizedBox(width: 8),
             Text(
-              'PERSONAL NOTE',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).disabledColor,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w700,
-                  ),
+              'Personal Note',
+              style: TextStyle(
+                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.5),
+            color: isDark
+                ? AppTheme.cardDark.withOpacity(0.5)
+                : Theme.of(context).cardColor.withOpacity(0.5),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
+            ),
           ),
-          child: TextField(
-            controller: _noteController,
-             maxLines: null, // Auto expand
-             minLines: 3,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
+          child: Stack(
+            children: [
+              TextField(
+                controller: _noteController,
+                maxLines: null,
+                minLines: 4,
+                style: TextStyle(
+                  color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
                   height: 1.6,
                   fontWeight: FontWeight.w300,
+                  fontSize: 15,
                 ),
-            decoration: InputDecoration(
-              hintText: 'Add your thoughts...',
-              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).disabledColor.withOpacity(0.5),
+                decoration: InputDecoration(
+                  hintText: 'Add your thoughts or why you saved this...',
+                  hintStyle: TextStyle(
+                    color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor.withOpacity(0.5),
                   ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(20),
-            ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(20),
+                ),
+              ),
+              if (_isNoteModified)
+                Positioned(
+                  bottom: 8,
+                  right: 12,
+                  child: Text(
+                    'Auto-saved',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -979,40 +1012,28 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     final original = _card.ocrText;
     if (original == null || original.trim().isEmpty) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Clean whitespace
     final cleanedText = original.replaceAll(RegExp(r'[\r\n]{3,}'), '\n\n').trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Row(
           children: [
-            Row(
-              children: [
-                Icon(Icons.article_outlined, size: 18, color: Theme.of(context).textTheme.bodyMedium?.color),
-                const SizedBox(width: 8),
-                Text(
-                  'ORIGINAL MESSAGE',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).disabledColor,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
+            Icon(
+              Icons.article_outlined,
+              size: 20,
+              color: isDark ? AppTheme.textSecondary : Theme.of(context).textTheme.bodyMedium?.color,
             ),
-             // Copy Button
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: cleanedText));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Original text copied'), duration: Duration(seconds: 1)),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.copy, size: 16, color: Theme.of(context).iconTheme.color),
+            const SizedBox(width: 8),
+            Text(
+              'Original Message',
+              style: TextStyle(
+                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -1022,17 +1043,21 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.4),
+            color: isDark
+                ? AppTheme.cardDark.withOpacity(0.4)
+                : Theme.of(context).cardColor.withOpacity(0.4),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
+            ),
           ),
           child: Text(
             cleanedText,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                  height: 1.5,
-                  fontSize: 14,
-                ),
+            style: TextStyle(
+              color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
+              height: 1.5,
+              fontSize: 14,
+            ),
           ),
         ),
       ],
@@ -1041,79 +1066,73 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   // Floating Action Bar
   Widget _buildFloatingActionBar() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildFloatingActionButton(
-                icon: Icons.folder_open,
-                label: 'Move',
-                onTap: _showFolderPicker,
-              ),
-              Container(width: 1, height: 24, color: Colors.white.withOpacity(0.1)),
-              _buildFloatingActionButton(
-                icon: Icons.share_outlined,
-                label: 'Share',
-                onTap: _shareCard,
-              ),
-              Container(width: 1, height: 24, color: Colors.white.withOpacity(0.1)),
-              _buildFloatingActionButton(
-                icon: Icons.delete_outline,
-                label: 'Delete',
-                onTap: _showDeleteDialog,
-                isDangerous: true,
-              ),
-            ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.share,
+            label: 'Share',
+            onTap: _shareCard,
+            isDangerous: false,
           ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.delete,
+            label: 'Delete',
+            onTap: _showDeleteDialog,
+            isDangerous: true,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildFloatingActionButton({
+  Widget _buildActionButton({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     bool isDangerous = false,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isDangerous ? Colors.red.shade400 : Theme.of(context).iconTheme.color,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: isDangerous ? Colors.red.shade400 : Theme.of(context).disabledColor,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDangerous ? Colors.red.shade400 : AppTheme.textPrimary;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.bgWhite5 : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppTheme.borderWhite10 : Colors.white.withOpacity(0.1),
             ),
           ),
-        ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1125,7 +1144,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderColor
+                : Colors.transparent,
+          ),
+        ),
         title: Text('Edit Title', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
         content: TextField(
           controller: controller,
@@ -1167,7 +1193,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderColor
+                : Colors.transparent,
+          ),
+        ),
         title: Text('Add Tag', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
         content: TextField(
           controller: controller,
@@ -1216,23 +1249,35 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   // Implementation of missing helpers from previous context:
   
   Widget _buildImageSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: _expandImage,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Theme.of(context).dividerColor),
-          boxShadow: [
-             BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 24, offset: const Offset(0, 8)),
-          ],
+          border: Border.all(
+            color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           child: Stack(
             children: [
               AspectRatio(
-                aspectRatio: 3 / 2, // Slightly wider
-                child: _buildImage(_card.imageUrl),
+                aspectRatio: 3 / 4,
+                child: Opacity(
+                  opacity: 0.9,
+                  child: _buildImage(_card.imageUrl),
+                ),
               ),
               Positioned.fill(
                 child: Container(
@@ -1240,21 +1285,49 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withOpacity(0.3)],
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.6),
+                      ],
                     ),
                   ),
                 ),
               ),
               Positioned(
-                bottom: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.fullscreen,
+                          size: 14,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tap to expand',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Icon(Icons.fullscreen, color: Colors.white, size: 20),
                 ),
               ),
             ],
@@ -1264,21 +1337,31 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  Widget _buildTag(String tag) {
+  Widget _buildTag(String tag, {bool isFirst = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).dividerColor.withOpacity(0.1),
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(24),
+        color: isDark
+            ? (isFirst ? AppTheme.accentTeal.withAlpha(26) : AppTheme.bgWhite5)
+            : Theme.of(context).dividerColor.withOpacity(0.1),
+        border: Border.all(
+          color: isDark
+              ? (isFirst ? AppTheme.accentTeal.withAlpha(51) : AppTheme.borderWhite10)
+              : Theme.of(context).dividerColor,
+        ),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        tag,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+        tag.toUpperCase(),
+        style: TextStyle(
+          color: isDark
+              ? (isFirst ? AppTheme.accentTeal : AppTheme.textPrimary)
+              : Theme.of(context).textTheme.bodyMedium?.color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.0,
+        ),
       ),
     );
   }
@@ -1292,7 +1375,11 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor.withOpacity(0.5),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.borderColor
+                  : Theme.of(context).dividerColor,
+            ),
           ),
           child: Row(
             children: [

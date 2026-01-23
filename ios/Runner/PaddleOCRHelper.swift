@@ -308,4 +308,108 @@ class PaddleOCRHelper {
         
         return image
     }
+    /// Vision Framework를 사용한 고급 텍스트 및 레이아웃 분석
+    func recognizeTextWithEnhancedAnalysis(image: UIImage) async throws -> [String: Any] {
+        guard let cgImage = image.cgImage else {
+            throw NSError(domain: "PaddleOCRHelper", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid image"])
+        }
+        
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        
+        // 1. 텍스트 인식
+        let textRequest = VNRecognizeTextRequest()
+        textRequest.recognitionLevel = .accurate
+        textRequest.usesLanguageCorrection = true
+        if #available(iOS 16.0, *) {
+            textRequest.automaticallyDetectsLanguage = true
+        } else if #available(iOS 15.0, *) {
+            textRequest.recognitionLanguages = ["ko-KR", "en-US", "zh-Hans", "zh-Hant", "ja-JP"]
+        }
+        
+        // 2. 사각형(레이아웃) 감지 (제목/본문 구분용)
+        let rectanglesRequest = VNDetectRectanglesRequest()
+        rectanglesRequest.minimumConfidence = 0.6
+        rectanglesRequest.minimumAspectRatio = 0.3
+        
+        // 3. 중요 영역(Saliency) 감지 (이미지 내 주목할 부분)
+        let saliencyRequest = VNGenerateAttentionBasedSaliencyImageRequest()
+        
+        // 요청 실행
+        do {
+            try handler.perform([textRequest, rectanglesRequest, saliencyRequest])
+        } catch {
+            print("Vision Enhanced Analysis Error: \(error)")
+            throw error
+        }
+        
+        // 결과 처리
+        let textBlocks = processTextObservations(textRequest.results ?? [], imageSize: image.size)
+        let layoutRegions = processRectangles(rectanglesRequest.results ?? [], imageSize: image.size)
+        let importantAreas = processSaliency(saliencyRequest.results?.first, imageSize: image.size)
+        
+        return [
+            "textBlocks": textBlocks,
+            "layoutRegions": layoutRegions,
+            "importantAreas": importantAreas,
+            "imageSize": [
+                "width": image.size.width,
+                "height": image.size.height
+            ]
+        ]
+    }
+
+    private func processTextObservations(_ observations: [VNRecognizedTextObservation], imageSize: CGSize) -> [[String: Any]] {
+        return observations.compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            
+            // Vision 좌표계 (좌하단 0,0) -> UIKit 좌표계 (좌상단 0,0) 변환
+            let box = observation.boundingBox
+            let normalizedTop = 1.0 - box.origin.y - box.size.height
+            
+            return [
+                "text": candidate.string,
+                "confidence": candidate.confidence,
+                "top": normalizedTop,
+                "left": box.origin.x,
+                "width": box.size.width,
+                "height": box.size.height,
+                // 실제 픽셀 좌표 (디버깅용)
+                "rawTop": normalizedTop * imageSize.height,
+                "rawLeft": box.origin.x * imageSize.width,
+                "rawWidth": box.size.width * imageSize.width,
+                "rawHeight": box.size.height * imageSize.height
+            ]
+        }
+    }
+
+    private func processRectangles(_ observations: [VNRectangleObservation], imageSize: CGSize) -> [[String: Any]] {
+        return observations.map { obs in
+            let box = obs.boundingBox
+            let normalizedTop = 1.0 - box.origin.y - box.size.height
+            
+            return [
+                "top": normalizedTop,
+                "left": box.origin.x,
+                "width": box.size.width,
+                "height": box.size.height,
+                "confidence": obs.confidence
+            ]
+        }
+    }
+
+    private func processSaliency(_ observation: VNSaliencyImageObservation?, imageSize: CGSize) -> [[String: Any]] {
+        guard let saliency = observation, let objects = saliency.salientObjects else { return [] }
+        
+        return objects.map { obj in
+            let box = obj.boundingBox
+            let normalizedTop = 1.0 - box.origin.y - box.size.height
+            
+            return [
+                "top": normalizedTop,
+                "left": box.origin.x,
+                "width": box.size.width,
+                "height": box.size.height
+            ]
+        }
+    }
 }

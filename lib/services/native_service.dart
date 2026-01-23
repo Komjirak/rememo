@@ -42,7 +42,7 @@ class NativeService {
     }
   }
 
-  /// 🆕 Bounding Box 정보를 포함한 이미지 분석
+  /// 🆕 Bounding Box 정보를 포함한 이미지 분석 (Enhanced)
   /// Returns a Map with 'ocrBlocks' containing text, position, size info
   static Future<Map<String, dynamic>?> analyzeImageWithBoxes(String path) async {
     try {
@@ -54,6 +54,39 @@ class NativeService {
     } on PlatformException catch (e) {
       print("Failed to analyze image with boxes: '${e.message}'.");
       return null;
+    }
+  }
+
+  /// 🆕 최신 스크린샷 가져오기 + Enhanced 분석
+  static Future<Map<String, dynamic>> getLastScreenshotAnalysisEnhanced() async {
+    try {
+      // 1. 최신 스크린샷 경로 가져오기 (기존 메서드 활용)
+      final last = await getLastScreenshotAnalysis();
+      if (last == null || last['imagePath'] == null) return {};
+      
+      String path = last['imagePath'];
+      
+      // 2. Enhanced 분석 요청
+      final result = await analyzeImageWithBoxes(path);
+      
+      if (result == null) return {};
+      
+      // 네이티브에서 받은 데이터
+      final Map<String, dynamic> data = Map<String, dynamic>.from(result);
+      
+      return {
+        'imagePath': data['imagePath'],
+        'ocrText': data['ocrText'],
+        'ocrBlocks': data['ocrBlocks'],          // 기존
+        'layoutRegions': data['layoutRegions'],  // NEW
+        'importantAreas': data['importantAreas'], // NEW
+        'imageSize': data['imageSize'],          // NEW
+      };
+    } catch (e) {
+      print('Enhanced analysis failed: $e');
+      // 폴백: 기존 방식 (이미 위에서 호출했음)
+      final fallback = await getLastScreenshotAnalysis();
+      return fallback ?? {}; 
     }
   }
 

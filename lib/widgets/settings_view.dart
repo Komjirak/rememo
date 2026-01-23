@@ -119,7 +119,7 @@ class _SettingsViewState extends State<SettingsView> {
           "Manage your personal library",
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontStyle: FontStyle.italic,
-                color: AppTheme.ink.withOpacity(0.6),
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
               ),
         ),
       ],
@@ -135,15 +135,19 @@ class _SettingsViewState extends State<SettingsView> {
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 letterSpacing: 2,
                 fontWeight: FontWeight.w900,
-                color: AppTheme.ink.withOpacity(0.4),
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
               ),
         ),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.cream,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.borderColor
+                  : Theme.of(context).dividerColor,
+            ),
           ),
           child: Column(
             children: children,
@@ -166,18 +170,25 @@ class _SettingsViewState extends State<SettingsView> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppTheme.paper,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.bgWhite5
+                  : Theme.of(context).scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppTheme.ink, size: 20),
+            child: Icon(
+              icon,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ),
@@ -186,7 +197,7 @@ class _SettingsViewState extends State<SettingsView> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppTheme.ink.withOpacity(0.6),
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ],
@@ -198,7 +209,11 @@ class _SettingsViewState extends State<SettingsView> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+          bottom: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.dividerColor
+                : Theme.of(context).dividerColor,
+          ),
         ),
       ),
       child: Padding(
@@ -217,13 +232,16 @@ class _SettingsViewState extends State<SettingsView> {
             Expanded(
               child: Text(
                 category,
-                style: const TextStyle(fontSize: 15),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
             ),
             Icon(
               Icons.check,
               size: 18,
-              color: AppTheme.ink.withOpacity(0.3),
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
             ),
           ],
         ),
@@ -250,7 +268,7 @@ class _SettingsViewState extends State<SettingsView> {
       case 'reference':
         return Colors.amber;
       default:
-        return AppTheme.accent;
+        return AppTheme.accentTeal;
     }
   }
 
@@ -262,26 +280,37 @@ class _SettingsViewState extends State<SettingsView> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+          bottom: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.dividerColor
+                : Theme.of(context).dividerColor,
+          ),
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(icon, color: AppTheme.ink.withOpacity(0.5), size: 20),
+            Icon(
+              icon,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+              size: 20,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 15),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
             ),
             Text(
               value,
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.ink.withOpacity(0.5),
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
               ),
             ),
           ],
@@ -298,7 +327,10 @@ class _SettingsViewState extends State<SettingsView> {
     bool isDestructive = false,
     bool enabled = true,
   }) {
-    final color = isDestructive ? Colors.red : AppTheme.ink;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDestructive
+        ? Colors.red
+        : (isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black);
     final opacity = enabled ? 1.0 : 0.4;
 
     return Material(
@@ -329,7 +361,12 @@ class _SettingsViewState extends State<SettingsView> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: (isDestructive ? Colors.red : AppTheme.ink).withOpacity(0.5),
+                        color: (isDestructive
+                                ? Colors.red
+                                : (isDark
+                                    ? AppTheme.textSecondary
+                                    : Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey))
+                            .withOpacity(0.5),
                       ),
                     ),
                   ],
@@ -351,14 +388,37 @@ class _SettingsViewState extends State<SettingsView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear Library'),
-        content: const Text(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderColor
+                : Colors.transparent,
+          ),
+        ),
+        title: Text(
+          'Clear Library',
+          style: TextStyle(
+            color: Theme.of(context).textTheme.titleLarge?.color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
           'This will permanently delete all your saved cards. This action cannot be undone.',
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -367,7 +427,11 @@ class _SettingsViewState extends State<SettingsView> {
               widget.onClearLibrary();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Library cleared')),
+                  SnackBar(
+                    content: const Text('Library cleared'),
+                    backgroundColor: Theme.of(context).cardColor,
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             },

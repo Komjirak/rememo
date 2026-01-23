@@ -16,8 +16,11 @@ class AppTheme {
   static const Color textDisabled = Color(0xFF4B5563);   // gray-600
 
   // Border & Divider
-  static const Color borderColor = Color(0x1AFFFFFF);    // white/10
+  static const Color borderColor = Color(0x14FFFFFF);    // white/8 (border-subtle)
   static const Color dividerColor = Color(0x0DFFFFFF);   // white/5
+  static const Color borderWhite10 = Color(0x1AFFFFFF);  // white/10
+  static const Color bgWhite10 = Color(0x1AFFFFFF);      // white/10
+  static const Color bgWhite5 = Color(0x0DFFFFFF);        // white/5
 
   // Legacy colors for backward compatibility
   static const Color paper = backgroundDark;
@@ -113,6 +116,9 @@ class AppTheme {
           color: textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w600,
+        ),
+        shape: const Border(
+          bottom: BorderSide(color: dividerColor), // white/5
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
