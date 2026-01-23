@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
@@ -526,8 +527,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 24),
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.add_photo_alternate_outlined : Icons.screenshot_monitor,
-              title: Platform.isMacOS ? "Import Image" : "Import Last Screenshot",
-              subtitle: Platform.isMacOS ? "Add image from your library" : "Analyze your most recent capture",
+              title: Platform.isMacOS ? "이미지 가져오기" : "최신 스크린샷 가져오기",
+              subtitle: Platform.isMacOS ? "라이브러리에서 이미지 추가" : "가장 최신 캡처 분석",
               onTap: () {
                 print('🟢 Import Image button tapped');
                 Navigator.pop(ctx);
@@ -537,12 +538,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 12),
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.photo_library_outlined : Icons.camera_alt_outlined,
-              title: Platform.isMacOS ? "Choose Image" : "Take Photo",
-              subtitle: Platform.isMacOS ? "Select from your files" : "Capture something new",
+              title: Platform.isMacOS ? "이미지 선택" : "사진 촬영",
+              subtitle: Platform.isMacOS ? "파일에서 선택" : "새로운 사진 촬영",
               onTap: () {
                 print('🟡 Choose Image button tapped');
                 Navigator.pop(ctx);
                 _pickImage();
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSheetOption(
+              icon: Icons.link,
+              title: "URL 붙여넣기",
+              subtitle: "클립보드 링크 저장",
+              onTap: () {
+                print('🔵 Paste URL button tapped');
+                Navigator.pop(ctx);
+                _handlePasteUrl();
               },
             ),
             const SizedBox(height: 16),
@@ -568,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [
@@ -637,6 +649,70 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
     } catch (e) {
       print('🔴 Error in _pickImageFromGallery: $e');
+      setState(() => _isAnalyzing = false);
+    }
+  }
+
+  /// URL 붙여넣기 및 처리
+  Future<void> _handlePasteUrl() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text;
+
+      if (text == null || text.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('클립보드가 비어있습니다.')),
+          );
+        }
+        return;
+      }
+
+      // 간단한 URL 확인
+      final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])");
+      if (!urlRegExp.hasMatch(text)) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('유효한 URL이 아닙니다.')),
+          );
+        }
+        return;
+      }
+
+      setState(() => _isAnalyzing = true);
+
+      // Create a temporary SharedItem to leverage existing ShareService logic
+      final tempItem = SharedItem(
+        type: 'url',
+        url: text,
+        timestamp: DateTime.now().millisecondsSinceEpoch.toDouble(),
+        title: 'Analyzing Link...',
+      );
+
+      // Process it
+      final processedItem = await _shareService.processSharedItem(tempItem);
+      
+      // Create Card
+      await _createCardFromSharedItem(processedItem, saveToDb: true);
+      
+      // UI Update
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+               content: Text('🔗 링크가 저장되었습니다!'),
+               backgroundColor: AppTheme.accentTeal,
+            ),
+         );
+      }
+
+    } catch (e) {
+      print('URL Paste Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('URL 처리 중 오류가 발생했습니다: $e')),
+        );
+      }
+    } finally {
       setState(() => _isAnalyzing = false);
     }
   }
@@ -1211,20 +1287,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Loading Overlay
           if (_isAnalyzing) _buildLoadingOverlay(),
 
-          // FAB - Fixed position (Right-bottom corner, above bottom nav)
+          // FAB - Fixed position (Right-bottom corner)
           Positioned(
-            bottom: 110, 
+            bottom: 24, // Adjusted position since nav bar is gone
             right: 24,
             child: _buildFAB(),
           ),
 
           // Custom Bottom Navigation Bar
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBottomNavBar(),
-          ),
+// Custom Bottom Navigation Bar removed as per request
+          // Positioned(
+          //   bottom: 0,
+          //   left: 0,
+          //   right: 0,
+          //   child: _buildBottomNavBar(),
+          // ),
         ],
       ),
     );
@@ -1240,9 +1317,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).appBarTheme.backgroundColor,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
-        ),
+        // Border removed for cleaner look
+        // border: Border(
+        //   bottom: BorderSide(color: Theme.of(context).dividerColor),
+        // ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1335,54 +1413,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildBottomNavBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark 
-        ? const Color(0xFF0A0A0A).withOpacity(0.9) 
-        : const Color(0xFFFFFFFF).withOpacity(0.9);
-    
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border(
-           top: BorderSide(color: Theme.of(context).dividerColor),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.grid_view, "Library", true),
-          _buildNavItem(Icons.auto_awesome, "Insights", false),
-          _buildNavItem(Icons.history, "Timeline", false),
-          _buildNavItem(Icons.person_outline, "Profile", false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    final color = isActive 
-        ? Theme.of(context).primaryColor 
-        : Theme.of(context).disabledColor;
-    
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: color, 
-            fontSize: 10, 
-            fontWeight: FontWeight.w600
-          ),
-        ),
-      ],
-    );
-  }
+  // _buildBottomNavBar method removed
 
   Widget _buildSearchBar() {
     return Container(
@@ -1477,7 +1508,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 80), 
+      padding: EdgeInsets.zero, // Removed bottom padding using zero
       child: LibraryListView(
         cards: displayCards,
         folders: _folders,

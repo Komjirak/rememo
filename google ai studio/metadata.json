@@ -1,7 +1,0 @@
-{
-  "name": "Folio - AI Personal Bookmark Library",
-  "description": "Transform your screenshots into a structured personal knowledge library. Folio automatically analyzes captures to create searchable memo cards with AI-generated summaries, tags, and categories.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

@@ -113,7 +113,7 @@ class _LibraryListViewState extends State<LibraryListView> {
             const SizedBox(width: 8),
             _buildChip("Favorites", FilterOption.favorites),
             const SizedBox(width: 12),
-            Container(width: 1, height: 20, color: Theme.of(context).dividerColor),
+            Container(width: 1, height: 20, color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Theme.of(context).dividerColor),
             const SizedBox(width: 12),
             _buildFolderDropdown(),
              const SizedBox(width: 8),
@@ -163,7 +163,7 @@ class _LibraryListViewState extends State<LibraryListView> {
           border: Border.all(
             color: isSelected
                 ? primaryColor.withOpacity(0.3)
-                : Theme.of(context).dividerColor,
+                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
           ),
         ),
         child: Row(
@@ -329,7 +329,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                 ? (selectedFolder != null
                     ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withOpacity(0.3)
                     : Theme.of(context).dividerColor)
-                : Theme.of(context).dividerColor,
+                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
           ),
         ),
         child: Row(
@@ -386,7 +386,7 @@ class _LibraryListViewState extends State<LibraryListView> {
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
-                : Theme.of(context).dividerColor,
+                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
           ),
         ),
         child: Text(
@@ -566,7 +566,7 @@ class _LibraryListViewState extends State<LibraryListView> {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isDark ? const Color(0xFF262626) : Theme.of(context).dividerColor,
+              color: isDark ? Colors.transparent : Theme.of(context).dividerColor,
             ),
             boxShadow: isDark ? null : [
                BoxShadow(
@@ -586,7 +586,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                   color: isDark ? const Color(0xFF1F2937) : Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Theme.of(context).dividerColor,
+                    color: isDark ? Colors.transparent : Theme.of(context).dividerColor,
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,

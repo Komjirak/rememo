@@ -255,10 +255,22 @@ class ShareService {
             
         if (paragraphs.isEmpty) return null;
 
+        // Create synthetic blocks from paragraphs
+        final textBlocks = paragraphs.map((p) => {
+            'text': p,
+            'top': 0.5, // Dummy values
+            'left': 0.1,
+            'width': 0.8,
+            'height': 0.1,
+            'confidence': 1.0,
+        }).toList();
+
         final result = await _llmChannel.invokeMethod('analyzeSummary', {
-            'title': title,
-            'paragraphs': paragraphs,
-            'keyPoints': [], // Empty for now, LLM might extract them
+            'textBlocks': textBlocks,
+            'imageSize': {'width': 1000.0, 'height': 2000.0}, // Dummy size
+             // Optional args
+            'layoutRegions': [],
+            'importantAreas': [],
         });
         
         if (result != null) {
