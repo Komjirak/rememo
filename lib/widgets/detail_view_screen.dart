@@ -84,165 +84,237 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     widget.onUpdate?.call(updatedCard);
   }
 
-  void _expandImage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _FullScreenImageView(imageUrl: _card.imageUrl),
-      ),
-    );
-  }
-
-  Color _hexToColor(String hexString) {
-    final buffer = StringBuffer();
-    buffer.write('ff');
-    buffer.write(hexString.replaceFirst('#', ''));
-    return Color(int.parse(buffer.toString(), radix: 16));
-  }
-
   Future<void> _showFolderPicker() async {
+    // Initial fetch
     var folders = await DatabaseHelper.instance.readAllFolders();
+    String? tempSelectedFolderId = _card.folderId; // Track selection locally
 
     if (!mounted) return;
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).cardColor,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent, // Important for glass effect
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(24),
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '폴더로 이동',
-                        style: TextStyle(
-                          color: Theme.of(context).textTheme.titleLarge?.color,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      // 새 폴더 만들기 버튼
-                      TextButton.icon(
-                        onPressed: () async {
-                          final newFolder = await _showCreateFolderDialog();
-                          if (newFolder != null) {
-                            // 폴더 목록 새로고침
-                            folders = await DatabaseHelper.instance.readAllFolders();
-                            setModalState(() {});
-                          }
-                        },
-                        icon: Icon(
-                          Icons.create_new_folder_outlined,
-                          size: 18,
-                          color: AppTheme.accentTeal,
-                        ),
-                        label: Text(
-                          '새 폴더',
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final sheetColor = isDark 
+                ? const Color(0xFF101922).withOpacity(0.85) 
+                : Colors.white.withOpacity(0.95);
+            final borderColor = isDark 
+                ? Colors.white.withOpacity(0.1) 
+                : Colors.black.withOpacity(0.05);
 
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // No folder option
-                          ListTile(
-                            leading: Icon(
-                              Icons.folder_off_outlined,
-                              color: Theme.of(context).iconTheme.color,
-                            ),
-                            title: Text(
-                              '폴더 없음',
-                              style: TextStyle(
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            onTap: () async {
-                              await DatabaseHelper.instance.moveMemoCardToFolder(_card.id, null);
-                              _card = _card.copyWith(folderId: null);
-                              widget.onUpdate?.call(_card);
-                              if (mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('폴더에서 제거됨'),
-                                    backgroundColor: Theme.of(context).cardColor,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-
-                          Divider(color: Theme.of(context).dividerColor),
-
-                          // Folders list
-                          ...folders.map((folder) => ListTile(
-                            leading: Icon(
-                              Icons.folder,
-                              color: _hexToColor(folder.color),
-        ),
-        title: Text(
-                              folder.name,
-                              style: TextStyle(
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${folder.itemCount}개 항목',
-                              style: TextStyle(
-                                color: Theme.of(context).disabledColor,
-                fontSize: 12,
-              ),
-                            ),
-                            trailing: _card.folderId == folder.id
-                                ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor)
-                                : null,
-                            onTap: () async {
-                              await DatabaseHelper.instance.moveMemoCardToFolder(_card.id, folder.id);
-                              _card = _card.copyWith(folderId: folder.id);
-                              widget.onUpdate?.call(_card);
-                              if (mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${folder.name}로 이동됨'),
-                                    backgroundColor: Theme.of(context).cardColor,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
-                          )),
-                        ],
-                      ),
+            return ClipRRect(
+               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+               child: BackdropFilter(
+                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                 child: Container(
+                    decoration: BoxDecoration(
+                      color: sheetColor,
+                      border: Border(top: BorderSide(color: borderColor)),
                     ),
-                  ),
-                ],
-              ),
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.85,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Handle
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 12, bottom: 4),
+                            width: 48,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
+                        ),
+                        
+                        // Header
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "Move to Folder",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: Text(
+                                  "Cancel",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark ? Colors.grey : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        Divider(height: 1, color: borderColor),
+                        
+                        // Content List
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Column(
+                              children: [
+                                // Create New Folder Item
+                                InkWell(
+                                  onTap: () async {
+                                     final newFolder = await _showCreateFolderDialog();
+                                     if (newFolder != null) {
+                                         folders = await DatabaseHelper.instance.readAllFolders();
+                                         setModalState(() {
+                                            tempSelectedFolderId = newFolder.id; // Auto select new folder
+                                         });
+                                     }
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: Colors.transparent,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 44, height: 44,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryDark.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: AppTheme.primaryDark.withOpacity(0.2)),
+                                          ),
+                                          child: const Icon(Icons.add_circle, color: AppTheme.primaryDark),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Text(
+                                            "Create New Folder",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: isDark ? Colors.white : Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(Icons.chevron_right, color: isDark ? Colors.grey : Colors.grey.shade400),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Divider(color: borderColor),
+                                ),
+                                
+                                // Radio List: No Folder
+                                _buildFolderRadioItem(
+                                  id: null,
+                                  name: "None", // Or "Root" / "No Folder"
+                                  icon: Icons.folder_off_outlined,
+                                  color: Colors.grey,
+                                  isSelected: tempSelectedFolderId == null,
+                                  isDark: isDark,
+                                  onTap: () => setModalState(() => tempSelectedFolderId = null),
+                                ),
+                                
+                                const SizedBox(height: 8),
+
+                                // Radio List: Folders
+                                ...folders.map((folder) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _buildFolderRadioItem(
+                                    id: folder.id, 
+                                    name: folder.name, 
+                                    icon: Icons.folder, // Or specific icon 
+                                    color: _hexToColor(folder.color),
+                                    isSelected: tempSelectedFolderId == folder.id,
+                                    isDark: isDark,
+                                    onTap: () => setModalState(() => tempSelectedFolderId = folder.id),
+                                  ),
+                                )),
+                                
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        // Sticky Footer: Move Here Button
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 40), // PB-10 in html, plus safe area
+                          decoration: BoxDecoration(
+                            border: Border(top: BorderSide(color: borderColor)),
+                            color: isDark 
+                                ? const Color(0xFF101922).withOpacity(0.4) 
+                                : Colors.white.withOpacity(0.6),
+                          ),
+                          child: ClipRRect( // Backdrop blur for footer itself if needed, usually container color handles it
+                             child: SizedBox(
+                               width: double.infinity,
+                               height: 56,
+                               child: ElevatedButton(
+                                 onPressed: () async {
+                                    // Perform Move
+                                    await DatabaseHelper.instance.moveMemoCardToFolder(_card.id, tempSelectedFolderId);
+                                    
+                                    // Update Local State
+                                    if (mounted) {
+                                       setState(() {
+                                         _card = _card.copyWith(folderId: tempSelectedFolderId);
+                                       });
+                                       widget.onUpdate?.call(_card);
+                                       Navigator.pop(context);
+                                       
+                                       // Show Toast
+                                       final folderName = tempSelectedFolderId == null 
+                                            ? "Removed from folder" 
+                                            : "Moved to ${folders.firstWhere((f) => f.id == tempSelectedFolderId).name}";
+                                       
+                                       ScaffoldMessenger.of(context).showSnackBar(
+                                         SnackBar(
+                                           content: Text(folderName),
+                                           behavior: SnackBarBehavior.floating,
+                                            backgroundColor: Theme.of(context).cardColor,
+                                         )
+                                       );
+                                    }
+                                 },
+                                 style: ElevatedButton.styleFrom(
+                                   backgroundColor: AppTheme.primaryDark,
+                                   foregroundColor: Colors.white,
+                                   elevation: 8,
+                                   shadowColor: AppTheme.primaryDark.withOpacity(0.4),
+                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                   textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                                 ),
+                                 child: const Text("Move Here"),
+                               ),
+                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                 ),
+               ),
             );
           },
         );
@@ -250,19 +322,73 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
+  Widget _buildFolderRadioItem({
+      required String? id, 
+      required String name, 
+      required IconData icon, 
+      required Color color, 
+      required bool isSelected, 
+      required bool isDark,
+      required VoidCallback onTap,
+  }) {
+      final borderColor = isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05); 
+      
+      return GestureDetector(
+          onTap: onTap,
+          child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.02) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: isSelected ? AppTheme.primaryDark : borderColor, 
+                      width: isSelected ? 2 : 1
+                  ),
+              ),
+              child: Row(
+                  children: [
+                       // Content Left (Radio Right logic)
+                       Icon(icon, color: isSelected ? AppTheme.primaryDark : (isDark ? Colors.grey : Colors.grey.shade400)),
+                       const SizedBox(width: 12),
+                       Expanded(
+                           child: Text(
+                               name,
+                               style: TextStyle(
+                                   fontSize: 16,
+                                   fontWeight: FontWeight.w500,
+                                   color: isDark ? Colors.white : Colors.black,
+                               ),
+                           ),
+                       ),
+                       // Radio
+                       Container(
+                           width: 20, height: 20,
+                           decoration: BoxDecoration(
+                               shape: BoxShape.circle,
+                               border: Border.all(
+                                   color: isSelected ? AppTheme.primaryDark : (isDark ? Colors.white.withOpacity(0.2) : Colors.grey.shade300),
+                                   width: 2,
+                               ),
+                               color: isSelected ? AppTheme.primaryDark : Colors.transparent,
+                           ),
+                           child: isSelected 
+                               ? const Icon(Icons.circle, size: 8, color: Colors.white) 
+                               : null,
+                       ),
+                  ],
+              ),
+          ),
+      );
+  }
+
+
   Future<Folder?> _showCreateFolderDialog() async {
     final nameController = TextEditingController();
-    String selectedColor = '#14B8A6'; // Default teal
+    String selectedColor = '#14B8A6'; 
 
     final colors = [
-      '#14B8A6', // teal
-      '#60A5FA', // blue
-      '#C084FC', // purple
-      '#4ADE80', // green
-      '#FB923C', // orange
-      '#F472B6', // pink
-      '#FACC15', // yellow
-      '#EF4444', // red
+      '#14B8A6', '#60A5FA', '#C084FC', '#4ADE80', 
+      '#FB923C', '#F472B6', '#FACC15', '#EF4444', 
     ];
 
     return showDialog<Folder>(
@@ -272,22 +398,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: Theme.of(context).cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? AppTheme.borderColor
-                      : Theme.of(context).dividerColor,
-                ),
-              ),
-              title: Text(
-                '새 폴더 만들기',
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.titleLarge?.color,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('New Folder', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,30 +409,16 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     autofocus: true,
                     style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                     decoration: InputDecoration(
-                      hintText: '폴더 이름',
+                      hintText: 'Folder Name',
                       hintStyle: TextStyle(color: Theme.of(context).hintColor),
                       filled: true,
-                      fillColor: Theme.of(context).dividerColor.withAlpha(50),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      fillColor: Theme.of(context).dividerColor.withOpacity(0.1),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    '폴더 색상',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -338,57 +436,31 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                           decoration: BoxDecoration(
                             color: _hexToColor(color),
                             shape: BoxShape.circle,
-                            border: isSelected
-                                ? Border.all(color: Theme.of(context).indicatorColor, width: 3)
-                                : null,
+                            border: isSelected ? Border.all(color: Theme.of(context).primaryColor, width: 3) : null,
                           ),
-                          child: isSelected
-                              ? Icon(Icons.check, color: Colors.white, size: 20)
-                              : null,
+                          child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
                         ),
                       );
                     }).toList(),
                   ),
                 ],
-        ),
-        actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    '취소',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
                 TextButton(
                   onPressed: () async {
                     final name = nameController.text.trim();
                     if (name.isEmpty) return;
-
                     final folder = Folder(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
                       name: name,
                       color: selectedColor,
                       createdDate: DateTime.now(),
                     );
-
                     await DatabaseHelper.instance.createFolder(folder);
-                    if (mounted) {
-                      Navigator.pop(ctx, folder);
-                    }
+                    if (mounted) Navigator.pop(ctx, folder);
                   },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor.withAlpha(26),
-                  ),
-                  child: Text(
-                    '만들기',
-                    style: TextStyle(
-                      color: Theme.of(context).primaryColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  child: const Text('Create'),
                 ),
               ],
             );
@@ -399,56 +471,35 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   }
 
   void _showDeleteDialog() {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppTheme.borderColor
-                : Colors.transparent,
-          ),
-        ),
-        title: Text(
-          'Delete Memory',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).textTheme.titleLarge?.color,
-              ),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Delete Memory', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
         content: Text(
           'Are you sure you want to delete this memory? This action cannot be undone.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
         ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
               widget.onDelete?.call();
-                          Navigator.pop(context);
-                        },
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                );
-              }
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _shareCard() {
-    // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share functionality coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
+      const SnackBar(content: Text('Share functionality coming soon'), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -456,9 +507,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -505,85 +554,67 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
+  // Helper Methods
+  Color _hexToColor(String hexString) {
+    final buffer = StringBuffer();
+    buffer.write('ff');
+    buffer.write(hexString.replaceFirst('#', ''));
+    return Color(int.parse(buffer.toString(), radix: 16));
+  }
+
+  String _extractDomain(String url) {
+    try {
+      final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+      return uri.host.replaceFirst('www.', '');
+    } catch (e) {
+      return url;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBodyBehindAppBar: true,
+      extendBodyBehindAppBar: true, 
       body: Stack(
         children: [
-          // Main content
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 120), // Space for floating bar
-            child: Column(
-              children: [
-                // Header with blur effect (Back button & More options)
-                _buildBlurHeader(),
-
-                // Content
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 1. Title (Editable)
-                      _buildTitleSection(),
-                      const SizedBox(height: 16),
-
-                      // 2. Time & Link Info
-                      _buildMetadataSection(),
-                      const SizedBox(height: 32),
-
-                      // 3. Auto Tags
-                      _buildTagsSection(),
-                      const SizedBox(height: 32),
-
-                      // 4. Return to Original
-                      _buildReturnToOriginalSection(),
-                      const SizedBox(height: 32),
-
-                      // 5. AI Summary
-                      _buildAISummarySection(),
-                      const SizedBox(height: 32),
-
-                      // 6. Personal Note
-                      _buildPersonalNoteSection(),
-                      const SizedBox(height: 32),
-
-                      // 7. Original Message
-                      _buildOriginalMessageSection(),
-                      
-                      const SizedBox(height: 32),
-                      // Image section (Optional, put at bottom or keep at top? 
-                      // User didn't specify Image position in the numbered list, but usually it's top or part of content.
-                      // User list: 1) Title 2) Time... 
-                      // "List exposure order... 1) Title 2) Time..." 
-                      // Usually Image is visually dominant. I'll put it at the very top under header, or 
-                      // integrated. But strictly following the list might mean Image is less important?
-                      // "Detail screen exposure order 1) Title 2) Time & Link 3) Auto Tags 4) Original Page Open 5) AI Summary 6) Personal Note 7) Original Message"
-                      // It doesn't mention the Image itself!
-                      // But "Original Page Open" -> might imply the content.
-                      // If I hide the image, it's bad.
-                      // I will place the Image at the very top (above Title), as visual context is usually implied before Title in such apps, OR
-                      // maybe the user considers "Title" as the first strict Text element.
-                      // I'll keep Image at top for better UX, then Title.
-                      // Wait, current layout has Image first.
-                      // If I put Image first, then Title, it matches standard.
-                      // I will keep Image at Top.
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          Column(
+            children: [
+               _buildHeader(),
+               Expanded(
+                 child: SingleChildScrollView(
+                   padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       const SizedBox(height: 24),
+                       _buildTitleSection(),
+                       const SizedBox(height: 16),
+                       _buildMetadataSection(),
+                       const SizedBox(height: 16),
+                       _buildTagsSection(),
+                       const SizedBox(height: 24),
+                       _buildImageSection(),
+                       const SizedBox(height: 24),
+                       _buildAISummarySection(),
+                       const SizedBox(height: 24),
+                       _buildPersonalNoteSection(),
+                       const SizedBox(height: 24),
+                       _buildOriginalMessageSection(),
+                       const SizedBox(height: 48),
+                     ],
+                   ),
+                 ),
+               ),
+            ],
           ),
           
-          // Floating Action Bar (Bottom)
           Positioned(
-            bottom: 24,
-            left: 24,
-            right: 24,
-            child: SafeArea(
-              child: _buildFloatingActionBar(),
+            bottom: 32, // bottom-8 equivalent roughly
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildFloatingBottomMenu(),
             ),
           ),
         ],
@@ -591,8 +622,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  Widget _buildBlurHeader() {
+  Widget _buildHeader() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -600,57 +632,55 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 8,
             bottom: 16,
-            left: 24,
-            right: 24,
+            left: 20,
+            right: 20,
           ),
           decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.backgroundDark.withOpacity(0.8)
-                : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+            color: isDark 
+                ? AppTheme.backgroundDark.withOpacity(0.8) 
+                : Colors.white.withOpacity(0.8),
+            border: Border(
+              bottom: BorderSide(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)
+              )
+            )
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
                 icon: Icon(
-                  Icons.chevron_left,
+                  Icons.chevron_left, 
                   size: 28,
-                  color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
+                  color: isDark ? AppTheme.textLowDark : AppTheme.textHighLight
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 20,
-                    color: AppTheme.accentTeal,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Memory Insight',
-                    style: TextStyle(
-                      color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.bodyLarge?.color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.more_horiz,
-                  size: 24,
-                  color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
-                ),
-                onPressed: _showMoreOptions,
-              ),
+              
+               Row(
+                 children: [
+                   Icon(Icons.memory, color: AppTheme.primaryDark, size: 20),
+                   const SizedBox(width: 6),
+                   Text(
+                     "REMEMO INSIGHT",
+                     style: TextStyle(
+                       color: isDark ? AppTheme.textHighDark.withOpacity(0.8) : AppTheme.textHighLight.withOpacity(0.8),
+                       fontSize: 12,
+                       fontWeight: FontWeight.w600,
+                       letterSpacing: 0.5,
+                     ),
+                   ),
+                 ],
+               ),
+               
+               IconButton(
+                 icon: Icon(
+                   Icons.more_horiz, 
+                   size: 24,
+                   color: isDark ? AppTheme.textLowDark : AppTheme.textHighLight
+                 ),
+                 onPressed: _showMoreOptions,
+               ),
             ],
           ),
         ),
@@ -658,476 +688,423 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  // 1. Title Section (Editable)
   Widget _buildTitleSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Image at top (Context)
-        _buildImageSection(),
-        const SizedBox(height: 32),
-        
-        GestureDetector(
-          onTap: () => _showTitleEditDialog(),
-          child: Text(
-            _card.title,
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              letterSpacing: -0.5,
-              color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.displayLarge?.color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 2. Metadata Section (Time & Link)
-  Widget _buildMetadataSection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.calendar_today,
-              size: 14,
-              color: isDark ? AppTheme.textSecondary : Theme.of(context).disabledColor,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _card.captureDate,
-              style: TextStyle(
-                color: isDark ? AppTheme.textSecondary : Theme.of(context).disabledColor,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-        if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.public,
-                size: 14,
-                color: AppTheme.accentTeal,
-              ),
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () => widget.onOpenLink?.call(_card.sourceUrl!),
-                child: Text(
-                  _extractDomain(_card.sourceUrl!),
-                  style: TextStyle(
-                    color: AppTheme.accentTeal,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  // 3. Tags Section (Auto Tags & Add)
-  Widget _buildTagsSection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.label_outline,
-              size: 20,
-              color: isDark ? AppTheme.textSecondary : Theme.of(context).iconTheme.color,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Automated Tags',
-              style: TextStyle(
-                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ..._card.tags.asMap().entries.map((entry) {
-              final index = entry.key;
-              final tag = entry.value;
-              return _buildTag(tag, isFirst: index == 0);
-            }),
-            if (_card.tags.isEmpty)
-              Text(
-                'No tags yet',
-                style: TextStyle(
-                  color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // 4. Return to Original
-  Widget _buildReturnToOriginalSection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasUrl = _card.sourceUrl != null && _card.sourceUrl!.isNotEmpty;
-    final hasImage = _card.imageUrl.isNotEmpty && !_card.imageUrl.startsWith('http');
-    final hasOcrText = _card.ocrText != null && _card.ocrText!.isNotEmpty;
-
-    if (!hasUrl && !hasImage) {
-      if (!hasOcrText) return const SizedBox.shrink();
-      return _buildSearchFallbackButton();
-    }
-
     return GestureDetector(
-      onTap: () {
-        if (hasUrl) {
-          widget.onOpenLink?.call(_card.sourceUrl!);
-        } else if (hasImage) {
-          _expandImage();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppTheme.accentTeal.withOpacity(0.15),
-              AppTheme.accentTeal.withOpacity(0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.accentTeal.withOpacity(0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.accentTeal.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                hasUrl ? Icons.open_in_new : Icons.image,
-                color: AppTheme.accentTeal,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasUrl ? 'Open Original Link' : 'View Original Image',
-                    style: TextStyle(
-                      color: isDark ? AppTheme.textPrimary : Theme.of(context).textTheme.bodyLarge?.color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  if (hasUrl)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        _extractDomain(_card.sourceUrl!),
-                        style: TextStyle(
-                          color: AppTheme.accentTeal,
-                          fontSize: 13,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: AppTheme.accentTeal,
-            ),
-          ],
+      onTap: () => _showTitleEditDialog(),
+      child: Text(
+        _card.title,
+        style: TextStyle(
+          fontSize: 30, // 3xl
+          fontWeight: FontWeight.bold,
+          height: 1.2,
+          letterSpacing: -0.5,
+          color: isDark ? AppTheme.textHighDark : AppTheme.textHighLight,
         ),
       ),
     );
   }
 
-  // 5. AI Summary
-  Widget _buildAISummarySection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              size: 20,
-              color: AppTheme.accentTeal,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'AI Summary',
-              style: TextStyle(
-                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.cardDark.withOpacity(0.5)
-                : Theme.of(context).cardColor.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
-            ),
-          ),
-          child: Text(
-            _card.summary.isEmpty ? 'No summary available.' : _card.summary,
-            style: TextStyle(
-              color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
-              height: 1.6,
-              fontSize: 15,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 6. Personal Note
-  Widget _buildPersonalNoteSection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.edit_note_outlined,
-              size: 20,
-              color: isDark ? AppTheme.textSecondary : Theme.of(context).textTheme.bodyMedium?.color,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Personal Note',
-              style: TextStyle(
-                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.cardDark.withOpacity(0.5)
-                : Theme.of(context).cardColor.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
-            ),
-          ),
-          child: Stack(
-            children: [
-              TextField(
-                controller: _noteController,
-                maxLines: null,
-                minLines: 4,
-                style: TextStyle(
-                  color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
-                  height: 1.6,
-                  fontWeight: FontWeight.w300,
-                  fontSize: 15,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Add your thoughts or why you saved this...',
-                  hintStyle: TextStyle(
-                    color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor.withOpacity(0.5),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(20),
-                ),
-              ),
-              if (_isNoteModified)
-                Positioned(
-                  bottom: 8,
-                  right: 12,
-                  child: Text(
-                    'Auto-saved',
-                    style: TextStyle(
-                      color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-  
-  // 7. Original Message (Cleaned)
-  Widget _buildOriginalMessageSection() {
-    final original = _card.ocrText;
-    if (original == null || original.trim().isEmpty) return const SizedBox.shrink();
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Clean whitespace
-    final cleanedText = original.replaceAll(RegExp(r'[\r\n]{3,}'), '\n\n').trim();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.article_outlined,
-              size: 20,
-              color: isDark ? AppTheme.textSecondary : Theme.of(context).textTheme.bodyMedium?.color,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Original Message',
-              style: TextStyle(
-                color: isDark ? AppTheme.textMuted : Theme.of(context).disabledColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.cardDark.withOpacity(0.4)
-                : Theme.of(context).cardColor.withOpacity(0.4),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
-            ),
-          ),
-          child: Text(
-            cleanedText,
-            style: TextStyle(
-              color: isDark ? AppTheme.textPrimary.withOpacity(0.9) : Theme.of(context).textTheme.bodyMedium?.color,
-              height: 1.5,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Floating Action Bar
-  Widget _buildFloatingActionBar() {
+  Widget _buildMetadataSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        Expanded(
-          child: _buildActionButton(
-            icon: Icons.share,
-            label: 'Share',
-            onTap: _shareCard,
-            isDangerous: false,
-          ),
+        Icon(
+          Icons.calendar_today, 
+          size: 16, 
+          color: isDark ? AppTheme.textLowDark : AppTheme.textLowLight
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionButton(
-            icon: Icons.delete,
-            label: 'Delete',
-            onTap: _showDeleteDialog,
-            isDangerous: true,
+        const SizedBox(width: 6),
+        Text(
+          _card.captureDate,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppTheme.textLowDark : AppTheme.textLowLight,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isDangerous = false,
-  }) {
+  Widget _buildTagsSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isDangerous ? Colors.red.shade400 : AppTheme.textPrimary;
     
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+    // Merge Manual Tags and maybe visual cue for "AI Analysis"
+    final tags = [..._card.tags, 'AI Analysis']; // Always show AI Analysis as per design mock
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: tags.map((tag) {
+        final isAiTag = tag == 'AI Analysis';
+        if (!isDark) {
+           if (isAiTag) {
+             return _buildPill(
+               label: tag, 
+               bgColor: AppTheme.primaryLight.withOpacity(0.1), 
+               textColor: AppTheme.primaryLight
+             );
+           }
+           return _buildPill(
+             label: tag, 
+             bgColor: const Color(0xFFF3F4F6), 
+             textColor: AppTheme.textHighLight
+           );
+        } else {
+           if (tag == 'Design' || tag == 'AI Analysis') { 
+              return _buildPill(
+                label: tag, 
+                bgColor: AppTheme.primaryDark.withOpacity(0.1), 
+                textColor: AppTheme.primaryDark,
+                borderColor: AppTheme.primaryDark.withOpacity(0.2)
+              );
+           }
+           return _buildPill(
+              label: tag, 
+              bgColor: Colors.white.withOpacity(0.05), 
+              textColor: Colors.grey.shade300,
+              borderColor: Colors.white.withOpacity(0.1)
+           );
+        }
+      }).toList(),
+    );
+  }
+  
+  Widget _buildPill({required String label, required Color bgColor, required Color textColor, Color? borderColor}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: borderColor != null ? Border.all(color: borderColor) : null,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: _expandImage,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxHeight: 400),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24), 
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent
+          ),
+          color: isDark ? AppTheme.cardDark : Colors.grey.shade100,
+          boxShadow: isDark 
+            ? [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20)]
+            : [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            _buildImage(_card.imageUrl),
+            
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                width: 40, 
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: const Icon(Icons.link, color: Colors.white, size: 20),
+              ),
+            ),
+            
+             Positioned(
+              bottom: 16,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Colors.black.withOpacity(0.4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.fullscreen, color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          "View Original",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAISummarySection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+             Icon(
+               Icons.auto_awesome, 
+               size: 20, 
+               color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight
+             ),
+             const SizedBox(width: 8),
+             Text(
+               "AI SUMMARY",
+               style: TextStyle(
+                 fontSize: 12,
+                 fontWeight: FontWeight.bold,
+                 letterSpacing: 1.5, 
+                 color: isDark ? Colors.grey : AppTheme.primaryLight,
+               ),
+             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.bgWhite5 : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
+            color: isDark 
+                ? AppTheme.cardDark.withOpacity(0.5) 
+                : AppTheme.softTealLight,
+            borderRadius: BorderRadius.circular(24), 
             border: Border.all(
-              color: isDark ? AppTheme.borderWhite10 : Colors.white.withOpacity(0.1),
+              color: isDark 
+                  ? Colors.white.withOpacity(0.05) 
+                  : AppTheme.primaryLight.withOpacity(0.1)
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: color,
+          child: Text(
+            _card.summary.isEmpty 
+                ? "AI is analyzing this content..." 
+                : _card.summary,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.6, 
+              fontWeight: isDark ? FontWeight.w300 : FontWeight.normal,
+              color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPersonalNoteSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+             Icon(
+               Icons.edit_note, 
+               size: 24, 
+               color: isDark ? Colors.grey : AppTheme.textLowLight
+             ),
+             const SizedBox(width: 8),
+             Text(
+               "PERSONAL NOTE",
+               style: TextStyle(
+                 fontSize: 12,
+                 fontWeight: FontWeight.bold,
+                 letterSpacing: 1.5,
+                 color: Colors.grey,
+               ),
+             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark 
+                ? AppTheme.cardDark.withOpacity(0.5) 
+                : const Color(0xFFF9FAFB), 
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200
+            ),
+          ),
+          child: TextField(
+            controller: _noteController,
+            maxLines: null,
+            minLines: 4,
+            style: TextStyle(
+              color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight.withOpacity(0.8),
+              fontSize: 15,
+              height: 1.6,
+              fontStyle: isDark ? FontStyle.normal : FontStyle.italic,
+            ),
+            decoration: InputDecoration(
+              hintText: "Add your thoughts...",
+              hintStyle: TextStyle(
+                color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
               ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(20),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOriginalMessageSection() {
+    final text = _card.ocrText ?? '';
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+             Icon(
+               Icons.description, 
+               size: 20, 
+               color: Colors.grey
+             ),
+             const SizedBox(width: 8),
+             const Text(
+               "ORIGINAL MESSAGE",
+               style: TextStyle(
+                 fontSize: 12,
+                 fontWeight: FontWeight.bold,
+                 letterSpacing: 1.5,
+                 color: Colors.grey,
+               ),
+             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark 
+                ? Colors.white.withOpacity(0.02)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.transparent
+            )
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isDark ? Colors.grey.shade500 : AppTheme.textLowLight.withOpacity(0.6),
+              fontSize: 14,
+              height: 1.6,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFloatingBottomMenu() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(100), 
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          width: 280,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark 
+                ? Colors.black.withOpacity(0.4) 
+                : Colors.white.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                blurRadius: 24,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              GestureDetector(
+                onTap: _showFolderPicker,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.folder_open,
+                      color: isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Move Folder",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Container(
+                width: 1,
+                height: 24,
+                color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+              ),
+              
+              GestureDetector(
+                onTap: _showDeleteDialog,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.delete_outline,
+                      color: Colors.redAccent, 
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Delete",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.redAccent.shade100 : Colors.red,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1137,7 +1114,6 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  // Helpers
   void _showTitleEditDialog() {
     final controller = TextEditingController(text: _card.title);
     showDialog(
@@ -1146,28 +1122,19 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppTheme.borderColor
-                : Colors.transparent,
-          ),
         ),
-        title: Text('Edit Title', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+        title: const Text('Edit Title'),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Enter title',
-            hintStyle: TextStyle(color: Theme.of(context).hintColor),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).primaryColor)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2)),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).disabledColor)),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
@@ -1180,233 +1147,19 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 }
                 if (context.mounted) Navigator.pop(context);
             },
-            child: Text('Save', style: TextStyle(color: Theme.of(context).primaryColor)),
+            child: const Text('Save'),
           ),
         ],
       ),
     );
   }
 
-  void _showAddTagDialog() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppTheme.borderColor
-                : Colors.transparent,
-          ),
-        ),
-        title: Text('Add Tag', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-          decoration: InputDecoration(
-            hintText: 'Enter tag',
-            hintStyle: TextStyle(color: Theme.of(context).hintColor),
-             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).primaryColor)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).disabledColor)),
-          ),
-          TextButton(
-            onPressed: () async {
-                final newTag = controller.text.trim();
-                if (newTag.isNotEmpty && !_card.tags.contains(newTag)) {
-                    final updatedTags = List<String>.from(_card.tags)..add(newTag);
-                    final updated = _card.copyWith(tags: updatedTags);
-                    await DatabaseHelper.instance.update(updated);
-                    setState(() => _card = updated);
-                    widget.onUpdate?.call(updated);
-                }
-                if (context.mounted) Navigator.pop(context);
-            },
-            child: Text('Add', style: TextStyle(color: Theme.of(context).primaryColor)),
-          ),
-        ],
+  void _expandImage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _FullScreenImageView(imageUrl: _card.imageUrl),
       ),
     );
-  }
-
-  // Reuse existing methods like _buildImageSection, _buildTag, _extractDomain, _buildSearchFallbackButton, _hexToColor, _expandImage, etc.
-  // The replace tool will keep methods outside the range I replaced unless I include them.
-  // I must be careful about what I replaced. 
-  // I replaced 'build' method and added new methods.
-  // I need to ensure I didn't delete _buildImageSection, _buildTag, etc if they were inside the range.
-  // I am replacing from 504 to 1573. That's the Text of the ENTIRE file from build method downwards.
-  // So I MUST include ALL the helper methods I didn't want to change, or implement them again.
-  // This is a big replacement. I will include the necessary helper methods in the ReplacementContent.
-  
-  // Implementation of missing helpers from previous context:
-  
-  Widget _buildImageSection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: _expandImage,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isDark ? AppTheme.borderColor : Theme.of(context).dividerColor,
-          ),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 3 / 4,
-                child: Opacity(
-                  opacity: 0.9,
-                  child: _buildImage(_card.imageUrl),
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.6),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 24,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.fullscreen,
-                          size: 14,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Tap to expand',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTag(String tag, {bool isFirst = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark
-            ? (isFirst ? AppTheme.accentTeal.withAlpha(26) : AppTheme.bgWhite5)
-            : Theme.of(context).dividerColor.withOpacity(0.1),
-        border: Border.all(
-          color: isDark
-              ? (isFirst ? AppTheme.accentTeal.withAlpha(51) : AppTheme.borderWhite10)
-              : Theme.of(context).dividerColor,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        tag.toUpperCase(),
-        style: TextStyle(
-          color: isDark
-              ? (isFirst ? AppTheme.accentTeal : AppTheme.textPrimary)
-              : Theme.of(context).textTheme.bodyMedium?.color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchFallbackButton() {
-     final searchQuery = _extractSearchKeywords(_card.ocrText ?? '');
-     return GestureDetector(
-        onTap: () => widget.onOpenLink?.call('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}'),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppTheme.borderColor
-                  : Theme.of(context).dividerColor,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Search for "$searchQuery"',
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Theme.of(context).disabledColor),
-            ],
-          ),
-        ),
-     );
-  }
-
-  String _extractSearchKeywords(String text) {
-      if (text.isEmpty) return _card.title;
-      final lines = text.split('\n');
-      for (final line in lines) {
-        if (line.trim().length > 5) return line.trim();
-      }
-      return _card.title; 
   }
 
   Widget _buildImage(String url) {
@@ -1414,34 +1167,16 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        loadingBuilder: (_, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null, color: Theme.of(context).primaryColor));
-        },
-        errorBuilder: (_, __, ___) => Container(color: Theme.of(context).cardColor, child: Icon(Icons.broken_image, color: Theme.of(context).disabledColor)),
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => Container(color: Colors.grey, child: const Icon(Icons.broken_image)),
       );
     } else {
       final file = File(url);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
+        return Image.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
       }
-      return Container(color: Theme.of(context).cardColor, child: Icon(Icons.broken_image, color: Theme.of(context).disabledColor));
-    }
-  }
-
-  void _toggleFavorite() async {
-    final updatedCard = _card.copyWith(isFavorite: !_card.isFavorite);
-    await DatabaseHelper.instance.update(updatedCard);
-    setState(() => _card = updatedCard);
-    widget.onUpdate?.call(updatedCard);
-  }
-
-  String _extractDomain(String url) {
-    try {
-      final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
-      return uri.host.replaceFirst('www.', '');
-    } catch (e) {
-      return url;
+      return Container(color: Colors.grey, child: const Icon(Icons.broken_image));
     }
   }
 }
@@ -1482,12 +1217,6 @@ class _FullScreenImageView extends StatelessWidget {
       return Image.network(
         url,
         fit: BoxFit.contain,
-        loadingBuilder: (_, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(
-             child: CircularProgressIndicator(color: Colors.white),
-          );
-        },
         errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white),
       );
     } else {

@@ -90,9 +90,9 @@ class _LibraryListViewState extends State<LibraryListView> {
         // Card list
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 96),
             itemCount: _filteredCards.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 20),
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               return _buildCard(_filteredCards[index]);
             },
@@ -113,7 +113,7 @@ class _LibraryListViewState extends State<LibraryListView> {
             const SizedBox(width: 8),
             _buildChip("Favorites", FilterOption.favorites),
             const SizedBox(width: 12),
-            Container(width: 1, height: 20, color: Colors.white.withAlpha(26)),
+            Container(width: 1, height: 20, color: Theme.of(context).dividerColor),
             const SizedBox(width: 12),
             _buildFolderDropdown(),
              const SizedBox(width: 8),
@@ -130,6 +130,9 @@ class _LibraryListViewState extends State<LibraryListView> {
     if (_mediaType == MediaType.link) label = 'Link';
     if (_mediaType == MediaType.screenshot) label = 'Screenshot';
     if (_mediaType == MediaType.photo) label = 'Photo';
+    
+    final primaryColor = Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopupMenuButton<MediaType>(
       onSelected: (type) {
@@ -154,13 +157,13 @@ class _LibraryListViewState extends State<LibraryListView> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.accentTeal.withAlpha(51)
-              : Colors.white.withAlpha(13),
+              ? primaryColor.withOpacity(0.1)
+              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).cardColor),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? AppTheme.accentTeal.withAlpha(128)
-                : Colors.white.withAlpha(13),
+                ? primaryColor.withOpacity(0.3)
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: Row(
@@ -171,14 +174,14 @@ class _LibraryListViewState extends State<LibraryListView> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+                color: isSelected ? primaryColor : Theme.of(context).textTheme.bodyMedium?.color,
               ),
             ),
             const SizedBox(width: 4),
             Icon(
               Icons.keyboard_arrow_down,
               size: 16,
-              color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+              color: isSelected ? primaryColor : Theme.of(context).iconTheme.color,
             ),
           ],
         ),
@@ -188,24 +191,26 @@ class _LibraryListViewState extends State<LibraryListView> {
 
   PopupMenuItem<MediaType> _buildTypePopupItem(String text, MediaType type, {IconData? icon}) {
       final isSelected = _mediaType == type;
+      final primaryColor = Theme.of(context).primaryColor;
+      
       return PopupMenuItem<MediaType>(
           value: type,
           child: Row(
             children: [
                if (icon != null) ...[
-                 Icon(icon, size: 18, color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary),
+                 Icon(icon, size: 18, color: isSelected ? primaryColor : Theme.of(context).iconTheme.color),
                  const SizedBox(width: 12),
                ],
                Expanded(
                  child: Text(
                    text,
                    style: TextStyle(
-                     color: isSelected ? AppTheme.accentTeal : AppTheme.textPrimary,
+                     color: isSelected ? primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                    ),
                  ),
                ),
-               if (isSelected) Icon(Icons.check, size: 18, color: AppTheme.accentTeal),
+               if (isSelected) Icon(Icons.check, size: 18, color: primaryColor),
             ],
           ),
       );
@@ -219,6 +224,8 @@ class _LibraryListViewState extends State<LibraryListView> {
             orElse: () => widget.folders.first,
           )
         : null;
+    final primaryColor = Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopupMenuButton<String?>(
       onSelected: (folderId) {
@@ -247,19 +254,19 @@ class _LibraryListViewState extends State<LibraryListView> {
               Icon(
                 Icons.folder_off_outlined,
                 size: 18,
-                color: !isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+                color: !isSelected ? primaryColor : Theme.of(context).iconTheme.color,
               ),
               const SizedBox(width: 12),
               Text(
                 '전체 보기',
                 style: TextStyle(
-                  color: !isSelected ? AppTheme.accentTeal : AppTheme.textPrimary,
+                  color: !isSelected ? primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
                   fontWeight: !isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
               if (!isSelected) ...[
                 const Spacer(),
-                Icon(Icons.check, size: 18, color: AppTheme.accentTeal),
+                Icon(Icons.check, size: 18, color: primaryColor),
               ],
             ],
           ),
@@ -287,14 +294,14 @@ class _LibraryListViewState extends State<LibraryListView> {
                       Text(
                         folder.name,
                         style: TextStyle(
-                          color: isFolderSelected ? folderColor : AppTheme.textPrimary,
+                          color: isFolderSelected ? folderColor : Theme.of(context).textTheme.bodyLarge?.color,
                           fontWeight: isFolderSelected ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                       Text(
                         '${folder.itemCount}개',
                         style: TextStyle(
-                          color: AppTheme.textMuted,
+                          color: Theme.of(context).disabledColor,
                           fontSize: 11,
                         ),
                       ),
@@ -313,14 +320,14 @@ class _LibraryListViewState extends State<LibraryListView> {
         decoration: BoxDecoration(
           color: isSelected
               ? (selectedFolder != null
-                  ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withAlpha(51)
-                  : Theme.of(context).colorScheme.onSurface.withAlpha(26))
-              : Theme.of(context).cardColor,
+                  ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withOpacity(0.1)
+                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.05))
+              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).cardColor),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? (selectedFolder != null
-                    ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withAlpha(128)
+                    ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withOpacity(0.3)
                     : Theme.of(context).dividerColor)
                 : Theme.of(context).dividerColor,
           ),
@@ -333,7 +340,7 @@ class _LibraryListViewState extends State<LibraryListView> {
               size: 14,
               color: isSelected && selectedFolder != null
                   ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                  : AppTheme.textSecondary,
+                  : Theme.of(context).iconTheme.color,
             ),
             const SizedBox(width: 6),
             Text(
@@ -343,7 +350,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                 fontWeight: FontWeight.w500,
                 color: isSelected && selectedFolder != null
                     ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                    : AppTheme.textSecondary,
+                    : Theme.of(context).textTheme.bodyMedium?.color,
               ),
             ),
             const SizedBox(width: 4),
@@ -352,7 +359,7 @@ class _LibraryListViewState extends State<LibraryListView> {
               size: 16,
               color: isSelected && selectedFolder != null
                   ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                  : AppTheme.textSecondary,
+                  : Theme.of(context).iconTheme.color,
             ),
           ],
         ),
@@ -363,70 +370,23 @@ class _LibraryListViewState extends State<LibraryListView> {
   Widget _buildChip(String label, FilterOption option) {
     final isSelected = _currentFilter == option;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
     
     return GestureDetector(
       onTap: () => setState(() {
         _currentFilter = option;
-        // Reset Media Filter if switching to Favorites (optional, but keeps it simple)
-        // _mediaType = MediaType.all; 
       }),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isDark
-              ? (isSelected ? AppTheme.bgWhite10 : AppTheme.bgWhite5)
-              : (isSelected
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(context).cardColor),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark
-                ? (isSelected ? AppTheme.borderWhite10 : AppTheme.dividerColor)
-                : (isSelected
-                    ? Colors.transparent
-                    : Theme.of(context).dividerColor),
-          ),
-          boxShadow: isDark || isSelected
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isDark
-                ? (isSelected ? AppTheme.textPrimary : AppTheme.textSecondary)
-                : (isSelected
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).textTheme.bodyMedium?.color),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaTypeChip(String label, MediaType type) {
-    final isSelected = _mediaType == type;
-    return GestureDetector(
-      onTap: () => setState(() => _mediaType = type),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.accentTeal.withAlpha(26)
-              : Colors.transparent,
+              ? (isDark ? Colors.white.withOpacity(0.1) : Colors.black)
+              : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? AppTheme.accentTeal.withOpacity(0.5)
-                : Colors.white.withAlpha(13),
+                ? Colors.transparent
+                : Theme.of(context).dividerColor,
           ),
         ),
         child: Text(
@@ -434,7 +394,9 @@ class _LibraryListViewState extends State<LibraryListView> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? AppTheme.accentTeal : AppTheme.textSecondary,
+            color: isSelected
+                ? (isDark ? Colors.white : Colors.white)
+                : Theme.of(context).textTheme.bodyMedium?.color,
           ),
         ),
       ),
@@ -442,20 +404,21 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Widget _buildCard(MemoCard card) {
-    // If the card is processing, do not allow swipe-to-delete
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+
     if (card.isProcessing) {
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark.withOpacity(0.6),
+          color: Theme.of(context).cardColor.withOpacity(0.6),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.accentTeal.withOpacity(0.3), // Highlight slightly
+            color: primaryColor.withOpacity(0.3),
           ),
         ),
         child: Row(
           children: [
-            // Thumbnail with Loader
             Container(
               width: 80,
               height: 96,
@@ -463,7 +426,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                 color: const Color(0xFF1F2937),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppTheme.accentTeal.withOpacity(0.2),
+                  color: primaryColor.withOpacity(0.2),
                 ),
               ),
               clipBehavior: Clip.antiAlias,
@@ -472,14 +435,14 @@ class _LibraryListViewState extends State<LibraryListView> {
                 children: [
                   _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl, isProcessing: true),
                   Container(
-                    color: Colors.black45, // Dim overlay
-                    child: const Center(
+                    color: Colors.black45,
+                    child: Center(
                       child: SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.accentTeal,
+                          color: primaryColor,
                         ),
                       ),
                     ),
@@ -488,8 +451,6 @@ class _LibraryListViewState extends State<LibraryListView> {
               ),
             ),
             const SizedBox(width: 16),
-
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,15 +462,15 @@ class _LibraryListViewState extends State<LibraryListView> {
                         width: 12,
                         height: 12,
                         margin: const EdgeInsets.only(right: 8),
-                        child: const CircularProgressIndicator(
-                            strokeWidth: 2, color: AppTheme.accentTeal),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: primaryColor),
                       ),
-                      const Text(
+                      Text(
                         "Analyzing...",
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.accentTeal,
+                          color: primaryColor,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -520,23 +481,11 @@ class _LibraryListViewState extends State<LibraryListView> {
                     card.title.isEmpty ? "Processing..." : card.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textDisabled, // Dim text
+                      color: Theme.of(context).disabledColor,
                       height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "AI is analyzing content to generate insights...",
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w300,
-                      color: AppTheme.textMuted,
-                      height: 1.5,
                     ),
                   ),
                 ],
@@ -551,58 +500,40 @@ class _LibraryListViewState extends State<LibraryListView> {
       key: Key(card.id.toString()),
       direction: DismissDirection.endToStart,
       confirmDismiss: (direction) async {
-        // 삭제 확인 다이얼로그 표시
         return await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              backgroundColor: AppTheme.cardDark,
+              backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: Colors.white.withAlpha(20),
+                  color: Theme.of(context).dividerColor,
                 ),
               ),
-              title: const Text(
-                '메모 삭제',
+              title: Text(
+                'Delete Memory',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).textTheme.titleLarge?.color,
                 ),
               ),
               content: Text(
-                '이 메모를 삭제하시겠습니까?\n삭제된 메모는 복구할 수 없습니다.',
+                'Are you sure you want to delete this memory?',
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: Text(
-                    '취소',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Cancel', style: TextStyle(color: Theme.of(context).disabledColor)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.red.withAlpha(26),
+                    backgroundColor: Colors.red.withOpacity(0.1),
                   ),
-                  child: const Text(
-                    '삭제',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
                 ),
               ],
             );
@@ -611,17 +542,10 @@ class _LibraryListViewState extends State<LibraryListView> {
       },
       onDismissed: (direction) {
         widget.onDelete?.call(card);
-        
-        // 스낵바로 피드백 제공
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${card.title} 삭제됨'),
-            backgroundColor: AppTheme.cardDark,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            duration: const Duration(seconds: 2),
+            content: Text('${card.title} deleted'),
+            backgroundColor: Theme.of(context).cardColor,
           ),
         );
       },
@@ -629,31 +553,10 @@ class _LibraryListViewState extends State<LibraryListView> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
-          color: Colors.red.withAlpha(51), // 20%
+          color: Colors.red.withOpacity(0.2),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.red.withAlpha(77), // 30%
-          ),
         ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.red,
-              size: 28,
-            ),
-            SizedBox(height: 4),
-            Text(
-              '삭제',
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+        child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
       ),
       child: GestureDetector(
         onTap: () => widget.onSelect(card),
@@ -663,15 +566,15 @@ class _LibraryListViewState extends State<LibraryListView> {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppTheme.borderColor
-                  : Theme.of(context).dividerColor,
+              color: isDark ? const Color(0xFF262626) : Theme.of(context).dividerColor,
             ),
-            boxShadow: Theme.of(context).brightness == Brightness.dark
-                ? null
-                : [
-                    AppTheme.shadowSoft,
-                  ],
+            boxShadow: isDark ? null : [
+               BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+               )
+            ],
           ),
           child: Row(
             children: [
@@ -680,21 +583,16 @@ class _LibraryListViewState extends State<LibraryListView> {
                 width: 80,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF1F2937) // gray-800
-                      : Theme.of(context).dividerColor,
+                  color: isDark ? const Color(0xFF1F2937) : Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppTheme.dividerColor // white/5
-                        : Theme.of(context).dividerColor,
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl),
               ),
               const SizedBox(width: 16),
-
               // Content
               Expanded(
                 child: Column(
@@ -704,40 +602,20 @@ class _LibraryListViewState extends State<LibraryListView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Source/Category badge
                         _buildCategoryBadge(card),
                         const SizedBox(height: 8),
-
-                        // Title (editable)
-                        GestureDetector(
-                          onTap: () => _showTitleEditDialog(card),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  card.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 14,
-                                color: AppTheme.textMuted,
-                              ),
-                            ],
+                        Text(
+                          card.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).textTheme.titleMedium?.color,
+                            height: 1.2,
                           ),
                         ),
                         const SizedBox(height: 4),
-
-                        // Description
                         Text(
                           _getCleanSummary(card.summary),
                           maxLines: 2,
@@ -745,21 +623,20 @@ class _LibraryListViewState extends State<LibraryListView> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w300,
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                             height: 1.5,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-
-                    // Time
+                    // Metadata Row
                     Row(
                       children: [
                         Icon(
                           Icons.schedule,
-                          size: 14,
-                          color: AppTheme.textMuted,
+                          size: 12,
+                          color: Theme.of(context).disabledColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -767,9 +644,13 @@ class _LibraryListViewState extends State<LibraryListView> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.textMuted,
+                            color: Theme.of(context).disabledColor,
                           ),
                         ),
+                        if (card.isFavorite) ...[
+                           const SizedBox(width: 8),
+                           Icon(Icons.star, size: 12, color: Colors.amber),
+                        ],
                       ],
                     ),
                   ],
@@ -783,7 +664,6 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Widget _buildThumbnail(String url, {String? sourceUrl, bool isProcessing = false}) {
-    // If we have a URL, try to load it (whether local or network)
     if (url.isNotEmpty) {
         if (url.startsWith('http')) {
         return Image.network(
@@ -791,7 +671,7 @@ class _LibraryListViewState extends State<LibraryListView> {
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
-            opacity: const AlwaysStoppedAnimation(0.8),
+            opacity: const AlwaysStoppedAnimation(0.9),
             errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
         );
         } else {
@@ -802,14 +682,12 @@ class _LibraryListViewState extends State<LibraryListView> {
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
-            opacity: const AlwaysStoppedAnimation(0.8),
+            opacity: const AlwaysStoppedAnimation(0.9),
             errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
             );
         }
         }
     }
-    
-    // If no URL or file loading failed, show placeholder based on type
     return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
   }
 
@@ -821,18 +699,18 @@ class _LibraryListViewState extends State<LibraryListView> {
             ? Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentTeal.withAlpha(26),
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.link,
-                  color: AppTheme.accentTeal,
+                  color: Theme.of(context).primaryColor,
                   size: 24,
                 ),
               )
             : Icon(
                 Icons.image,
-                color: AppTheme.textDisabled,
+                color: Theme.of(context).disabledColor,
                 size: 24,
               ),
       ),
@@ -840,36 +718,39 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Widget _buildCategoryBadge(MemoCard card) {
-    String sourceLabel = 'MANUAL';
-    if (card.sourceUrl != null && card.sourceUrl!.isNotEmpty) {
-       try {
-         final uri = Uri.parse(card.sourceUrl!.startsWith('http') ? card.sourceUrl! : 'https://${card.sourceUrl!}');
-         sourceLabel = uri.host.replaceFirst('www.', '').toUpperCase();
-       } catch (e) {
-         sourceLabel = 'WEB';
-       }
-    } else if (card.tags.contains('Screenshot')) {
-        sourceLabel = 'SCREENSHOT';
-    } else if (card.tags.contains('Imported')) {
-        sourceLabel = 'IMPORTED';
-    } 
+    // If exact category is known and valid, use it.
+    // Otherwise rely on manual overrides or tags.
+    String label = card.category.toUpperCase();
+    if (label == 'INBOX' || label.isEmpty) {
+         if (card.sourceUrl != null && card.sourceUrl!.isNotEmpty) {
+             try {
+                final uri = Uri.parse(card.sourceUrl!.startsWith('http') ? card.sourceUrl! : 'https://${card.sourceUrl!}');
+                label = uri.host.replaceFirst('www.', '').split('.').first.toUpperCase();
+             } catch (_) { label = 'WEB'; }
+         } else if (card.tags.contains('Screenshot')) {
+             label = 'SCREENSHOT';
+         } else {
+             label = 'NOTE';
+         }
+    }
 
-    final color = _getCategoryColor(card.category);
+    final color = _getCategoryColor(label);
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withAlpha(13), // 5%
+        color: color.withOpacity(0.05),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: color.withAlpha(26), // 10%
+          color: color.withOpacity(0.1),
         ),
       ),
       child: Text(
-        sourceLabel,
+        label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: color.withAlpha(204), // 80%
+          color: color,
           letterSpacing: 0.5,
         ),
       ),
@@ -877,135 +758,20 @@ class _LibraryListViewState extends State<LibraryListView> {
   }
 
   Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'design':
-        return AppTheme.accentTeal;
-      case 'tech':
-        return const Color(0xFF60A5FA); // blue-400
-      case 'inspiration':
-        return const Color(0xFFC084FC); // purple-400
-      case 'food':
-        return const Color(0xFF4ADE80); // green-400
-      case 'shopping':
-        return const Color(0xFFFB923C); // orange-400
-      case 'work':
-        return const Color(0xFFF472B6); // pink-400
-      default:
-        return AppTheme.accentTeal;
-    }
+    final lower = category.toLowerCase();
+    if (lower.contains('design') || lower.contains('ui') || lower.contains('ux')) return const Color(0xFF2DD4BF); // Teal
+    if (lower.contains('tech') || lower.contains('code') || lower.contains('dev')) return const Color(0xFF60A5FA); // Blue
+    if (lower.contains('food') || lower.contains('cook')) return const Color(0xFF34D399); // Green
+    if (lower.contains('shop') || lower.contains('buy')) return const Color(0xFFFB923C); // Orange
+    if (lower.contains('work') || lower.contains('job')) return const Color(0xFFF472B6); // Pink
+    return const Color(0xFF2DD4BF); // Default Teal
   }
 
   String _getCleanSummary(String summary) {
-    // Remove bullet points for cleaner display
     return summary
         .replaceAll('• ', '')
         .replaceAll('\n\n', ' ')
         .replaceAll('\n', ' ')
         .trim();
-  }
-
-  void _showTitleEditDialog(MemoCard card) {
-    final controller = TextEditingController(text: card.title);
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.cardDark,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(
-              color: Colors.white.withAlpha(20),
-            ),
-          ),
-          title: const Text(
-            '제목 수정',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-            ),
-            decoration: InputDecoration(
-              hintText: '새로운 제목을 입력하세요',
-              hintStyle: TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 14,
-              ),
-              filled: true,
-              fillColor: Colors.white.withAlpha(13),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withAlpha(26),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withAlpha(26),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppTheme.accentTeal.withAlpha(128),
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) {
-                widget.onTitleEdit?.call(card, value.trim());
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                '취소',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final newTitle = controller.text.trim();
-                if (newTitle.isNotEmpty) {
-                  widget.onTitleEdit?.call(card, newTitle);
-                  Navigator.of(context).pop();
-                }
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: AppTheme.accentTeal.withAlpha(26),
-              ),
-              child: Text(
-                '저장',
-                style: TextStyle(
-                  color: AppTheme.accentTeal,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

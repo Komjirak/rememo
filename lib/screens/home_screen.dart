@@ -1068,7 +1068,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print('🔍 OnDeviceLLMService 시작 (Native NLP)...');
       
       // Native AI Analysis
-      final analysis = await OnDeviceLLMService.analyzeScreenshot(
+      final analysis = await OnDeviceLLMService.analyzeScreenshotLegacy(
           ocrText: ocrText,
           ocrBlocks: blocks ?? []
       );
@@ -1211,11 +1211,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Loading Overlay
           if (_isAnalyzing) _buildLoadingOverlay(),
 
-          // FAB - Always visible
+          // FAB - Fixed position (Right-bottom corner, above bottom nav)
           Positioned(
-            bottom: 32,
+            bottom: 110, 
             right: 24,
             child: _buildFAB(),
+          ),
+
+          // Custom Bottom Navigation Bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildBottomNavBar(),
           ),
         ],
       ),
@@ -1239,18 +1247,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Logo
+          // Logo Area
           Row(
             children: [
-              Icon(
-                Icons.psychology,
-                color: Theme.of(context).primaryColor,
-                size: 28,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.transparent, 
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.psychology,
+                  color: Theme.of(context).primaryColor,
+                  size: 32,
+                ),
               ),
               const SizedBox(width: 8),
               Text(
                 "Rememo",
-                style: Theme.of(context).appBarTheme.titleTextStyle,
+                style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
               ),
             ],
           ),
@@ -1258,8 +1277,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Right actions: Search | Settings
           Row(
             children: [
-              // Search button
-              GestureDetector(
+              _buildHeaderIconButton(
+                icon: _showSearch ? Icons.close : Icons.search,
+                isActive: _showSearch,
                 onTap: () => setState(() {
                   _showSearch = !_showSearch;
                   if (!_showSearch) {
@@ -1267,32 +1287,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _searchController.clear();
                   }
                 }),
-                child: Icon(
-                  _showSearch ? Icons.close : Icons.search,
-                  color: _showSearch ? Theme.of(context).primaryColor : Theme.of(context).iconTheme.color,
-                  size: 24,
-                ),
               ),
-              const SizedBox(width: 16),
-              Container(
-                width: 1,
-                height: 16,
-                color: Theme.of(context).dividerColor,
-              ),
-              const SizedBox(width: 16),
-              // Settings button
-              GestureDetector(
+              const SizedBox(width: 8),
+              _buildHeaderIconButton(
+                icon: Icons.settings_outlined,
                 onTap: () {
                    Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                   ).then((_) => _loadFolders()); // Reload in case folders changed
+                   ).then((_) => _loadFolders()); 
                 },
-                child: Icon(
-                  Icons.settings_outlined,
-                  color: Theme.of(context).iconTheme.color,
-                  size: 24,
-                ),
               ),
             ],
           ),
@@ -1301,10 +1305,89 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildHeaderIconButton({
+    required IconData icon, 
+    VoidCallback? onTap, 
+    bool isActive = false
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 40, 
+          height: 40,
+          alignment: Alignment.center,
+          decoration: isActive ? BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+          ) : null,
+          child: Icon(
+            icon,
+            color: isActive 
+                ? Theme.of(context).primaryColor 
+                : Theme.of(context).iconTheme.color,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark 
+        ? const Color(0xFF0A0A0A).withOpacity(0.9) 
+        : const Color(0xFFFFFFFF).withOpacity(0.9);
+    
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(
+           top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(Icons.grid_view, "Library", true),
+          _buildNavItem(Icons.auto_awesome, "Insights", false),
+          _buildNavItem(Icons.history, "Timeline", false),
+          _buildNavItem(Icons.person_outline, "Profile", false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String label, bool isActive) {
+    final color = isActive 
+        ? Theme.of(context).primaryColor 
+        : Theme.of(context).disabledColor;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: color, 
+            fontSize: 10, 
+            fontWeight: FontWeight.w600
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: Theme.of(context).appBarTheme.backgroundColor, 
       child: TextField(
         controller: _searchController,
         autofocus: true,
@@ -1318,15 +1401,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           fillColor: Theme.of(context).cardColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Theme.of(context).primaryColor),
+            borderSide: BorderSide.none, 
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -1350,10 +1425,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: _hexToColor(_selectedFolder!.color).withAlpha(26),
+          color: _hexToColor(_selectedFolder!.color).withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _hexToColor(_selectedFolder!.color).withAlpha(51),
+            color: _hexToColor(_selectedFolder!.color).withOpacity(0.2),
           ),
         ),
         child: Row(
@@ -1392,23 +1467,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final displayCards = _searchQuery.isEmpty ? _cards : _filteredCards;
 
     if (displayCards.isEmpty && !_isAnalyzing) {
-      // 검색 중인데 결과가 없는 경우
       if (_searchQuery.isNotEmpty) {
         return _buildNoSearchResultsView();
       }
-      // 카드가 없는 경우 (온보딩)
       return EmptyStateView(
         onAddFirst: _handleCapture,
         onLearnMore: () {},
       );
     }
 
-    return LibraryListView(
-      cards: displayCards,
-      folders: _folders,
-      onSelect: _navigateToDetail,
-      onDelete: _deleteCard,
-      onTitleEdit: _updateCardTitle,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 80), 
+      child: LibraryListView(
+        cards: displayCards,
+        folders: _folders,
+        onSelect: _navigateToDetail,
+        onDelete: _deleteCard,
+        onTitleEdit: _updateCardTitle,
+      ),
     );
   }
 
@@ -1422,7 +1498,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(13),
+                color: Theme.of(context).cardColor,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -1442,31 +1518,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 12),
             Text(
-              '"$_searchQuery"에 대한 결과를 찾을 수 없습니다.\n다른 키워드로 검색해보세요.',
+              '"$_searchQuery"에 대한 결과를 찾을 수 없습니다.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: Theme.of(context).textTheme.bodyMedium?.color,
                 height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _searchQuery = '';
-                  _searchController.clear();
-                });
-              },
-              icon: const Icon(Icons.clear, size: 18),
-              label: const Text('검색어 지우기'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Theme.of(context).primaryColor.withAlpha(77)),
-                ),
               ),
             ),
           ],
@@ -1477,33 +1534,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor.withAlpha(230),
+      color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Theme.of(context).dividerColor),
-              ),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: Theme.of(context).primaryColor,
-                  strokeWidth: 2,
-                ),
-              ),
+            CircularProgressIndicator(
+              color: Theme.of(context).primaryColor,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               "Analyzing...",
               style: TextStyle(
                 color: Theme.of(context).textTheme.titleLarge?.color,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -1521,13 +1565,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         decoration: BoxDecoration(
           color: Theme.of(context).primaryColor,
           borderRadius: BorderRadius.circular(28),
-          boxShadow: const [
-             AppTheme.shadowFab,
+          boxShadow: [
+             BoxShadow(
+              color: Theme.of(context).primaryColor.withOpacity(0.4),
+              offset: const Offset(0, 8),
+              blurRadius: 24,
+              spreadRadius: -4,
+             )
           ],
         ),
         child: const Icon(
           Icons.add,
-          color: Colors.white,
+          color: Colors.white, 
           size: 28,
         ),
       ),
@@ -1535,65 +1584,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _updateCardTitle(MemoCard card, String newTitle) async {
-    print('✏️ Updating card title: ${card.id} -> $newTitle');
-
-    // 새 제목으로 카드 업데이트
     final updatedCard = card.copyWith(title: newTitle);
-
-    // 데이터베이스에 저장
     await DatabaseHelper.instance.update(updatedCard);
-
-    // UI 갱신
-    setState(() {
-      final index = _cards.indexWhere((c) => c.id == card.id);
-      if (index != -1) {
-        _cards[index] = updatedCard;
-      }
-    });
-
-    print('✅ Card title updated successfully');
-
-    // 피드백 스낵바 표시
+    
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('제목이 수정되었습니다'),
-          backgroundColor: Theme.of(context).cardColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+       setState(() {
+         final index = _cards.indexWhere((c) => c.id == card.id);
+         if (index != -1) _cards[index] = updatedCard;
+       });
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: const Text('Title updated'), backgroundColor: Theme.of(context).cardColor)
+       );
     }
   }
 
   Future<void> _deleteCard(MemoCard card) async {
-    print('🗑️ Deleting card: ${card.id}');
-    
-    // 데이터베이스에서 삭제
     await DatabaseHelper.instance.delete(card.id);
-    
-    // 로컬 이미지 파일 삭제 (URL이 로컬 경로인 경우)
     if (!card.imageUrl.startsWith('http')) {
       try {
         final file = File(card.imageUrl);
-        if (await file.exists()) {
-          await file.delete();
-          print('✅ Image file deleted: ${card.imageUrl}');
-        }
-      } catch (e) {
-        print('⚠️ Failed to delete image file: $e');
-      }
+        if (await file.exists()) await file.delete();
+      } catch (e) { print(e); }
     }
-    
-    // UI 업데이트
     setState(() {
       _cards.removeWhere((c) => c.id == card.id);
     });
-    
-    print('✅ Card deleted successfully');
   }
 
   void _navigateToDetail(MemoCard card) {
@@ -1603,28 +1618,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (_) => DetailViewScreen(
           card: card,
           folders: _folders,
-          onDelete: () async {
-            await _deleteCard(card);
-          },
+          onDelete: () async { await _deleteCard(card); },
           onUpdate: (updatedCard) async {
             await DatabaseHelper.instance.update(updatedCard);
             setState(() {
               final index = _cards.indexWhere((c) => c.id == updatedCard.id);
-              if (index != -1) {
-                _cards[index] = updatedCard;
-              }
+              if (index != -1) _cards[index] = updatedCard;
             });
           },
           onOpenLink: (url) async {
             final uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
             if (await canLaunchUrl(uri)) {
               await launchUrl(uri);
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Could not launch URL')),
-                );
-              }
             }
           },
         ),
