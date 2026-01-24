@@ -1494,7 +1494,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                           controller: controller,
                           autofocus: true,
                           maxLines: maxLines,
-                          minLines: maxLines > 1 ? 4 : 1,
+                          minLines: maxLines > 1 ? (maxLines < 4 ? maxLines : 4) : 1,
                           style: TextStyle(
                             fontSize: 16,
                             height: 1.6,

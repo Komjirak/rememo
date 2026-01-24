@@ -47,4 +47,13 @@ class Folder {
       itemCount: itemCount ?? this.itemCount,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Folder && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }

@@ -229,6 +229,8 @@ import WebKit
     let fetchOptions = PHFetchOptions()
     fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
     fetchOptions.fetchLimit = 1
+    // 🔑 Only track screenshots, not all images
+    fetchOptions.predicate = NSPredicate(format: "(mediaSubtype & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
 
     let fetchResult = PHAsset.fetchAssets(with: .image, options: fetchOptions)
     if let asset = fetchResult.firstObject {
@@ -239,10 +241,12 @@ import WebKit
   // MARK: - PHPhotoLibraryChangeObserver
 
   func photoLibraryDidChange(_ changeInstance: PHChange) {
-    // Fetch latest screenshot
+    // Fetch latest screenshot ONLY (not all images)
     let fetchOptions = PHFetchOptions()
     fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
     fetchOptions.fetchLimit = 1
+    // 🔑 Only detect screenshots, not camera photos or other images
+    fetchOptions.predicate = NSPredicate(format: "(mediaSubtype & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
 
     let fetchResult = PHAsset.fetchAssets(with: .image, options: fetchOptions)
 
@@ -306,7 +310,8 @@ import WebKit
     private func analyzeLastScreenshot(result: @escaping FlutterResult) {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        // fetchOptions.predicate = NSPredicate(format: "mediaSubtype == %d", PHAssetMediaSubtype.photoScreenshot.rawValue)
+        // 🔑 Only fetch screenshots, not camera photos or other images
+        fetchOptions.predicate = NSPredicate(format: "(mediaSubtype & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
         fetchOptions.fetchLimit = 1
         
         let fetchResult = PHAsset.fetchAssets(with: .image, options: fetchOptions)
