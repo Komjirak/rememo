@@ -1,24 +1,24 @@
 # Product Requirements Document (PRD)
-# Stribe - AI-Powered Personal Knowledge Library
+# Rememo - AI-Powered Memory Capture & Management
 
 ## 1. Executive Summary
 
 ### 1.1 Product Vision
-**Stribe**는 사용자가 다양한 플랫폼에서 수집한 정보(스크린샷, URL)를 AI 기술을 통해 자동으로 분류하고 체계적으로 관리할 수 있는 "북마크 종합 선물 세트" 서비스입니다.
+**Rememo**는 스크린샷, URL, 사진 등 다양한 형태의 정보를 AI 기술로 자동 분석하여 체계적으로 관리할 수 있는 개인 지식 라이브러리입니다. "기억하고 싶은 모든 순간을 AI가 자동으로 정리해주는" 서비스입니다.
 
 ### 1.2 Problem Statement
 현재 사용자들이 겪는 문제:
-- **분산된 정보 저장**: Safari 북마크, Threads 저장, Instagram 저장 등 각 앱별로 정보가 흩어져 있음
-- **맥락 손실**: URL만 저장 시 왜 저장했는지, 어떤 내용이었는지 기억하기 어려움
+- **분산된 정보 저장**: 스크린샷은 사진첩에, URL은 브라우저 북마크에, 메모는 노트앱에 흩어져 있음
+- **맥락 손실**: 나중에 다시 보면 왜 저장했는지, 어떤 내용이었는지 기억하기 어려움
 - **수동 정리의 번거로움**: 저장 후 분류/태그 작업이 번거로워 결국 방치됨
-- **검색의 한계**: "예전에 봤던 그 디자인..."을 찾기 어려움
+- **검색의 한계**: "예전에 봤던 그 내용..."을 찾기 어려움
 
 ### 1.3 Solution
-스크린샷 캡처 또는 URL 저장 시 AI가 자동으로:
-1. 콘텐츠 분석 및 요약
-2. 카테고리/태그 자동 분류
-3. 검색 가능한 형태로 저장
-4. 크로스플랫폼 동기화
+스크린샷, URL, 사진 캡처 시 AI가 자동으로:
+1. OCR로 텍스트 추출 (한국어, 영어, 일본어 지원)
+2. 콘텐츠 분석 및 요약 생성
+3. 카테고리/태그 자동 분류
+4. 검색 가능한 형태로 로컬 저장 (프라이버시 보호)
 
 ---
 
@@ -33,100 +33,126 @@
 ### 2.2 Secondary Persona
 **"리서처" 민수 (32세, 스타트업 PM)**
 - 경쟁사 분석, 시장 조사 자료를 자주 수집
-- 팀과 공유할 레퍼런스를 체계적으로 관리하고 싶음
-- Notion에 정리하지만 수동 작업이 너무 오래 걸림
+- 웹 기사와 스크린샷을 함께 관리하고 싶음
+- 빠른 검색과 재발견이 중요
 
 ---
 
-## 3. Core Features
+## 3. Core Features (v0.5 - Current Implementation)
 
-### 3.1 Phase 1: MVP (Must Have)
+### 3.1 정보 수집 (Information Capture)
 
-#### 3.1.1 스마트 캡처 (Smart Capture)
-| Feature | Description | Platform |
-|---------|-------------|----------|
-| **스크린샷 자동 감지** | iOS에서 스크린샷 캡처 시 자동 감지 후 Stribe로 저장 제안 | iOS |
-| **Share Extension** | 공유 메뉴를 통한 URL/이미지 저장 | iOS, Android |
-| **웹 클리퍼** | 브라우저 확장 프로그램으로 웹페이지 저장 | Web |
-| **수동 업로드** | 갤러리에서 직접 선택하여 업로드 | All |
+#### 3.1.1 스크린샷 자동 감지
+- iOS Photo Library 변경 감지를 통한 자동 스크린샷 인식
+- 새 스크린샷 감지 시 자동으로 OCR 분석 및 저장
+- 백그라운드에서 자동 처리
 
-#### 3.1.2 AI 분석 파이프라인
+#### 3.1.2 Share Extension (URL/웹페이지)
+- Safari, Chrome 등 모든 앱에서 공유 메뉴를 통한 저장
+- URL 메타데이터 자동 추출 (제목, 설명, OG 이미지)
+- 웹페이지 본문 텍스트 추출 및 AI 요약
+- 선택된 텍스트 저장 지원
+
+#### 3.1.3 카메라 촬영
+- 앱 내에서 직접 사진 촬영하여 저장
+- 촬영 즉시 OCR 분석 및 AI 처리
+- 갤러리에서 기존 사진 선택하여 추가 가능
+
+### 3.2 AI 분석 파이프라인 (On-Device)
+
 ```
-[캡처 이미지/URL]
-    → OCR (텍스트 추출)
-    → Content Analysis (콘텐츠 이해)
-    → Auto Categorization (자동 분류)
-    → Summary Generation (요약 생성)
-    → Tag Extraction (태그 추출)
-    → [Structured Memo Card]
+[입력: 스크린샷/URL/사진]
+    ↓
+[Paddle OCR] - 한국어, 영어, 일본어 텍스트 인식
+    ↓
+[UI 노이즈 제거] - 버튼, 메뉴 등 불필요한 텍스트 필터링
+    ↓
+[온디바이스 분석]
+    - 문서 구조 분석
+    - 카테고리 자동 분류 (Work, Design, Food, Shopping, Web 등)
+    - 태그 자동 추출
+    - 제목 생성
+    ↓
+[AI 요약 생성] (선택적)
+    - 온디바이스 LLM을 통한 요약 생성
+    - 다국어 지원 (OS 언어 기반 자동 번역)
+    ↓
+[로컬 DB 저장] - SQLite
 ```
 
-**AI 기술 스택 고려사항:**
-| 방식 | 장점 | 단점 |
-|------|------|------|
-| **Apple On-Device AI (Core ML)** | 프라이버시 보장, 오프라인 사용, 빠른 응답 | iOS 한정, 모델 크기 제한 |
-| **Google ML Kit** | 크로스플랫폼, 오프라인 OCR | 고급 분석은 클라우드 필요 |
-| **Cloud AI (OpenAI, Claude)** | 고품질 분석, 복잡한 추론 가능 | 네트워크 필요, 비용 발생, 프라이버시 |
+**기술 스택:**
+- **Paddle OCR**: iOS 네이티브 통합, 오프라인 OCR
+- **Apple Vision Framework**: 보조 OCR
+- **온디바이스 분석**: 규칙 기반 + LLM (선택적)
+- **완전 무료**: 인터넷 연결 불필요, API 비용 없음
 
-**권장 하이브리드 접근:**
-- 1차: On-Device (OCR, 기본 분류) - 즉시 처리
-- 2차: Cloud AI (고급 요약, 관계 분석) - 백그라운드 처리
-
-#### 3.1.3 메모 카드 (Memo Card)
-저장된 각 아이템의 데이터 구조:
+### 3.3 메모 카드 데이터 구조
 
 ```json
 {
   "id": "uuid",
-  "created_at": "2024-01-15T10:30:00Z",
-  "source": {
-    "type": "screenshot | url | manual",
-    "original_url": "https://...",
-    "app_source": "Instagram | Twitter | Safari | ..."
-  },
-  "content": {
-    "thumbnail": "image_path",
-    "extracted_text": "OCR로 추출된 텍스트",
-    "title": "AI가 생성한 제목",
-    "summary": "2-3문장 요약"
-  },
-  "organization": {
-    "category": "Design | Tech | News | Recipe | ...",
-    "tags": ["UI", "모바일", "다크모드"],
-    "user_notes": "사용자 메모"
-  },
-  "metadata": {
-    "ai_confidence": 0.85,
-    "language": "ko",
-    "processed_at": "2024-01-15T10:30:05Z"
-  }
+  "title": "AI가 생성한 제목 또는 사용자 제목",
+  "summary": "AI 생성 요약",
+  "ocrText": "OCR로 추출된 전체 텍스트",
+  "personalNote": "사용자 개인 메모",
+  "imagePath": "/local/path/to/image.jpg",
+  "sourceUrl": "https://...",
+  "category": "Design | Work | Food | Shopping | Web | Inbox",
+  "tags": ["UI", "모바일", "다크모드"],
+  "isFavorite": false,
+  "folderId": "folder-uuid",
+  "createdAt": "2026-01-24T10:30:00Z",
+  "updatedAt": "2026-01-24T10:30:00Z"
 }
 ```
 
-#### 3.1.4 라이브러리 UI
-- **Inbox**: 새로 저장된 아이템 (AI 분석 대기/완료)
-- **Library**: 분류된 아이템 그리드/리스트 뷰
-- **Collections**: 사용자 정의 컬렉션
-- **Search**: 자연어 검색 ("지난달 본 앱 UI 디자인들")
+### 3.4 관리 기능
 
-### 3.2 Phase 2: Enhanced Features (Should Have)
+#### 3.4.1 폴더 시스템
+- 사용자 정의 폴더 생성
+- 메모를 폴더별로 정리
+- 폴더 간 이동 가능
 
-| Feature | Description |
-|---------|-------------|
-| **스마트 검색** | 자연어로 저장된 정보 검색 |
-| **관련 아이템 추천** | "이것과 비슷한 항목들" |
-| **트렌드 인사이트** | 내가 자주 저장하는 주제 분석 |
-| **웹 대시보드** | 큰 화면에서 라이브러리 관리 |
-| **팀 공유** | 컬렉션을 팀원과 공유 |
+#### 3.4.2 즐겨찾기
+- 중요한 메모를 즐겨찾기로 표시
+- 홈 화면에서 즐겨찾기 필터링
+- 상세 화면에서 즐겨찾기 토글
 
-### 3.3 Phase 3: Future Vision (Nice to Have)
+#### 3.4.3 검색
+- 제목, 내용, 태그로 전체 텍스트 검색
+- 실시간 검색 결과 표시
+- OCR 텍스트 포함 검색
 
-| Feature | Description |
-|---------|-------------|
-| **AI 질의응답** | "내가 저장한 것 중 React 관련 내용 요약해줘" |
-| **자동 아카이브** | 오래된/중복 아이템 정리 제안 |
-| **외부 연동** | Notion, Obsidian 내보내기 |
-| **위젯** | 홈 화면에서 최근 저장 아이템 확인 |
+#### 3.4.4 개인 메모
+- 각 메모 카드에 개인 메모 추가
+- AI 요약과 별도로 사용자 생각 기록
+
+### 3.5 UI/UX
+
+#### 3.5.1 홈 화면
+- 그리드/리스트 뷰 전환
+- 카테고리별 필터링
+- 즐겨찾기 필터
+- 폴더별 보기
+- 검색 바
+
+#### 3.5.2 상세 화면
+- 전체 화면 이미지 뷰어
+- AI 요약 표시 (다국어 번역)
+- OCR 원본 텍스트 표시
+- 개인 메모 편집
+- 원본 URL로 돌아가기
+- 플로팅 액션 메뉴:
+  - 즐겨찾기 토글
+  - 폴더 이동
+  - 편집
+  - 삭제
+
+#### 3.5.3 설정 화면
+- 다크 모드 (기본)
+- 버전 정보 (동적 표시)
+- Komjirak.Studio 링크
+- 라이선스 정보
 
 ---
 
@@ -135,116 +161,111 @@
 ### 4.1 System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Client Apps                          │
-├───────────────┬───────────────┬───────────────┬────────────┤
-│   iOS App     │  Android App  │   Web App     │  Browser   │
-│  (Flutter)    │   (Flutter)   │  (Flutter Web)│  Extension │
-└───────┬───────┴───────┬───────┴───────┬───────┴─────┬──────┘
-        │               │               │             │
-        └───────────────┴───────┬───────┴─────────────┘
-                                │
-                    ┌───────────▼───────────┐
-                    │      API Gateway      │
-                    │    (Supabase/Firebase)│
-                    └───────────┬───────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-┌───────▼───────┐      ┌───────▼───────┐      ┌───────▼───────┐
-│   Auth        │      │   Database    │      │   Storage     │
-│   Service     │      │   (PostgreSQL)│      │   (S3/GCS)    │
-└───────────────┘      └───────────────┘      └───────────────┘
-                                │
-                    ┌───────────▼───────────┐
-                    │    AI Processing      │
-                    │  (Cloud Functions)    │
-                    ├───────────────────────┤
-                    │ - On-Device: OCR,     │
-                    │   Basic Classification│
-                    │ - Cloud: Advanced     │
-                    │   Summary, Relations  │
-                    └───────────────────────┘
+┌─────────────────────────────────────────────┐
+│           iOS App (Flutter)                 │
+├─────────────────────────────────────────────┤
+│  Screens:                                   │
+│  - HomeScreen (메인 라이브러리)              │
+│  - DetailViewScreen (상세 보기)              │
+│  - SettingsScreen (설정)                     │
+│  - EditCardScreen (편집)                     │
+└─────────────────┬───────────────────────────┘
+                  │
+    ┌─────────────┼─────────────┐
+    │             │             │
+┌───▼───┐   ┌────▼────┐   ┌───▼────┐
+│ Share │   │ Native  │   │ On-    │
+│ Ext.  │   │ Service │   │ Device │
+│       │   │ (OCR)   │   │ LLM    │
+└───┬───┘   └────┬────┘   └───┬────┘
+    │            │            │
+    └────────────┼────────────┘
+                 │
+         ┌───────▼────────┐
+         │  SQLite DB     │
+         │  (Local)       │
+         └────────────────┘
 ```
 
-### 4.2 iOS 스크린샷 자동 감지 구현
+### 4.2 iOS Native Integration
 
-**Option A: Photo Library 변경 감지 (권장)**
-```swift
-// PHPhotoLibraryChangeObserver 활용
-// 장점: App Store 승인 가능, 안정적
-// 단점: 약간의 지연 (1-2초)
-```
+**AppDelegate.swift:**
+- Method Channel 설정
+- Photo Library 변경 감지
+- Share Extension 데이터 수신
 
-**Option B: Share Extension**
-```swift
-// 사용자가 공유 버튼 → Stribe 선택
-// 장점: 명시적 사용자 의도, 다양한 앱 지원
-// 단점: 수동 액션 필요
-```
+**PaddleOCRHelper.swift:**
+- Paddle OCR 초기화
+- 텍스트 인식 수행
+- 다국어 지원 (한국어, 영어, 일본어)
 
-**Option C: Shortcuts 자동화**
-```swift
-// iOS Shortcuts에서 "스크린샷 촬영 시" 트리거
-// 장점: 시스템 레벨 자동화
-// 단점: 사용자가 설정해야 함
-```
+**ShareViewController.swift:**
+- Share Extension UI
+- URL 메타데이터 추출
+- App Group을 통한 데이터 전달
 
 ### 4.3 Tech Stack
 
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
-| **Mobile** | Flutter 3.x | 크로스플랫폼, 빠른 개발 |
-| **State Management** | Riverpod / Bloc | 확장성, 테스트 용이 |
-| **Local DB** | SQLite (sqflite) | 오프라인 지원 |
-| **Backend** | Supabase | Auth + DB + Storage 통합 |
-| **AI - On Device** | Core ML / ML Kit | OCR, 기본 분류 |
-| **AI - Cloud** | OpenAI GPT-4 / Claude | 고급 분석, 요약 |
-| **Image Storage** | Supabase Storage | CDN 포함 |
+| **Mobile** | Flutter 3.10+ | 크로스플랫폼 개발 |
+| **Local DB** | SQLite (sqflite) | 오프라인 우선, 프라이버시 |
+| **OCR** | Paddle OCR | 온디바이스, 다국어, 무료 |
+| **AI Analysis** | 규칙 기반 + 온디바이스 LLM | 완전 무료, 오프라인 |
+| **Storage** | Local File System | 프라이버시 보호 |
+| **UI** | Material Design + Custom | 다크모드 중심 |
 
 ---
 
 ## 5. User Flows
 
-### 5.1 Core Flow: 스크린샷 저장
+### 5.1 스크린샷 저장 Flow
 
 ```
-[사용자]                    [시스템]                      [AI]
-   │                          │                           │
-   │  스크린샷 캡처            │                           │
-   │────────────────────────▶│                           │
-   │                          │  새 이미지 감지             │
-   │                          │──────────────────────────▶│
-   │                          │                           │  OCR 처리
-   │  ◀─ 알림: "Stribe에      │                           │  콘텐츠 분석
-   │      저장하시겠습니까?"   │                           │  카테고리 추론
-   │                          │                           │  태그 추출
-   │  [저장] 탭               │                           │
-   │────────────────────────▶│ ◀──────────────────────────│
-   │                          │  분석 결과 반환            │
-   │                          │                           │
-   │  ◀─ 저장 완료 + 요약 표시 │                           │
-   │     "디자인 > UI 참고자료" │                           │
+[사용자가 스크린샷 캡처]
+    ↓
+[Photo Library 변경 감지]
+    ↓
+[Paddle OCR 텍스트 추출]
+    ↓
+[AI 분석: 카테고리, 태그, 제목 생성]
+    ↓
+[SQLite에 자동 저장]
+    ↓
+[홈 화면에 새 카드 표시]
 ```
 
-### 5.2 검색 Flow
+### 5.2 URL 저장 Flow (Share Extension)
 
 ```
-사용자 입력: "지난 주에 저장한 로그인 화면 디자인"
+[Safari/앱에서 공유 버튼 탭]
     ↓
-[자연어 처리]
-- 시간 필터: last_week
-- 카테고리: Design
-- 키워드: "로그인", "화면"
+[Rememo Share Extension 선택]
     ↓
-[검색 실행]
-- Full-text search on extracted_text
-- Tag matching
-- Vector similarity (Phase 2)
+[URL 메타데이터 추출 (제목, 설명, 이미지)]
     ↓
-[결과 표시]
-- 관련도 순 정렬
-- 썸네일 + 요약 미리보기
+[웹페이지 본문 텍스트 추출]
+    ↓
+[AI 요약 생성]
+    ↓
+[App Group에 저장]
+    ↓
+[메인 앱 실행 시 자동 가져오기]
+    ↓
+[홈 화면에 표시]
+```
+
+### 5.3 검색 Flow
+
+```
+[검색어 입력: "디자인"]
+    ↓
+[SQLite Full-Text Search]
+    - 제목 검색
+    - OCR 텍스트 검색
+    - 태그 검색
+    ↓
+[결과 표시 (그리드/리스트)]
 ```
 
 ---
@@ -252,87 +273,112 @@
 ## 6. Design Principles
 
 ### 6.1 UX 원칙
-1. **Zero Friction**: 저장은 한 번의 탭으로
-2. **Instant Value**: 저장 즉시 AI 분석 결과 제공
-3. **Serendipity**: 잊고 있던 저장 아이템 재발견 유도
-4. **Privacy First**: 민감 데이터는 온디바이스 우선 처리
+1. **Zero Friction**: 스크린샷은 자동 저장, URL은 한 번의 공유로
+2. **Privacy First**: 모든 데이터는 로컬 저장, 외부 전송 없음
+3. **Offline First**: 인터넷 연결 없이도 모든 기능 사용 가능
+4. **Instant Value**: 저장 즉시 AI 분석 결과 제공
 
 ### 6.2 UI 스타일
-- **Aesthetic**: 미니멀, 콘텐츠 중심, 프리미엄 느낌
-- **Theme**: 다크모드 기본 지원
-- **Typography**: Inter / Pretendard (한글)
-- **Color**: 뉴트럴 베이스 + 카테고리별 액센트
+- **Theme**: 다크모드 기본
+- **Typography**: Google Fonts (Inter/Roboto)
+- **Color**: 뉴트럴 다크 베이스 + 카테고리별 액센트
+- **Layout**: 그리드/리스트 전환 가능
 
 ---
 
-## 7. Success Metrics
+## 7. Current Version
 
-### 7.1 Activation
-- 첫 주 내 10개 이상 아이템 저장
-- Share Extension 설정 완료율
+**Version**: 0.5.0  
+**Build**: 16  
+**Platform**: iOS 14.0+  
+**Release**: TestFlight (Internal Testing)
 
-### 7.2 Engagement
-- 주간 활성 저장 횟수
-- 검색 사용 빈도
-- 컬렉션 생성 수
-
-### 7.3 Retention
-- D7, D30 리텐션
-- 저장 후 재조회율
+### 7.1 Implemented Features
+- ✅ 스크린샷 자동 감지 및 저장
+- ✅ Share Extension (URL/웹페이지)
+- ✅ 카메라 촬영 및 갤러리 선택
+- ✅ Paddle OCR (한국어, 영어, 일본어)
+- ✅ 온디바이스 AI 분석 (카테고리, 태그, 제목)
+- ✅ AI 요약 생성 (다국어)
+- ✅ 폴더 시스템
+- ✅ 즐겨찾기
+- ✅ 검색 기능
+- ✅ 개인 메모
+- ✅ 다크모드 UI
+- ✅ 그리드/리스트 뷰
 
 ---
 
-## 8. Risks & Mitigations
+## 8. Future Roadmap
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| AI 분류 정확도 낮음 | 사용자 신뢰도 하락 | 사용자 피드백 루프로 개선, 수동 수정 쉽게 |
-| 저장 공간 부족 | 사용 중단 | 이미지 압축, 클라우드 저장소 옵션 |
-| 프라이버시 우려 | 설치 거부 | 온디바이스 처리 강조, 투명한 데이터 정책 |
-| App Store 리젝 | 출시 지연 | Photo Library 가이드라인 준수 |
+### 8.1 v0.6 (계획 중)
+- [ ] Android 지원
+- [ ] 태그 편집 기능
+- [ ] 고급 검색 필터 (날짜, 카테고리)
+- [ ] 데이터 내보내기 (JSON, PDF)
+
+### 8.2 v1.0 (향후)
+- [ ] macOS 앱
+- [ ] iCloud 동기화 (선택적)
+- [ ] 위젯 지원
+- [ ] Shortcuts 통합
+- [ ] 관련 아이템 추천
+
+### 8.3 v1.1 (향후)
+- [ ] 팀 공유 기능
+- [ ] Notion/Obsidian 연동
+- [ ] 자동 아카이브
+- [ ] AI 질의응답
 
 ---
 
 ## 9. Competitive Landscape
 
-| Product | 강점 | 약점 | Stribe 차별점 |
+| Product | 강점 | 약점 | Rememo 차별점 |
 |---------|------|------|---------------|
-| **Raindrop.io** | 깔끔한 북마크 관리 | URL만 지원, AI 없음 | 스크린샷 + AI 분석 |
-| **Notion Web Clipper** | Notion 연동 | 수동 정리 필요 | 자동 분류 |
-| **Pinterest** | 비주얼 수집 | 외부 소스 한정 | 모든 앱 스크린샷 |
-| **Apple Notes** | 시스템 통합 | 검색/분류 한계 | AI 기반 체계적 관리 |
-| **Readwise** | 독서 하이라이트 | 텍스트 중심 | 이미지 기반 수집 |
+| **Apple Notes** | 시스템 통합 | AI 없음, 검색 한계 | AI 자동 분류, OCR |
+| **Notion** | 강력한 관리 | 수동 정리 필요 | 자동 분석 |
+| **Raindrop.io** | 북마크 관리 | URL만 지원 | 스크린샷 + URL |
+| **Pinterest** | 비주얼 수집 | 외부 소스 한정 | 모든 앱 지원 |
+| **Evernote** | 노트 기능 | 무거움, 유료 | 가볍고 무료 |
 
 ---
 
-## 10. Open Questions
+## 10. Privacy & Security
 
-1. **Monetization**: 프리미엄 기능 (무제한 저장, 고급 AI 분석)?
-2. **데이터 소유권**: 사용자 데이터 완전 내보내기 지원?
-3. **팀 기능**: B2C vs B2B 확장 고려?
-4. **AI 모델 선택**: 비용 vs 품질 트레이드오프?
+### 10.1 Data Privacy
+- **로컬 우선**: 모든 데이터는 기기 내 SQLite에 저장
+- **외부 전송 없음**: 인터넷 연결 불필요
+- **온디바이스 AI**: OCR 및 분석 모두 기기 내에서 처리
+- **사용자 제어**: 언제든 데이터 삭제 가능
+
+### 10.2 Permissions
+- **Photo Library**: 스크린샷 감지 및 이미지 저장
+- **Camera**: 사진 촬영 (선택적)
+- **App Group**: Share Extension 데이터 공유
 
 ---
 
 ## 11. Appendix
 
-### 11.1 카테고리 기본값 (AI 학습용)
+### 11.1 카테고리 기본값
 ```
-- Design (UI, UX, Graphic, Brand)
-- Tech (Programming, Tools, News)
-- Product (Features, Analysis, Startup)
-- Lifestyle (Recipe, Travel, Fashion)
-- Knowledge (Article, Research, Quote)
-- Reference (Inspiration, Wishlist, Tutorial)
+- Inbox (기본)
+- Work (업무)
+- Design (디자인)
+- Food (음식)
+- Shopping (쇼핑)
+- Web (웹)
+- Personal (개인)
 ```
 
 ### 11.2 참고 자료
-- [Apple Human Interface Guidelines - Photos](https://developer.apple.com/design/human-interface-guidelines/photos)
-- [Core ML Documentation](https://developer.apple.com/documentation/coreml)
-- [Supabase Docs](https://supabase.com/docs)
+- [Paddle OCR](https://github.com/PaddlePaddle/PaddleOCR)
+- [Flutter Documentation](https://flutter.dev/)
+- [Apple Share Extension Guide](https://developer.apple.com/documentation/uikit/share_extension)
 
 ---
 
-*Last Updated: 2025-01-19*
-*Version: 1.0*
-*Author: Stribe Team*
+*Last Updated: 2026-01-24*  
+*Version: 0.5.0 (Build 16)*  
+*Author: Komjirak.Studio*

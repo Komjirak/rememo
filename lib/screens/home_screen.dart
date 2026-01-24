@@ -39,6 +39,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Filter state
+  bool _showFavoriteOnly = false;
+  String? _selectedType; // null = ALL
+
   // Share Extension: Inbox 상태 관리
   List<SharedItem> _pendingSharedItems = [];
   bool _hasNewSharedItems = false;
@@ -486,15 +490,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   List<MemoCard> get _filteredCards {
-    if (_searchQuery.isEmpty) return _cards;
-    final query = _searchQuery.toLowerCase();
-    return _cards.where((c) =>
-        c.title.toLowerCase().contains(query) ||
-        c.summary.toLowerCase().contains(query) ||
-        c.category.toLowerCase().contains(query) ||
-        c.tags.any((t) => t.toLowerCase().contains(query)) ||
-        (c.ocrText?.toLowerCase().contains(query) ?? false)
-    ).toList();
+    var filtered = _cards;
+
+    // Apply favorite filter
+    if (_showFavoriteOnly) {
+      filtered = filtered.where((c) => c.isFavorite).toList();
+    }
+
+    // Apply type filter
+    if (_selectedType != null) {
+      filtered = filtered.where((c) => c.category == _selectedType).toList();
+    }
+
+    // Apply search query
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((c) =>
+          c.title.toLowerCase().contains(query) ||
+          c.summary.toLowerCase().contains(query) ||
+          c.category.toLowerCase().contains(query) ||
+          c.tags.any((t) => t.toLowerCase().contains(query)) ||
+          (c.ocrText?.toLowerCase().contains(query) ?? false)
+      ).toList();
+    }
+
+    return filtered;
   }
 
   Future<void> _handleCapture() async {
@@ -1280,6 +1300,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _buildHeader(),
               if (_showSearch) _buildSearchBar(),
               if (_selectedFolder != null) _buildFolderBanner(),
+              _buildFilterBar(),
               Expanded(child: _buildContent()),
             ],
           ),
@@ -1494,8 +1515,168 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildFilterBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    
+    // Get unique categories from cards
+    final categories = _cards.map((c) => c.category).toSet().toList()..sort();
+    
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      color: bgColor,
+      child: Row(
+        children: [
+          // All / Favorite Toggle
+          _buildFilterPill(
+            label: "전체",
+            isActive: !_showFavoriteOnly,
+            onTap: () => setState(() => _showFavoriteOnly = false),
+          ),
+          const SizedBox(width: 8),
+          _buildFilterPill(
+            label: "즐겨찾기",
+            isActive: _showFavoriteOnly,
+            onTap: () => setState(() => _showFavoriteOnly = true),
+            icon: Icons.star,
+          ),
+          const SizedBox(width: 12),
+          
+          // Folders Dropdown
+          Expanded(
+            child: _buildFilterDropdown(
+              label: _selectedFolder?.name ?? "폴더",
+              icon: Icons.folder_outlined,
+              items: [
+                DropdownMenuItem(value: null, child: Text("전체")),
+                ..._folders.map((f) => DropdownMenuItem(
+                  value: f,
+                  child: Text(f.name),
+                )),
+              ],
+              value: _selectedFolder,
+              onChanged: (Folder? folder) {
+                setState(() {
+                  _selectedFolder = folder;
+                });
+                _refreshCards();
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          
+          // Type Dropdown
+          Expanded(
+            child: _buildFilterDropdown(
+              label: _selectedType ?? "타입",
+              icon: Icons.category_outlined,
+              items: [
+                DropdownMenuItem(value: null, child: Text("전체")),
+                ...categories.map((cat) => DropdownMenuItem(
+                  value: cat,
+                  child: Text(cat),
+                )),
+              ],
+              value: _selectedType,
+              onChanged: (String? type) {
+                setState(() => _selectedType = type);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const accentTeal = Color(0xFF4FD1C5);
+    final inactiveBg = isDark ? const Color(0xFF161616) : const Color(0xFFE5E5EA);
+    final inactiveText = isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366);
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? accentTeal : inactiveBg,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 16,
+                color: isActive ? const Color(0xFF0A0A0A) : inactiveText,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isActive ? const Color(0xFF0A0A0A) : inactiveText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown<T>({
+    required String label,
+    required IconData icon,
+    required List<DropdownMenuItem<T>> items,
+    required T? value,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF161616) : const Color(0xFFFFFFFF);
+    final textColor = isDark ? const Color(0xFFF2F2F2) : const Color(0xFF1A1A1A);
+    final iconColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366);
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5EA),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          icon: Icon(Icons.arrow_drop_down, color: iconColor, size: 20),
+          isExpanded: true,
+          isDense: true,
+          dropdownColor: bgColor,
+          style: TextStyle(fontSize: 14, color: textColor),
+          items: items,
+          onChanged: onChanged,
+          hint: Row(
+            children: [
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 14, color: textColor)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
-    final displayCards = _searchQuery.isEmpty ? _cards : _filteredCards;
+    final displayCards = _filteredCards;
 
     if (displayCards.isEmpty && !_isAnalyzing) {
       if (_searchQuery.isNotEmpty) {

@@ -503,6 +503,23 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
+  Future<void> _toggleFavorite() async {
+    final updated = _card.copyWith(isFavorite: !_card.isFavorite);
+    await DatabaseHelper.instance.update(updated);
+    setState(() => _card = updated);
+    widget.onUpdate?.call(updated);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_card.isFavorite ? '즐겨찾기에 추가되었습니다' : '즐겨찾기에서 제거되었습니다'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _showMoreOptions() {
     showModalBottomSheet(
       context: context,
@@ -523,25 +540,31 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             ),
             const SizedBox(height: 24),
             ListTile(
+              leading: Icon(
+                _card.isFavorite ? Icons.star : Icons.star_border,
+                color: _card.isFavorite ? const Color(0xFF4FD1C5) : Theme.of(context).iconTheme.color,
+              ),
+              title: Text(
+                '즐겨찾기',
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleFavorite();
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.folder_outlined, color: Theme.of(context).iconTheme.color),
-              title: Text('Move to Folder', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+              title: Text('폴더로 이동', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
               onTap: () {
                 Navigator.pop(ctx);
                 _showFolderPicker();
               },
             ),
-            ListTile(
-              leading: Icon(Icons.share_outlined, color: Theme.of(context).iconTheme.color),
-              title: Text('Share', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _shareCard();
-              },
-            ),
             Divider(color: Theme.of(context).dividerColor),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
+              title: const Text('삭제', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(ctx);
                 _showDeleteDialog();
@@ -1034,14 +1057,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   Widget _buildFloatingBottomMenu() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const accentTeal = Color(0xFF4FD1C5);
     
     return ClipRRect(
       borderRadius: BorderRadius.circular(100), 
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: Container(
-          width: 280,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             color: isDark 
                 ? Colors.black.withOpacity(0.4) 
@@ -1059,20 +1082,53 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Favorite Button
+              GestureDetector(
+                onTap: _toggleFavorite,
+                child: Row(
+                  children: [
+                    Icon(
+                      _card.isFavorite ? Icons.star : Icons.star_border,
+                      color: _card.isFavorite ? accentTeal : (isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8)),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "즐겨찾기",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _card.isFavorite ? accentTeal : (isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              Container(
+                width: 1,
+                height: 24,
+                color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
+              ),
+              const SizedBox(width: 16),
+              
+              // Move to Folder
               GestureDetector(
                 onTap: _showFolderPicker,
                 child: Row(
                   children: [
                     Icon(
-                      Icons.folder_open,
+                      Icons.folder_outlined,
                       color: isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8),
                       size: 22,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      "Move Folder",
+                      "폴더로 이동",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1083,12 +1139,15 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 ),
               ),
               
+              const SizedBox(width: 16),
               Container(
                 width: 1,
                 height: 24,
                 color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
               ),
+              const SizedBox(width: 16),
               
+              // Delete
               GestureDetector(
                 onTap: _showDeleteDialog,
                 child: Row(
@@ -1098,9 +1157,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       color: Colors.redAccent, 
                       size: 22,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      "Delete",
+                      "삭제",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
