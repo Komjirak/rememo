@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:stribe/services/theme_service.dart';
 import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/folder_management_view.dart';
@@ -16,7 +17,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _version = 'Loading...';
+  String _version = ''; // Initial empty, set in initState or build
   String _buildNumber = '';
   int _totalItems = 0;
   double _storageSize = 0.0;
@@ -105,7 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: bgColor,
       appBar: AppBar(
         title: Text(
-          "Settings",
+          AppLocalizations.of(context)!.settingsTitle,
           style: TextStyle(
             color: textColor,
             fontSize: 20,
@@ -127,7 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader("APPEARANCE", secondaryTextColor),
+              _buildSectionHeader(AppLocalizations.of(context)!.settingsAppearance, secondaryTextColor),
               Container(
                 decoration: BoxDecoration(
                   color: cardColor,
@@ -140,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Icon(Icons.palette, color: accentTeal, size: 22),
                         const SizedBox(width: 12),
-                        Text("Theme", style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)),
+                        Text(AppLocalizations.of(context)!.settingsTheme, style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -148,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildThemeOption(
-                          label: "Light",
+                          label: AppLocalizations.of(context)!.settingsThemeLight,
                           mode: ThemeMode.light,
                           currentMode: themeService.themeMode,
                           isDark: isDark,
@@ -156,7 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           selectedColor: accentTeal,
                         ),
                         _buildThemeOption(
-                          label: "Dark",
+                          label: AppLocalizations.of(context)!.settingsThemeDark,
                           mode: ThemeMode.dark,
                           currentMode: themeService.themeMode,
                           isDark: isDark,
@@ -164,7 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           selectedColor: accentTeal,
                         ),
                         _buildThemeOption(
-                          label: "System",
+                          label: AppLocalizations.of(context)!.settingsThemeSystem,
                           mode: ThemeMode.system,
                           currentMode: themeService.themeMode,
                           isDark: isDark,
@@ -179,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               
               const SizedBox(height: 28),
               
-              _buildSectionHeader("MANAGEMENT", secondaryTextColor),
+              _buildSectionHeader(AppLocalizations.of(context)!.settingsOrganization, secondaryTextColor),
               Container(
                 decoration: BoxDecoration(
                   color: cardColor,
@@ -189,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.folder,
                   iconColor: accentTeal,
                   iconBgColor: accentTeal.withOpacity(0.1),
-                  label: "Folder Management",
+                  label: AppLocalizations.of(context)!.folderManage,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -203,7 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               
               const SizedBox(height: 28),
               
-              _buildSectionHeader("SYSTEM", secondaryTextColor),
+              _buildSectionHeader(AppLocalizations.of(context)!.settingsData, secondaryTextColor),
               Container(
                 decoration: BoxDecoration(
                   color: cardColor,
@@ -213,26 +214,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.cleaning_services,
                   iconColor: secondaryTextColor,
                   iconBgColor: secondaryTextColor.withOpacity(0.1),
-                  label: "Clear Cache",
+                  label: AppLocalizations.of(context)!.settingsClearCache,
                   onTap: _showClearCacheDialog,
                   showDivider: false,
                   textColor: textColor,
                   subtitle: _isLoadingStorage
-                      ? "Calculating..."
-                      : "Storage: ${_formatStorage(_storageSize)} • $_totalItems items",
+                      ? AppLocalizations.of(context)!.commonLoading
+                      : "${_formatStorage(_storageSize)} • $_totalItems items",
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
-                  "Clearing cache will remove all memories and images. This action cannot be undone.",
+                  AppLocalizations.of(context)!.msgCacheClearDesc,
                   style: TextStyle(fontSize: 13, color: secondaryTextColor, height: 1.3),
                 ),
               ),
               
               const SizedBox(height: 28),
               
-              _buildSectionHeader("INFO", secondaryTextColor),
+              _buildSectionHeader(AppLocalizations.of(context)!.settingsInfo, secondaryTextColor),
               Container(
                 decoration: BoxDecoration(
                   color: cardColor,
@@ -253,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.info_outline,
                       iconColor: secondaryTextColor,
                       iconBgColor: secondaryTextColor.withOpacity(0.1),
-                      label: "Version",
+                      label: AppLocalizations.of(context)!.settingsVersion,
                       onTap: () {},
                       showDivider: false,
                       textColor: textColor,
@@ -312,7 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open website')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.errUrlLaunch)),
         );
       }
     }

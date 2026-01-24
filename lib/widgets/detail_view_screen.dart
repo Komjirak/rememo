@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter/services.dart'; // For Clipboard
 import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
@@ -141,7 +142,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  "Move to Folder",
+                                  AppLocalizations.of(context)!.menuMoveFolder,
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w600,
@@ -153,7 +154,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                               GestureDetector(
                                 onTap: () => Navigator.pop(context),
                                 child: Text(
-                                  "Cancel",
+                                  AppLocalizations.of(context)!.commonCancel,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -206,7 +207,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                                         const SizedBox(width: 16),
                                         Expanded(
                                           child: Text(
-                                            "Create New Folder",
+                                            AppLocalizations.of(context)!.folderCreateEdit,
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w500,
@@ -228,7 +229,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                                 // Radio List: No Folder
                                 _buildFolderRadioItem(
                                   id: null,
-                                  name: "None", // Or "Root" / "No Folder"
+                                  name: AppLocalizations.of(context)!.commonNone,
                                   icon: Icons.folder_off_outlined,
                                   color: Colors.grey,
                                   isSelected: tempSelectedFolderId == null,
@@ -306,7 +307,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                    textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                                  ),
-                                 child: const Text("Move Here"),
+                                 child: Text(AppLocalizations.of(context)!.commonMove),
                                ),
                              ),
                           ),
@@ -399,7 +400,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             return AlertDialog(
               backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Text('New Folder', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+              title: Text(AppLocalizations.of(context)!.folderNew, style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,7 +410,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     autofocus: true,
                     style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                     decoration: InputDecoration(
-                      hintText: 'Folder Name',
+                      hintText: AppLocalizations.of(context)!.folderNameHint,
                       hintStyle: TextStyle(color: Theme.of(context).hintColor),
                       filled: true,
                       fillColor: Theme.of(context).dividerColor.withOpacity(0.1),
@@ -417,7 +418,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context)!.commonColor, style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
@@ -446,22 +447,22 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                TextButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isEmpty) return;
-                    final folder = Folder(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      name: name,
-                      color: selectedColor,
-                      createdDate: DateTime.now(),
-                    );
-                    await DatabaseHelper.instance.createFolder(folder);
-                    if (mounted) Navigator.pop(ctx, folder);
-                  },
-                  child: const Text('Create'),
-                ),
+                  TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.commonCancel)),
+                  TextButton(
+                    onPressed: () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      final folder = Folder(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: name,
+                        color: selectedColor,
+                        createdDate: DateTime.now(),
+                      );
+                      await DatabaseHelper.instance.createFolder(folder);
+                      if (mounted) Navigator.pop(ctx, folder);
+                    },
+                    child: Text(AppLocalizations.of(context)!.commonCreate),
+                  ),
               ],
             );
           },
@@ -476,13 +477,13 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Delete Memory', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+        title: Text(AppLocalizations.of(context)!.msgDeleteTitle, style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
         content: Text(
-          'Are you sure you want to delete this memory? This action cannot be undone.',
+          AppLocalizations.of(context)!.msgDeleteConfirm,
           style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLocalizations.of(context)!.commonCancel)),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -490,7 +491,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),
@@ -499,7 +500,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   void _shareCard() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Share functionality coming soon'), behavior: SnackBarBehavior.floating),
+      SnackBar(content: Text(AppLocalizations.of(context)!.msgShareComingSoon), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -512,7 +513,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_card.isFavorite ? '즐겨찾기에 추가되었습니다' : '즐겨찾기에서 제거되었습니다'),
+          content: Text(_card.isFavorite ? AppLocalizations.of(context)!.msgFavoriteAdded : AppLocalizations.of(context)!.msgFavoriteRemoved),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -545,7 +546,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                 color: _card.isFavorite ? const Color(0xFF4FD1C5) : Theme.of(context).iconTheme.color,
               ),
               title: Text(
-                '즐겨찾기',
+                AppLocalizations.of(context)!.menuFavorite,
                 style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               ),
               onTap: () {
@@ -555,7 +556,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             ),
             ListTile(
               leading: Icon(Icons.folder_outlined, color: Theme.of(context).iconTheme.color),
-              title: Text('폴더로 이동', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+              title: Text(AppLocalizations.of(context)!.menuMoveFolder, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
               onTap: () {
                 Navigator.pop(ctx);
                 _showFolderPicker();
@@ -564,7 +565,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
             Divider(color: Theme.of(context).dividerColor),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('삭제', style: TextStyle(color: Colors.red)),
+              title: Text(AppLocalizations.of(context)!.menuDelete, style: const TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(ctx);
                 _showDeleteDialog();
@@ -686,7 +687,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                    Icon(Icons.memory, color: AppTheme.primaryDark, size: 20),
                    const SizedBox(width: 6),
                    Text(
-                     "REMEMO INSIGHT",
+                     AppLocalizations.of(context)!.detailHeader,
                      style: TextStyle(
                        color: isDark ? AppTheme.textHighDark.withOpacity(0.8) : AppTheme.textHighLight.withOpacity(0.8),
                        fontSize: 12,
@@ -755,13 +756,15 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Merge Manual Tags and maybe visual cue for "AI Analysis"
-    final tags = [..._card.tags, 'AI Analysis']; // Always show AI Analysis as per design mock
+    // Use localized "AI Analysis" tag if available
+    final aiTag = AppLocalizations.of(context)!.tagAiAnalysis;
+    final tags = [..._card.tags, aiTag]; // Always show AI Analysis as per design mock
     
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: tags.map((tag) {
-        final isAiTag = tag == 'AI Analysis';
+        final isAiTag = tag == aiTag;
         if (!isDark) {
            if (isAiTag) {
              return _buildPill(
@@ -776,7 +779,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
              textColor: AppTheme.textHighLight
            );
         } else {
-           if (tag == 'Design' || tag == 'AI Analysis') { 
+           if (tag == 'Design' || isAiTag) {  
               return _buildPill(
                 label: tag, 
                 bgColor: AppTheme.primaryDark.withOpacity(0.1), 
@@ -881,7 +884,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
              ),
              const SizedBox(width: 8),
              Text(
-               "AI SUMMARY",
+               AppLocalizations.of(context)!.detailAiSummary,
                style: TextStyle(
                  fontSize: 12,
                  fontWeight: FontWeight.bold,
@@ -936,7 +939,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
              ),
              const SizedBox(width: 8),
              Text(
-               "PERSONAL NOTE",
+               AppLocalizations.of(context)!.detailPersonalNote,
                style: TextStyle(
                  fontSize: 12,
                  fontWeight: FontWeight.bold,
@@ -968,7 +971,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
               fontStyle: isDark ? FontStyle.normal : FontStyle.italic,
             ),
             decoration: InputDecoration(
-              hintText: "Add your thoughts...",
+              hintText: AppLocalizations.of(context)!.detailPersonalNoteHint,
               hintStyle: TextStyle(
                 color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
               ),
@@ -1001,7 +1004,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
              ),
              const SizedBox(width: 8),
              Text(
-               "ORIGINAL MESSAGE",
+               AppLocalizations.of(context)!.detailOriginalMessage,
                style: TextStyle(
                  fontSize: 12,
                  fontWeight: FontWeight.bold,
@@ -1039,7 +1042,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                      GestureDetector(
                          onTap: () => widget.onOpenLink?.call(sourceUrl),
                          child: Text(
-                             "Source: $domain",
+                             "${AppLocalizations.of(context)!.detailSource}: $domain",
                              style: const TextStyle(
                                  fontSize: 13,
                                  color: Colors.blue,
@@ -1097,9 +1100,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      "즐겨찾기",
+                      AppLocalizations.of(context)!.menuFavorite,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: _card.isFavorite ? accentTeal : (isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8)),
                       ),
@@ -1128,14 +1131,13 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      "폴더로 이동",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8),
-                      ),
+                    AppLocalizations.of(context)!.menuMoveFolder,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey.shade200 : AppTheme.textHighLight.withOpacity(0.8),
                     ),
-                  ],
+                  ),  ],
                 ),
               ),
               
@@ -1159,14 +1161,13 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      "삭제",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.redAccent.shade100 : Colors.red,
-                      ),
+                    AppLocalizations.of(context)!.menuDelete,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFEF4444), // Red for delete
                     ),
-                  ],
+                  ),  ],
                 ),
               ),
             ],

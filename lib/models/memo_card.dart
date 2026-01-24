@@ -4,6 +4,7 @@ class MemoCard {
   final String title;
   final String summary;
   final String category;
+  final String sourceType; // 'screenshot', 'url', 'photo'
   final List<String> tags;
   final List<String> keyInsights; // New field
   final String captureDate;
@@ -20,6 +21,7 @@ class MemoCard {
     required this.title,
     required this.summary,
     required this.category,
+    this.sourceType = 'screenshot', // Default to screenshot for backward compatibility
     required this.tags,
     this.keyInsights = const [], // Default empty
     required this.captureDate,
@@ -39,6 +41,7 @@ class MemoCard {
       title: json['title'] as String,
       summary: json['summary'] as String,
       category: json['category'] as String,
+      sourceType: json['sourceType'] as String? ?? 'screenshot',
       tags: _parseList(json['tags']),
       keyInsights: _parseList(json['keyInsights']),
       captureDate: json['captureDate'] as String,
@@ -59,6 +62,7 @@ class MemoCard {
       'title': title,
       'summary': summary,
       'category': category,
+      'sourceType': sourceType,
       'tags': tags, // Handled by DB Helper (jsonEncode likely)
       'keyInsights': keyInsights,
       'captureDate': captureDate,
@@ -78,6 +82,7 @@ class MemoCard {
     String? title,
     String? summary,
     String? category,
+    String? sourceType,
     List<String>? tags,
     List<String>? keyInsights,
     String? captureDate,
@@ -94,6 +99,7 @@ class MemoCard {
       title: title ?? this.title,
       summary: summary ?? this.summary,
       category: category ?? this.category,
+      sourceType: sourceType ?? this.sourceType,
       tags: tags ?? this.tags,
       keyInsights: keyInsights ?? this.keyInsights,
       captureDate: captureDate ?? this.captureDate,

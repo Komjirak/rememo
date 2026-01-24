@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5, // Incremented version for keyInsights feature
+      version: 6, // Incremented version for sourceType feature
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -40,6 +40,7 @@ CREATE TABLE memo_cards (
   title $textType,
   summary $textType,
   category $textType,
+  sourceType $textType,
   tags $listType,
   keyInsights $textNullable, 
   captureDate $textType,
@@ -90,6 +91,10 @@ CREATE TABLE folders (
     if (oldVersion < 5) {
       // Add keyInsights column to memo_cards
       await db.execute('ALTER TABLE memo_cards ADD COLUMN keyInsights TEXT');
+    }
+    if (oldVersion < 6) {
+      // Add sourceType column to memo_cards with default value 'screenshot'
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN sourceType TEXT NOT NULL DEFAULT "screenshot"');
     }
   }
 

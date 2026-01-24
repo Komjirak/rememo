@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stribe/models/memo_card.dart';
@@ -329,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: imagePath,
         isProcessing: true,
+        sourceType: 'screenshot', // Default for screenshots
     );
 
     // Update UI immediately
@@ -408,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         sourceUrl: foundUrl,
         personalNote: null,
         folderId: _selectedFolder?.id, // 현재 선택된 폴더에 저장
+        sourceType: 'screenshot', // Explicitly set sourceType
       );
 
       // 데이터베이스에 저장
@@ -490,28 +493,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   List<MemoCard> get _filteredCards {
-    var filtered = _cards;
+    List<MemoCard> filtered = _cards;
 
-    // Apply favorite filter
+    // 1. Filter by Folder
+    if (_selectedFolder != null) {
+      filtered = filtered.where((card) => card.folderId == _selectedFolder!.id).toList();
+    }
+
+    // 2. Filter by Favorite
     if (_showFavoriteOnly) {
-      filtered = filtered.where((c) => c.isFavorite).toList();
+      filtered = filtered.where((card) => card.isFavorite).toList();
     }
 
-    // Apply type filter
+    // 3. Filter by Type (SourceType)
     if (_selectedType != null) {
-      filtered = filtered.where((c) => c.category == _selectedType).toList();
+      filtered = filtered.where((card) => card.sourceType == _selectedType).toList();
     }
 
-    // Apply search query
+    // 4. Filter by Search Query
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((c) =>
-          c.title.toLowerCase().contains(query) ||
-          c.summary.toLowerCase().contains(query) ||
-          c.category.toLowerCase().contains(query) ||
-          c.tags.any((t) => t.toLowerCase().contains(query)) ||
-          (c.ocrText?.toLowerCase().contains(query) ?? false)
-      ).toList();
+      filtered = filtered.where((card) {
+        return card.title.toLowerCase().contains(query) ||
+               card.summary.toLowerCase().contains(query) ||
+               (card.ocrText?.toLowerCase().contains(query) ?? false) ||
+               card.tags.any((tag) => tag.toLowerCase().contains(query));
+      }).toList();
     }
 
     return filtered;
@@ -547,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 24),
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.add_photo_alternate_outlined : Icons.screenshot_monitor,
-              title: Platform.isMacOS ? "이미지 가져오기" : "최신 스크린샷 가져오기",
+              title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetImportScreenshot,
               subtitle: Platform.isMacOS ? "라이브러리에서 이미지 추가" : "가장 최신 캡처 분석",
               onTap: () {
                 print('🟢 Import Image button tapped');
@@ -558,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 12),
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.photo_library_outlined : Icons.camera_alt_outlined,
-              title: Platform.isMacOS ? "이미지 선택" : "사진 촬영",
+              title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetTakePhoto,
               subtitle: Platform.isMacOS ? "파일에서 선택" : "새로운 사진 촬영",
               onTap: () {
                 print('🟡 Choose Image button tapped');
@@ -569,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 12),
             _buildSheetOption(
               icon: Icons.link,
-              title: "URL 붙여넣기",
+              title: AppLocalizations.of(context)!.sheetPasteUrl,
               subtitle: "클립보드 링크 저장",
               onTap: () {
                 print('🔵 Paste URL button tapped');
@@ -663,10 +670,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
       // macOS에서는 네이티브 서비스 사용 불가, fallback 사용
       String ocrText = _generateMacOSFallback(permanentPath);
-      final suggestedTags = ['Imported', 'Screenshot'];
+      final suggestedTags = ['Imported', 'Photo'];
       final suggestedCategory = 'Inbox';
 
-      await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
+      await _createCardFromAnalysis(
+        permanentPath, 
+        ocrText, 
+        suggestedTags, 
+        suggestedCategory,
+        sourceType: 'photo',
+      );
     } catch (e) {
       print('🔴 Error in _pickImageFromGallery: $e');
       setState(() => _isAnalyzing = false);
@@ -984,6 +997,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ocrText: analysisData['ocrText'] ?? '',
           sourceUrl: '',
           folderId: _selectedFolder?.id,
+          sourceType: 'screenshot', // Explicitly set sourceType
         );
         
         // 5. DB 저장
@@ -1030,6 +1044,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String? sourceUrl,
     List<OCRBlock>? ocrBlocks, // Optional blocks for better analysis
     ScreenshotAnalysis? preAnalysis, // Optional pre-computed analysis
+    String sourceType = 'screenshot', // New parameter
   }) async {
     try {
       // 1. Analyze Content (Structure, Summary)
@@ -1071,7 +1086,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         imageUrl: imagePath,
         ocrText: ocrText,
         sourceUrl: sourceUrl,
-        keyInsights: analysis.keyInsights
+        keyInsights: analysis.keyInsights,
+        sourceType: sourceType, // Use the new parameter
       );
 
       // 4. Save to DB
@@ -1249,6 +1265,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 analysis.keyInsights.isNotEmpty ? suggestedTags : suggestedTags, // Can refine tags
                 suggestedCategory,
                 suggestedTitle: analysis.title,
+                sourceType: 'photo', // Explicitly set sourceType
              );
         } else {
              // Fallback if native analysis fails
@@ -1258,7 +1275,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 "", 
                 ['Photo'], 
                 'Inbox',
-                suggestedTitle: 'New Photo'
+                suggestedTitle: 'New Photo',
+                sourceType: 'photo',
              );
         }
 
@@ -1268,7 +1286,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final suggestedTags = ['Camera', 'Photo'];
         final suggestedCategory = 'Inbox';
 
-        await _createCardFromAnalysis(permanentPath, ocrText, suggestedTags, suggestedCategory);
+        await _createCardFromAnalysis(
+          permanentPath, 
+          ocrText, 
+          suggestedTags, 
+          suggestedCategory,
+          sourceType: 'photo',
+        );
       }
     } catch (e) {
       print('🔴 Error in _pickImage: $e');
@@ -1446,7 +1470,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onChanged: (value) => setState(() => _searchQuery = value),
         style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
         decoration: InputDecoration(
-          hintText: "Search memories...",
+          hintText: AppLocalizations.of(context)!.searchHint,
           hintStyle: TextStyle(color: Theme.of(context).hintColor),
           prefixIcon: Icon(Icons.search, color: Theme.of(context).hintColor),
           filled: true,
@@ -1519,8 +1543,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
     
-    // Get unique categories from cards
-    final categories = _cards.map((c) => c.category).toSet().toList()..sort();
+    // Removed dynamic categories logic as we now use fixed Source Types
+    // final categories = _cards.map((c) => c.category).toSet().toList()..sort();
     
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1529,13 +1553,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           // All / Favorite Toggle
           _buildFilterPill(
-            label: "전체",
+            label: AppLocalizations.of(context)!.filterAll,
             isActive: !_showFavoriteOnly,
             onTap: () => setState(() => _showFavoriteOnly = false),
           ),
           const SizedBox(width: 8),
           _buildFilterPill(
-            label: "즐겨찾기",
+            label: AppLocalizations.of(context)!.filterFavorite,
             isActive: _showFavoriteOnly,
             onTap: () => setState(() => _showFavoriteOnly = true),
             icon: Icons.star,
@@ -1545,10 +1569,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Folders Dropdown
           Expanded(
             child: _buildFilterDropdown(
-              label: _selectedFolder?.name ?? "폴더",
+              label: _selectedFolder?.name ?? AppLocalizations.of(context)!.filterFolder,
               icon: Icons.folder_outlined,
               items: [
-                DropdownMenuItem(value: null, child: Text("전체")),
+                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
                 ..._folders.map((f) => DropdownMenuItem(
                   value: f,
                   child: Text(f.name),
@@ -1556,26 +1580,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
               value: _selectedFolder,
               onChanged: (Folder? folder) {
-                setState(() {
-                  _selectedFolder = folder;
-                });
-                _refreshCards();
+                setState(() => _selectedFolder = folder);
               },
             ),
           ),
           const SizedBox(width: 8),
           
-          // Type Dropdown
+          // Type Dropdown (Source Type)
           Expanded(
             child: _buildFilterDropdown(
-              label: _selectedType ?? "타입",
+              label: _selectedType != null 
+                  ? (_selectedType == 'screenshot' ? AppLocalizations.of(context)!.typeScreenshot 
+                      : _selectedType == 'url' ? AppLocalizations.of(context)!.typeUrl 
+                      : AppLocalizations.of(context)!.typePhoto)
+                  : AppLocalizations.of(context)!.filterType,
               icon: Icons.category_outlined,
               items: [
-                DropdownMenuItem(value: null, child: Text("전체")),
-                ...categories.map((cat) => DropdownMenuItem(
-                  value: cat,
-                  child: Text(cat),
-                )),
+                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
+                DropdownMenuItem(value: 'screenshot', child: Text(AppLocalizations.of(context)!.typeScreenshot)),
+                DropdownMenuItem(value: 'url', child: Text(AppLocalizations.of(context)!.typeUrl)),
+                DropdownMenuItem(value: 'photo', child: Text(AppLocalizations.of(context)!.typePhoto)),
               ],
               value: _selectedType,
               onChanged: (String? type) {
@@ -1721,7 +1745,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 24),
             Text(
-              '검색 결과가 없습니다',
+              AppLocalizations.of(context)!.emptyFilter,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -1730,11 +1754,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 12),
             Text(
-              '"$_searchQuery"에 대한 결과를 찾을 수 없습니다.',
+              AppLocalizations.of(context)!.searchNoResult(_searchQuery),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+                color: Theme.of(context).disabledColor,
                 height: 1.5,
               ),
             ),
