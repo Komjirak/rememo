@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.1] - Build 17 - 2026-01-24 (Current)
 
+### AI & On-Device Translation (by Claude Code & AI Assistant)
+- ✅ **Full On-Device Translation**: Google ML Kit 기반 온디바이스 번역 시스템 구축
+- ✅ **Automatic Translation**: 스크린샷 분석 시 시스템 언어와 다른 경우 자동 번역 수행
+- ✅ **Manual Translation**: 상세 화면에서 언제든 수동으로 번역 실행 가능
+- ✅ **Translation Persistence**: 번역된 텍스트와 원본 텍스트를 함께 저장 (DB 스키마 v7 업데이트)
+- ✅ **Translation UI**: 상세 화면에서 원본/번역 텍스트 토글 기능 추가
+
 ### UI/UX Improvements
 - ✅ **Splash Screen Unification**: 다크/라이트 모드에서 동일한 디자인 적용 (아이콘 + 브랜드명 + 배경)
 - ✅ **Design System**: 통합 디자인 시스템 가이드 문서 작성 (DESIGNSYSTEM.md)

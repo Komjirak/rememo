@@ -14,7 +14,10 @@ class MemoCard {
   final String? personalNote;
   final String? folderId;
   final bool isFavorite;
-  final bool isProcessing; 
+  final bool isProcessing;
+  final bool wasTranslated;
+  final String? originalTitle;
+  final String? originalSummary;
 
   MemoCard({
     required this.id,
@@ -31,7 +34,10 @@ class MemoCard {
     this.personalNote,
     this.folderId,
     this.isFavorite = false,
-    this.isProcessing = false, 
+    this.isProcessing = false,
+    this.wasTranslated = false,
+    this.originalTitle,
+    this.originalSummary,
   });
 
   // Factory constructor for creating a new MemoCard from a map (JSON)
@@ -52,6 +58,9 @@ class MemoCard {
       folderId: json['folderId'] as String?,
       isFavorite: json['isFavorite'] == 1 || json['isFavorite'] == true,
       isProcessing: false, // Always false from DB
+      wasTranslated: json['wasTranslated'] == 1 || json['wasTranslated'] == true,
+      originalTitle: json['originalTitle'] as String?,
+      originalSummary: json['originalSummary'] as String?,
     );
   }
 
@@ -72,6 +81,9 @@ class MemoCard {
       'personalNote': personalNote,
       'folderId': folderId,
       'isFavorite': isFavorite ? 1 : 0,
+      'wasTranslated': wasTranslated ? 1 : 0,
+      'originalTitle': originalTitle,
+      'originalSummary': originalSummary,
        // isProcessing skip
     };
   }
@@ -93,6 +105,9 @@ class MemoCard {
     String? folderId,
     bool? isFavorite,
     bool? isProcessing,
+    bool? wasTranslated,
+    String? originalTitle,
+    String? originalSummary,
   }) {
     return MemoCard(
       id: id ?? this.id,
@@ -110,6 +125,9 @@ class MemoCard {
       folderId: folderId ?? this.folderId,
       isFavorite: isFavorite ?? this.isFavorite,
       isProcessing: isProcessing ?? this.isProcessing,
+      wasTranslated: wasTranslated ?? this.wasTranslated,
+      originalTitle: originalTitle ?? this.originalTitle,
+      originalSummary: originalSummary ?? this.originalSummary,
     );
   }
   

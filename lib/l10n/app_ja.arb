@@ -43,6 +43,10 @@
   "detailTags": "タグ",
   "detailTitleEdit": "タイトルの編集",
   "detailTitleHint": "タイトルを入力",
+  "detailEditTitle": "タイトルの編集",
+  "detailEditSummary": "要約の編集",
+  "detailEditNote": "メモの編集",
+  "detailSummaryHint": "要約を入力してください...",
   "tagAiAnalysis": "AI分析",
 
   "menuFavorite": "お気に入り",

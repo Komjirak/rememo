@@ -322,6 +322,30 @@ abstract class AppLocalizations {
   /// **'제목 입력'**
   String get detailTitleHint;
 
+  /// No description provided for @detailEditTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'제목 편집'**
+  String get detailEditTitle;
+
+  /// No description provided for @detailEditSummary.
+  ///
+  /// In ko, this message translates to:
+  /// **'요약 편집'**
+  String get detailEditSummary;
+
+  /// No description provided for @detailEditNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'메모 편집'**
+  String get detailEditNote;
+
+  /// No description provided for @detailSummaryHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'요약을 작성하세요...'**
+  String get detailSummaryHint;
+
   /// No description provided for @tagAiAnalysis.
   ///
   /// In ko, this message translates to:

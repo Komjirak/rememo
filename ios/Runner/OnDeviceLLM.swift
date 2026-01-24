@@ -4,6 +4,7 @@
 //
 //  온디바이스 LLM - Apple NaturalLanguage 프레임워크 기반 스마트 분석
 //  iOS 12+에서 지원되는 NLTagger, NLLanguageRecognizer 사용
+//  언어 감지 및 번역 필요성 판단 지원
 //  (실제 LLM 모델 대신 고급 NLP 휴리스틱을 사용하여 경량화된 분석 제공)
 //
 
@@ -509,16 +510,36 @@ class EnhancedContentAnalyzer {
                 "^\\d{1,3}%$",                     // 배터리
                 "^Back$", "^Close$", "^Menu$",    // UI 버튼
                 "^AD$", "^광고$", "^Sponsored$",  // 광고
-                ".*\\.com.*", ".*\\.io.*",         // URL 도메인 (NEW)
-                "^https?://.*",                    // URL 프로토콜 (NEW)
-                "^www\\..*",                       // www로 시작 (NEW)
-                "^[a-z]+-[a-z]+-.*",              // 케밥케이스 URL (NEW)
+                "^https?://.*",                    // URL 프로토콜
+                "^www\\..*",                       // www로 시작
             ]
-            
-            // URL이 포함된 텍스트 필터링
-            if text.contains(".com") || text.contains(".io") || 
-               text.contains("https://") || text.contains("www.") {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: URL detected")
+
+            // URL 도메인 패턴 (확장된 목록)
+            let urlDomains = [".com", ".io", ".im", ".kr", ".net", ".org", ".co", ".app", ".dev", ".me", ".tv", ".ai"]
+            for domain in urlDomains {
+                if text.contains(domain) {
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: URL domain '\(domain)' detected in '\(text)'")
+                    return false
+                }
+            }
+
+            // URL 프로토콜 패턴
+            if text.contains("https://") || text.contains("http://") || text.contains("www.") {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: URL protocol detected")
+                return false
+            }
+
+            // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
+            // 예: developers-apps-in-toss.toss.im
+            if text.matches("^[a-z]+-[a-z]+.*\\.[a-z]+") {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: Kebab-case URL pattern")
+                return false
+            }
+
+            // 하이픈이 2개 이상 포함된 텍스트 (URL일 가능성 높음)
+            let hyphenCount = text.filter { $0 == "-" }.count
+            if hyphenCount >= 2 && text.count > 10 {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: Multiple hyphens (likely URL): '\(text)'")
                 return false
             }
 
@@ -792,14 +813,29 @@ class EnhancedContentAnalyzer {
     
     private func scoreSentence(_ sentence: String, fullText: String, contentType: String) -> Double {
         var score = 0.0
-        
+
         print("[EnhancedContentAnalyzer] Scoring: '\(sentence.prefix(50))...'")
-        
-        // 1. URL 포함 문장은 큰 감점
-        if sentence.contains(".com") || sentence.contains(".io") || 
-           sentence.contains("https://") {
-            print("[EnhancedContentAnalyzer]   - URL detected: -10.0")
+
+        // 1. URL 포함 문장은 큰 감점 (확장된 도메인 목록)
+        let urlDomains = [".com", ".io", ".im", ".kr", ".net", ".org", ".co", ".app", ".dev", ".me", ".tv", ".ai"]
+        for domain in urlDomains {
+            if sentence.contains(domain) {
+                print("[EnhancedContentAnalyzer]   - URL domain '\(domain)' detected: -15.0")
+                score -= 15.0
+                break
+            }
+        }
+
+        if sentence.contains("https://") || sentence.contains("http://") || sentence.contains("www.") {
+            print("[EnhancedContentAnalyzer]   - URL protocol detected: -10.0")
             score -= 10.0
+        }
+
+        // 하이픈이 많은 문장 (URL 일부일 가능성)
+        let hyphenCount = sentence.filter { $0 == "-" }.count
+        if hyphenCount >= 2 {
+            print("[EnhancedContentAnalyzer]   - Multiple hyphens: -5.0")
+            score -= 5.0
         }
         
         // 2. 숫자로 시작하는 제목 (1., 2., 3.) 감점
@@ -882,23 +918,33 @@ class EnhancedContentAnalyzer {
             // 명사 또는 고유명사
             if tag == .noun || tag == .personalName || tag == .placeName {
                 print("[EnhancedContentAnalyzer] Noun candidate: '\(word)'")
-                
+
                 // 한글인지 확인
                 let isKorean = word.range(of: "[가-힣]", options: .regularExpression) != nil
                 // 영어인지 확인
                 let isEnglish = word.range(of: "[a-zA-Z]", options: .regularExpression) != nil
-                
+
+                // URL 관련 단어 필터링
+                let urlKeywords = ["developers", "apps", "toss", "www", "http", "https", "com", "io", "im", "kr", "net", "org"]
+                if urlKeywords.contains(word.lowercased()) {
+                    print("[EnhancedContentAnalyzer] Rejected: URL keyword '\(word)'")
+                    return true
+                }
+
                 // 최소 2글자 이상
-                if word.count >= 2 && !isStopword(word) {
+                if word.count >= 2 && !self.isStopword(word) {
                     // 대문자만으로 구성된 영어 단어 제외 (DEVELOPERS 같은거)
                     if isEnglish && word == word.uppercased() && word.count > 1 {
-                        print("[EnhancedContentAnalyzer] Rejected: all caps")
+                        print("[EnhancedContentAnalyzer] Rejected: all caps '\(word)'")
+                    // 소문자만으로 구성된 짧은 영어 단어도 주의 (url 일부일 수 있음)
+                    } else if isEnglish && word == word.lowercased() && word.count <= 4 && !isKorean {
+                        print("[EnhancedContentAnalyzer] Rejected: short lowercase english '\(word)'")
                     } else {
                         nouns[word, default: 0] += 1
                         print("[EnhancedContentAnalyzer] Accepted: '\(word)'")
                     }
                 } else {
-                     print("[EnhancedContentAnalyzer] Rejected: too short or stopword")
+                    print("[EnhancedContentAnalyzer] Rejected: too short or stopword")
                 }
             }
             return true
@@ -918,12 +964,20 @@ class EnhancedContentAnalyzer {
         return Array(tags).prefix(5).map { $0 }
     }
     
-    // 불용어 확장
+    // 불용어 확장 (URL 관련 단어 포함)
     private func isStopword(_ word: String) -> Bool {
         let stopwords: Set<String> = [
+            // 한국어 불용어
             "것", "수", "등", "때문", "경우", "이", "그", "저",
-            "때", "곳", "년", "월", "일", "시", "분",
-            "the", "a", "an", "and", "or", "but", "in", "on", "at", "is", "of", "to", "for"
+            "때", "곳", "년", "월", "일", "시", "분", "더", "안", "좀",
+            // 영어 불용어
+            "the", "a", "an", "and", "or", "but", "in", "on", "at", "is", "of", "to", "for",
+            "with", "by", "from", "as", "be", "are", "was", "were", "been", "being",
+            "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
+            "this", "that", "these", "those", "it", "its", "they", "them", "their",
+            // URL/기술 관련 단어 (태그로 부적합)
+            "developers", "apps", "toss", "www", "http", "https", "com", "io", "im", "kr",
+            "net", "org", "app", "dev", "api", "url", "web", "site", "page", "link"
         ]
         return stopwords.contains(word.lowercased())
     }
@@ -1014,6 +1068,88 @@ class EnhancedContentAnalyzer {
             return false
         }
         return true
+    }
+}
+
+// MARK: - 온디바이스 번역 서비스
+class OnDeviceTranslator {
+    static let shared = OnDeviceTranslator()
+
+    private let languageRecognizer = NLLanguageRecognizer()
+
+    init() {
+        print("🌐 OnDeviceTranslator 초기화")
+    }
+
+    /// OS 언어 가져오기 (예: "ko", "en", "ja")
+    func getSystemLanguage() -> String {
+        let preferredLanguage = Locale.preferredLanguages.first ?? "en"
+        let langCode = String(preferredLanguage.prefix(2))
+        print("[Translator] System language: \(langCode)")
+        return langCode
+    }
+
+    /// 텍스트 언어 감지
+    func detectLanguage(text: String) -> String? {
+        languageRecognizer.reset()
+        languageRecognizer.processString(text)
+        let detected = languageRecognizer.dominantLanguage?.rawValue
+        print("[Translator] Detected language: \(detected ?? "unknown")")
+        return detected
+    }
+
+    /// 번역 필요 여부 확인
+    func needsTranslation(text: String) -> Bool {
+        guard let detectedLang = detectLanguage(text: text) else { return false }
+
+        let systemLang = getSystemLanguage()
+        let needs = detectedLang != systemLang
+
+        print("[Translator] Needs translation: \(needs) (detected: \(detectedLang), system: \(systemLang))")
+        return needs
+    }
+
+    /// 온디바이스 번역 (iOS 17.4+에서만 작동, 이전 버전은 원문 반환)
+    func translateToSystemLanguage(text: String, completion: @escaping (String) -> Void) {
+        guard needsTranslation(text: text) else {
+            print("[Translator] No translation needed")
+            completion(text)
+            return
+        }
+
+        // 번역 수행 (현재는 언어 감지만 하고 원문 반환)
+        performTranslation(text: text, completion: completion)
+    }
+
+    /// 간단한 번역 시뮬레이션 (향후 Translation API 연동 예정)
+    /// 현재는 원문을 반환하고, 번역이 필요한지 여부만 알림
+    private func performTranslation(text: String, completion: @escaping (String) -> Void) {
+        // TODO: iOS 18+ Translation API 연동
+        // 현재는 언어 감지 결과만 로깅하고 원문 반환
+        let detectedLang = detectLanguage(text: text) ?? "unknown"
+        let systemLang = getSystemLanguage()
+
+        print("[Translator] 📝 Translation requested")
+        print("[Translator]   Source language: \(detectedLang)")
+        print("[Translator]   Target language: \(systemLang)")
+        print("[Translator]   ⚠️ Returning original text (Translation API integration pending)")
+
+        // 원문 반환 (향후 번역 API 연동 시 번역된 텍스트 반환)
+        completion(text)
+    }
+
+    /// 동기 번역 (텍스트가 짧은 경우 사용)
+    func translateSync(text: String, timeout: TimeInterval = 5.0) -> String {
+        var result = text
+        let semaphore = DispatchSemaphore(value: 0)
+
+        translateToSystemLanguage(text: text) { translated in
+            result = translated
+            semaphore.signal()
+        }
+
+        _ = semaphore.wait(timeout: .now() + timeout)
+        return result
     }
 }
 

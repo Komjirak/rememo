@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:flutter/services.dart'; // For Clipboard
 import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/services/database_helper.dart';
+import 'package:stribe/services/translation_service.dart';
 import 'dart:io';
 import 'dart:ui';
 
@@ -34,6 +35,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   late TextEditingController _urlController;
   bool _isNoteModified = false;
   bool _isUrlModified = false;
+  bool _showOriginal = false; // Toggle for translation
+  bool _isTranslating = false; // Loading state for manual translation
 
   @override
   void initState() {
@@ -715,17 +718,38 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   Widget _buildTitleSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayTitle = (_showOriginal && _card.wasTranslated) 
+        ? (_card.originalTitle ?? _card.title) 
+        : _card.title;
+
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => _showTitleEditDialog(),
-      child: Text(
-        _card.title,
-        style: TextStyle(
-          fontSize: 30, // 3xl
-          fontWeight: FontWeight.bold,
-          height: 1.2,
-          letterSpacing: -0.5,
-          color: isDark ? AppTheme.textHighDark : AppTheme.textHighLight,
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              displayTitle,
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                height: 1.2,
+                letterSpacing: -0.5,
+                color: isDark ? AppTheme.textHighDark : AppTheme.textHighLight,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Icon(
+              Icons.edit_outlined,
+              size: 18,
+              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -821,6 +845,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   Widget _buildImageSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) {
            widget.onOpenLink?.call(_card.sourceUrl!);
@@ -871,52 +896,161 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   Widget _buildAISummarySection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final displaySummary = (_showOriginal && _card.wasTranslated)
+        ? (_card.originalSummary ?? _card.summary)
+        : _card.summary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-             Icon(
-               Icons.auto_awesome, 
-               size: 20, 
-               color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight
-             ),
-             const SizedBox(width: 8),
-             Text(
-               AppLocalizations.of(context)!.detailAiSummary,
-               style: TextStyle(
-                 fontSize: 12,
-                 fontWeight: FontWeight.bold,
-                 letterSpacing: 1.5, 
-                 color: isDark ? Colors.grey : AppTheme.primaryLight,
-               ),
-             ),
+            Icon(
+              Icons.auto_awesome,
+              size: 20,
+              color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              AppLocalizations.of(context)!.detailAiSummary,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: isDark ? Colors.grey : AppTheme.primaryLight,
+              ),
+            ),
+            const Spacer(),
+            if (_card.wasTranslated)
+              GestureDetector(
+                onTap: () => setState(() => _showOriginal = !_showOriginal),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: _showOriginal 
+                        ? AppTheme.primaryDark.withOpacity(0.2)
+                        : (isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(12),
+                    border: _showOriginal 
+                        ? Border.all(color: AppTheme.primaryDark.withOpacity(0.5))
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.translate,
+                        size: 14,
+                        color: _showOriginal 
+                            ? AppTheme.primaryDark 
+                            : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _showOriginal ? "번역 보기" : "원본 보기",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _showOriginal 
+                              ? AppTheme.primaryDark 
+                              : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              GestureDetector(
+                onTap: _isTranslating ? null : _manualTranslate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _isTranslating 
+                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(Icons.translate, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Text(
+                        "번역",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            GestureDetector(
+              onTap: _showSummaryEditDialog,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : AppTheme.primaryLight.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: isDark ? Colors.grey.shade400 : AppTheme.primaryLight,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      AppLocalizations.of(context)!.commonEdit,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.grey.shade400 : AppTheme.primaryLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: isDark 
-                ? AppTheme.cardDark.withOpacity(0.5) 
-                : AppTheme.softTealLight,
-            borderRadius: BorderRadius.circular(24), 
-            border: Border.all(
-              color: isDark 
-                  ? Colors.white.withOpacity(0.05) 
-                  : AppTheme.primaryLight.withOpacity(0.1)
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _showSummaryEditDialog,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.cardDark.withOpacity(0.5)
+                  : AppTheme.softTealLight,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : AppTheme.primaryLight.withOpacity(0.1),
+              ),
             ),
-          ),
-          child: Text(
-            _card.summary.isEmpty 
-                ? "AI is analyzing this content..." 
-                : _card.summary,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.6, 
-              fontWeight: isDark ? FontWeight.w300 : FontWeight.normal,
-              color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight,
+            child: Text(
+              displaySummary.isEmpty
+                  ? "AI is analyzing this content..."
+                  : displaySummary,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.6,
+                fontWeight: isDark ? FontWeight.w300 : FontWeight.normal,
+                color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight,
+              ),
             ),
           ),
         ),
@@ -924,59 +1058,143 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
+  Future<void> _manualTranslate() async {
+    setState(() => _isTranslating = true);
+    try {
+      final translationService = TranslationService();
+      
+      // 번역 전 원본 저장
+      final originalSummary = _card.summary;
+      final originalTitle = _card.title;
+      
+      final summaryResult = await translationService.translateToSystemLanguage(originalSummary);
+      
+      if (summaryResult.wasTranslated) {
+        final titleResult = await translationService.translateToSystemLanguage(originalTitle);
+        
+        final updated = _card.copyWith(
+          summary: summaryResult.translatedText,
+          title: titleResult.wasTranslated ? titleResult.translatedText : _card.title,
+          wasTranslated: true,
+          originalSummary: originalSummary,
+          originalTitle: titleResult.wasTranslated ? originalTitle : null,
+        );
+        
+        await DatabaseHelper.instance.update(updated);
+        if (mounted) {
+          setState(() {
+            _card = updated;
+            _isTranslating = false;
+          });
+          widget.onUpdate?.call(updated);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('번역이 완료되었습니다.')),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isTranslating = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('번역이 필요하지 않거나 지원되지 않는 언어입니다.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isTranslating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('번역 실패: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildPersonalNoteSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final hasNote = _card.personalNote != null && _card.personalNote!.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-             Icon(
-               Icons.edit_note, 
-               size: 24, 
-               color: isDark ? Colors.grey : AppTheme.textLowLight
-             ),
-             const SizedBox(width: 8),
-             Text(
-               AppLocalizations.of(context)!.detailPersonalNote,
-               style: TextStyle(
-                 fontSize: 12,
-                 fontWeight: FontWeight.bold,
-                 letterSpacing: 1.5,
-                 color: Colors.grey,
-               ),
-             ),
+            Icon(
+              Icons.edit_note,
+              size: 24,
+              color: isDark ? Colors.grey : AppTheme.textLowLight,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              AppLocalizations.of(context)!.detailPersonalNote,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: Colors.grey,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: _showNoteEditDialog,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      AppLocalizations.of(context)!.commonEdit,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark 
-                ? AppTheme.cardDark.withOpacity(0.5) 
-                : const Color(0xFFF9FAFB), 
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200
-            ),
-          ),
-          child: TextField(
-            controller: _noteController,
-            maxLines: null,
-            minLines: 4,
-            style: TextStyle(
-              color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight.withOpacity(0.8),
-              fontSize: 15,
-              height: 1.6,
-              fontStyle: isDark ? FontStyle.normal : FontStyle.italic,
-            ),
-            decoration: InputDecoration(
-              hintText: AppLocalizations.of(context)!.detailPersonalNoteHint,
-              hintStyle: TextStyle(
-                color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _showNoteEditDialog,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.cardDark.withOpacity(0.5)
+                  : const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200,
               ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(20),
+            ),
+            child: Text(
+              hasNote
+                  ? _card.personalNote!
+                  : AppLocalizations.of(context)!.detailPersonalNoteHint,
+              style: TextStyle(
+                color: hasNote
+                    ? (isDark ? Colors.grey.shade300 : AppTheme.textHighLight.withOpacity(0.8))
+                    : (isDark ? Colors.grey.shade600 : Colors.grey.shade400),
+                fontSize: 15,
+                height: 1.6,
+                fontStyle: hasNote ? FontStyle.normal : FontStyle.italic,
+              ),
             ),
           ),
         ),
@@ -1177,43 +1395,219 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  void _showTitleEditDialog() {
-    final controller = TextEditingController(text: _card.title);
-    showDialog(
+  /// 통일된 편집 모달 (타이틀, 요약, 메모 공용)
+  void _showEditModal({
+    required String title,
+    required String initialValue,
+    required String hint,
+    required int maxLines,
+    required Function(String) onSave,
+    IconData? icon,
+  }) {
+    final controller = TextEditingController(text: initialValue);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: const Text('Edit Title'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Enter title',
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF101922).withOpacity(0.95)
+                      : Colors.white.withOpacity(0.98),
+                  border: Border(
+                    top: BorderSide(
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                    ),
+
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      child: Row(
+                        children: [
+                          if (icon != null) ...[
+                            Icon(icon, size: 20, color: AppTheme.primaryDark),
+                            const SizedBox(width: 10),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(ctx),
+                            child: Icon(
+                              Icons.close,
+                              size: 24,
+                              color: isDark ? Colors.grey : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Divider(
+                      height: 1,
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                    ),
+
+                    // Text Field
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                        child: TextField(
+                          controller: controller,
+                          autofocus: true,
+                          maxLines: maxLines,
+                          minLines: maxLines > 1 ? 4 : 1,
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.6,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: hint,
+                            hintStyle: TextStyle(
+                              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.grey.shade100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Save Button
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final newValue = controller.text.trim();
+                            if (newValue.isNotEmpty) {
+                              onSave(newValue);
+                            }
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryDark,
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            shadowColor: AppTheme.primaryDark.withOpacity(0.4),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            AppLocalizations.of(context)!.commonSave,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          TextButton(
-            onPressed: () async {
-                final newTitle = controller.text.trim();
-                if (newTitle.isNotEmpty) {
-                    final updated = _card.copyWith(title: newTitle);
-                    await DatabaseHelper.instance.update(updated);
-                   setState(() => _card = updated);
-                    widget.onUpdate?.call(updated);
-                }
-                if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+        );
+      },
+    );
+  }
+
+  void _showTitleEditDialog() {
+    _showEditModal(
+      title: AppLocalizations.of(context)!.detailEditTitle,
+      initialValue: _card.title,
+      hint: AppLocalizations.of(context)!.detailTitleHint,
+      maxLines: 2,
+      icon: Icons.title,
+      onSave: (newTitle) async {
+        final updated = _card.copyWith(title: newTitle);
+        await DatabaseHelper.instance.update(updated);
+        setState(() => _card = updated);
+        widget.onUpdate?.call(updated);
+      },
+    );
+  }
+
+  void _showSummaryEditDialog() {
+    _showEditModal(
+      title: AppLocalizations.of(context)!.detailEditSummary,
+      initialValue: _card.summary,
+      hint: AppLocalizations.of(context)!.detailSummaryHint,
+      maxLines: 10,
+      icon: Icons.auto_awesome,
+      onSave: (newSummary) async {
+        final updated = _card.copyWith(summary: newSummary);
+        await DatabaseHelper.instance.update(updated);
+        setState(() => _card = updated);
+        widget.onUpdate?.call(updated);
+      },
+    );
+  }
+
+  void _showNoteEditDialog() {
+    _showEditModal(
+      title: AppLocalizations.of(context)!.detailEditNote,
+      initialValue: _card.personalNote ?? '',
+      hint: AppLocalizations.of(context)!.detailPersonalNoteHint,
+      maxLines: 10,
+      icon: Icons.edit_note,
+      onSave: (newNote) async {
+        final updated = _card.copyWith(personalNote: newNote);
+        await DatabaseHelper.instance.update(updated);
+        setState(() => _card = updated);
+        widget.onUpdate?.call(updated);
+        _noteController.text = newNote;
+      },
     );
   }
 

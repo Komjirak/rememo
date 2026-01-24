@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stribe/models/memo_card.dart';
@@ -975,6 +975,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         String summary = llmResult['summary'] ?? '';
         List<String> tags = List<String>.from(llmResult['tags'] ?? []);
         String category = llmResult['contentType'] != 'general' ? llmResult['contentType'] : 'Inbox';
+        bool wasTranslated = llmResult['wasTranslated'] ?? false;
+        String? originalSummary = llmResult['originalSummary'];
+        String? originalTitle = llmResult['originalTitle']; // OnDeviceLLMService should return this if translated
         
         // 대문자화 (Category)
         if (category.isNotEmpty) {
@@ -998,6 +1001,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           sourceUrl: '',
           folderId: _selectedFolder?.id,
           sourceType: 'screenshot', // Explicitly set sourceType
+          wasTranslated: wasTranslated,
+          originalSummary: originalSummary,
+          originalTitle: originalTitle,
         );
         
         // 5. DB 저장
@@ -1542,30 +1548,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildFilterBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
-    
-    // Removed dynamic categories logic as we now use fixed Source Types
-    // final categories = _cards.map((c) => c.category).toSet().toList()..sort();
-    
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       color: bgColor,
       child: Row(
         children: [
-          // All / Favorite Toggle
-          _buildFilterPill(
-            label: AppLocalizations.of(context)!.filterAll,
-            isActive: !_showFavoriteOnly,
-            onTap: () => setState(() => _showFavoriteOnly = false),
-          ),
-          const SizedBox(width: 8),
-          _buildFilterPill(
-            label: AppLocalizations.of(context)!.filterFavorite,
-            isActive: _showFavoriteOnly,
-            onTap: () => setState(() => _showFavoriteOnly = true),
-            icon: Icons.star,
-          ),
+          // Favorite Toggle (독립 토글)
+          _buildFavoriteToggle(),
           const SizedBox(width: 12),
-          
+
           // Folders Dropdown
           Expanded(
             child: _buildFilterDropdown(
@@ -1585,13 +1577,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          
+
           // Type Dropdown (Source Type)
           Expanded(
             child: _buildFilterDropdown(
-              label: _selectedType != null 
-                  ? (_selectedType == 'screenshot' ? AppLocalizations.of(context)!.typeScreenshot 
-                      : _selectedType == 'url' ? AppLocalizations.of(context)!.typeUrl 
+              label: _selectedType != null
+                  ? (_selectedType == 'screenshot' ? AppLocalizations.of(context)!.typeScreenshot
+                      : _selectedType == 'url' ? AppLocalizations.of(context)!.typeUrl
                       : AppLocalizations.of(context)!.typePhoto)
                   : AppLocalizations.of(context)!.filterType,
               icon: Icons.category_outlined,
@@ -1612,49 +1604,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildFilterPill({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    IconData? icon,
-  }) {
+  Widget _buildFavoriteToggle() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const accentTeal = Color(0xFF4FD1C5);
-    final inactiveBg = isDark ? const Color(0xFF161616) : const Color(0xFFE5E5EA);
-    final inactiveText = isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366);
-    
+    final isActive = _showFavoriteOnly;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => setState(() => _showFavoriteOnly = !_showFavoriteOnly),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? accentTeal : inactiveBg,
-          borderRadius: BorderRadius.circular(20),
+          color: isActive
+              ? Colors.amber.withOpacity(0.15)
+              : (isDark ? const Color(0xFF1C1C1E) : Colors.white),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive
+                ? Colors.amber.withOpacity(0.4)
+                : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 16,
-                color: isActive ? const Color(0xFF0A0A0A) : inactiveText,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isActive ? const Color(0xFF0A0A0A) : inactiveText,
-              ),
+            Icon(
+              isActive ? Icons.star : Icons.star_outline,
+              size: 18,
+              color: isActive ? Colors.amber : (isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366)),
             ),
+            if (isActive) ...[
+              const SizedBox(width: 6),
+              Text(
+                AppLocalizations.of(context)!.filterFavorite,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.amber.shade700,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
 
   Widget _buildFilterDropdown<T>({
     required String label,

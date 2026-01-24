@@ -122,6 +122,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailTitleHint => 'Enter title';
 
   @override
+  String get detailEditTitle => 'Edit Title';
+
+  @override
+  String get detailEditSummary => 'Edit Summary';
+
+  @override
+  String get detailEditNote => 'Edit Note';
+
+  @override
+  String get detailSummaryHint => 'Write your summary...';
+
+  @override
   String get tagAiAnalysis => 'AI Analysis';
 
   @override

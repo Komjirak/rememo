@@ -1,16 +1,20 @@
 import 'package:flutter/services.dart';
+import 'package:stribe/services/translation_service.dart';
 
 /// 온디바이스 LLM 서비스 (Core ML + Gemma 2B 사용)
-/// 파이프라인: Screenshot → PaddleOCR → UI노이즈 제거 → 문단/제목 추정 → LLM 요약 → Memo Card
+/// 파이프라인: Screenshot → PaddleOCR → UI노이즈 제거 → 문단/제목 추정 → LLM 요약 → 번역 → Memo Card
 class OnDeviceLLMService {
   static const platform = MethodChannel('com.rememo.komjirak/llm');
+  static final TranslationService _translationService = TranslationService();
 
   /// 🆕 Enhanced Summary Analysis (calls Native EnhancedContentAnalyzer)
+  /// enableTranslation: true면 OS 언어와 다른 경우 자동 번역
   static Future<Map<String, dynamic>> analyzeSummaryEnhanced({
     required List<OCRBlock> blocks,
     List<dynamic>? layoutRegions,
     List<dynamic>? importantAreas,
     Map<dynamic, dynamic>? imageSize,
+    bool enableTranslation = true,
   }) async {
     try {
       // OCR 블록을 Map 형태로 변환 (Native가 기대하는 형식)
@@ -22,15 +26,16 @@ class OnDeviceLLMService {
         'height': block.boundingBox.height,
         'confidence': block.confidence,
       }).toList();
-      
+
       // 네이티브 LLM 채널 호출
       final result = await platform.invokeMethod('analyzeSummary', {
         'textBlocks': textBlocks,
         'layoutRegions': layoutRegions ?? [],
         'importantAreas': importantAreas ?? [],
         'imageSize': imageSize ?? {'width': 0.0, 'height': 0.0},
+        'enableTranslation': false, // Native 번역은 비활성화 (Flutter에서 처리)
       });
-      
+
       if (result == null) {
         // 폴백: 기존 로직
         print("⚠️ Native Enhanced Analysis returned null, falling back.");
@@ -39,18 +44,50 @@ class OnDeviceLLMService {
           'title': legacy.title,
           'summary': legacy.summary,
           'tags': legacy.keyInsights,
-          'contentType': 'general'
+          'contentType': 'general',
+          'wasTranslated': false,
         };
       }
-      
+
       final resultMap = Map<String, dynamic>.from(result);
+      String summary = resultMap['summary'] ?? '';
+      String title = resultMap['title'] ?? '제목 없음';
+      bool wasTranslated = false;
+      String? originalSummary;
+      String? originalTitle;
+
+      // 자동 번역 적용
+      if (enableTranslation && summary.isNotEmpty) {
+        print('🌐 [OnDeviceLLM] Checking translation need...');
+        final translationResult = await _translationService.translateToSystemLanguage(summary);
+
+        if (translationResult.wasTranslated) {
+          print('🌐 [OnDeviceLLM] Translation applied');
+          originalSummary = summary;
+          summary = translationResult.translatedText;
+          wasTranslated = true;
+
+          // 제목도 번역
+          if (title.isNotEmpty) {
+            final titleResult = await _translationService.translateToSystemLanguage(title);
+            if (titleResult.wasTranslated) {
+              originalTitle = title;
+              title = titleResult.translatedText;
+            }
+          }
+        }
+      }
+
       return {
-        'title': resultMap['title'] ?? '제목 없음',
-        'summary': resultMap['summary'] ?? '',
+        'title': title,
+        'summary': summary,
         'tags': List<String>.from(resultMap['tags'] ?? []),
         'contentType': resultMap['contentType'] ?? 'general',
+        'wasTranslated': wasTranslated,
+        'originalSummary': originalSummary,
+        'originalTitle': originalTitle,
       };
-      
+
     } catch (e) {
       print('Enhanced LLM analysis failed: $e');
       // 폴백
@@ -59,7 +96,8 @@ class OnDeviceLLMService {
         'title': legacy.title,
         'summary': legacy.summary,
         'tags': legacy.keyInsights,
-        'contentType': 'general'
+        'contentType': 'general',
+        'wasTranslated': false,
       };
     }
   }

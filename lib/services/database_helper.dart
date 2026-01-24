@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6, // Incremented version for sourceType feature
+      version: 7, // Incremented version for translation features
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -49,7 +49,10 @@ CREATE TABLE memo_cards (
   ocrText $textNullable,
   personalNote $textNullable,
   folderId $textNullable,
-  isFavorite $intType
+  isFavorite $intType,
+  wasTranslated $intType,
+  originalTitle $textNullable,
+  originalSummary $textNullable
 )
 ''');
 
@@ -95,6 +98,12 @@ CREATE TABLE folders (
     if (oldVersion < 6) {
       // Add sourceType column to memo_cards with default value 'screenshot'
       await db.execute('ALTER TABLE memo_cards ADD COLUMN sourceType TEXT NOT NULL DEFAULT "screenshot"');
+    }
+    if (oldVersion < 7) {
+      // Add translation related columns
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN wasTranslated INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN originalTitle TEXT');
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN originalSummary TEXT');
     }
   }
 

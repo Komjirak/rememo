@@ -88,17 +88,58 @@ import WebKit
             result(FlutterError(code: "INVALID_ARGS", message: "textBlocks and imageSize required", details: nil))
             return
         }
-          
+
         let layoutRegions = args["layoutRegions"] as? [[String: Any]]
         let importantAreas = args["importantAreas"] as? [[String: Any]]
-        
-        let analysis = EnhancedContentAnalyzer.shared.analyzeSummary(
+        let enableTranslation = args["enableTranslation"] as? Bool ?? true
+
+        var analysis = EnhancedContentAnalyzer.shared.analyzeSummary(
             textBlocks: textBlocks,
             layoutRegions: layoutRegions,
             importantAreas: importantAreas,
             imageSize: imageSize
         )
+
+        // 자동 번역 적용 (OS 언어와 다른 경우)
+        if enableTranslation, let summary = analysis["summary"] as? String, !summary.isEmpty {
+            let translator = OnDeviceTranslator.shared
+
+            if translator.needsTranslation(text: summary) {
+                print("[AppDelegate] 🌐 Auto-translation triggered for summary")
+
+                translator.translateToSystemLanguage(text: summary) { translatedSummary in
+                    var mutableAnalysis = analysis
+                    mutableAnalysis["summary"] = translatedSummary
+                    mutableAnalysis["wasTranslated"] = true
+                    mutableAnalysis["originalSummary"] = summary
+                    result(mutableAnalysis)
+                }
+                return // 비동기 처리 중이므로 여기서 리턴
+            }
+        }
+
         result(analysis)
+      } else if call.method == "translateText" {
+        // 수동 번역 요청 처리
+        guard let args = call.arguments as? [String: Any],
+              let text = args["text"] as? String else {
+            result(FlutterError(code: "INVALID_ARGS", message: "text required", details: nil))
+            return
+        }
+
+        OnDeviceTranslator.shared.translateToSystemLanguage(text: text) { translated in
+            result(translated)
+        }
+      } else if call.method == "detectLanguage" {
+        // 언어 감지 요청 처리
+        guard let args = call.arguments as? [String: Any],
+              let text = args["text"] as? String else {
+            result(FlutterError(code: "INVALID_ARGS", message: "text required", details: nil))
+            return
+        }
+
+        let detected = OnDeviceTranslator.shared.detectLanguage(text: text)
+        result(detected)
       } else {
         result(FlutterMethodNotImplemented)
       }

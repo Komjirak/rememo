@@ -122,6 +122,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailTitleHint => 'タイトルを入力';
 
   @override
+  String get detailEditTitle => 'タイトルの編集';
+
+  @override
+  String get detailEditSummary => '要約の編集';
+
+  @override
+  String get detailEditNote => 'メモの編集';
+
+  @override
+  String get detailSummaryHint => '要約を入力してください...';
+
+  @override
   String get tagAiAnalysis => 'AI分析';
 
   @override

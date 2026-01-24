@@ -122,6 +122,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get detailTitleHint => '제목 입력';
 
   @override
+  String get detailEditTitle => '제목 편집';
+
+  @override
+  String get detailEditSummary => '요약 편집';
+
+  @override
+  String get detailEditNote => '메모 편집';
+
+  @override
+  String get detailSummaryHint => '요약을 작성하세요...';
+
+  @override
   String get tagAiAnalysis => 'AI 분석';
 
   @override

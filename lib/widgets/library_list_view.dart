@@ -4,10 +4,7 @@ import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
 
-enum FilterOption { all, recent, favorites, folder }
-enum MediaType { all, link, screenshot, photo }
-
-class LibraryListView extends StatefulWidget {
+class LibraryListView extends StatelessWidget {
   final List<MemoCard> cards;
   final List<Folder> folders;
   final Function(MemoCard) onSelect;
@@ -26,384 +23,36 @@ class LibraryListView extends StatefulWidget {
   });
 
   @override
-  State<LibraryListView> createState() => _LibraryListViewState();
+  Widget build(BuildContext context) {
+    // 필터링은 home_screen에서 처리됨 - 여기서는 단순 표시만
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 96),
+      itemCount: cards.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return _LibraryCardItem(
+          card: cards[index],
+          onSelect: onSelect,
+          onDelete: onDelete,
+        );
+      },
+    );
+  }
 }
 
-class _LibraryListViewState extends State<LibraryListView> {
-  FilterOption _currentFilter = FilterOption.all;
-  MediaType _mediaType = MediaType.all;
-  String? _selectedFolderId;
+class _LibraryCardItem extends StatelessWidget {
+  final MemoCard card;
+  final Function(MemoCard) onSelect;
+  final Function(MemoCard)? onDelete;
 
-  List<MemoCard> get _filteredCards {
-    List<MemoCard> result = widget.cards;
-
-    // 1. Basic Filters
-    switch (_currentFilter) {
-      case FilterOption.all:
-        break;
-      case FilterOption.recent:
-        result = result.take(5).toList();
-        break;
-      case FilterOption.favorites:
-        result = result.where((c) => c.isFavorite).toList();
-        break;
-      case FilterOption.folder:
-        if (_selectedFolderId != null) {
-          result = result.where((c) => c.folderId == _selectedFolderId).toList();
-        }
-        break;
-    }
-
-    // 2. Media Type Filter
-    switch (_mediaType) {
-      case MediaType.all:
-        break;
-      case MediaType.link:
-        result = result.where((c) => c.sourceUrl != null && c.sourceUrl!.isNotEmpty).toList();
-        break;
-      case MediaType.screenshot:
-        // Filter by 'Screenshot' tag or 'Imported' tag as proxy
-        result = result.where((c) => 
-            (c.sourceUrl == null || c.sourceUrl!.isEmpty) && 
-            (c.tags.contains('Screenshot') || c.tags.contains('Imported'))
-        ).toList();
-        break;
-      case MediaType.photo:
-         // Everything else (Directly taken or just images without link/screenshot tag)
-         result = result.where((c) => 
-            (c.sourceUrl == null || c.sourceUrl!.isEmpty) && 
-            (!c.tags.contains('Screenshot') && !c.tags.contains('Imported'))
-         ).toList();
-        break;
-    }
-
-    return result;
-  }
+  const _LibraryCardItem({
+    required this.card,
+    required this.onSelect,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Filter chips
-        _buildFilterChips(),
-
-        // Card list
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 96),
-            itemCount: _filteredCards.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              return _buildCard(_filteredCards[index]);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFilterChips() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildChip("ALL", FilterOption.all),
-            const SizedBox(width: 8),
-            _buildChip("Favorites", FilterOption.favorites),
-            const SizedBox(width: 12),
-            Container(width: 1, height: 20, color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Theme.of(context).dividerColor),
-            const SizedBox(width: 12),
-            _buildFolderDropdown(),
-             const SizedBox(width: 8),
-            _buildTypeDropdown(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeDropdown() {
-    final isSelected = _mediaType != MediaType.all;
-    String label = 'Type';
-    if (_mediaType == MediaType.link) label = 'Link';
-    if (_mediaType == MediaType.screenshot) label = 'Screenshot';
-    if (_mediaType == MediaType.photo) label = 'Photo';
-    
-    final primaryColor = Theme.of(context).primaryColor;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return PopupMenuButton<MediaType>(
-      onSelected: (type) {
-        setState(() {
-           _mediaType = type;
-        });
-      },
-      offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      color: Theme.of(context).cardColor,
-      itemBuilder: (context) => [
-         _buildTypePopupItem('All Types', MediaType.all),
-         const PopupMenuDivider(),
-         _buildTypePopupItem('Link', MediaType.link, icon: Icons.link),
-         _buildTypePopupItem('Screenshot', MediaType.screenshot, icon: Icons.smartphone),
-         _buildTypePopupItem('Photo', MediaType.photo, icon: Icons.image),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? primaryColor.withOpacity(0.1)
-              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).cardColor),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? primaryColor.withOpacity(0.3)
-                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? primaryColor : Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down,
-              size: 16,
-              color: isSelected ? primaryColor : Theme.of(context).iconTheme.color,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  PopupMenuItem<MediaType> _buildTypePopupItem(String text, MediaType type, {IconData? icon}) {
-      final isSelected = _mediaType == type;
-      final primaryColor = Theme.of(context).primaryColor;
-      
-      return PopupMenuItem<MediaType>(
-          value: type,
-          child: Row(
-            children: [
-               if (icon != null) ...[
-                 Icon(icon, size: 18, color: isSelected ? primaryColor : Theme.of(context).iconTheme.color),
-                 const SizedBox(width: 12),
-               ],
-               Expanded(
-                 child: Text(
-                   text,
-                   style: TextStyle(
-                     color: isSelected ? primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
-                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                   ),
-                 ),
-               ),
-               if (isSelected) Icon(Icons.check, size: 18, color: primaryColor),
-            ],
-          ),
-      );
-  }
-
-  Widget _buildFolderDropdown() {
-    final isSelected = _currentFilter == FilterOption.folder;
-    final selectedFolder = isSelected && _selectedFolderId != null
-        ? widget.folders.firstWhere(
-            (f) => f.id == _selectedFolderId,
-            orElse: () => widget.folders.first,
-          )
-        : null;
-    final primaryColor = Theme.of(context).primaryColor;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return PopupMenuButton<String?>(
-      onSelected: (folderId) {
-        setState(() {
-          if (folderId == null) {
-            _currentFilter = FilterOption.all;
-            _selectedFolderId = null;
-          } else {
-            _currentFilter = FilterOption.folder;
-            _selectedFolderId = folderId;
-          }
-        });
-      },
-      offset: const Offset(0, 40),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      color: Theme.of(context).cardColor,
-      itemBuilder: (context) => [
-        // 전체 보기 옵션
-        PopupMenuItem<String?>(
-          value: null,
-          child: Row(
-            children: [
-              Icon(
-                Icons.folder_off_outlined,
-                size: 18,
-                color: !isSelected ? primaryColor : Theme.of(context).iconTheme.color,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '전체 보기',
-                style: TextStyle(
-                  color: !isSelected ? primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
-                  fontWeight: !isSelected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-              if (!isSelected) ...[
-                const Spacer(),
-                Icon(Icons.check, size: 18, color: primaryColor),
-              ],
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        // 폴더 목록
-        ...widget.folders.map((folder) {
-          final folderColor = Color(int.parse(folder.color.replaceFirst('#', '0xFF')));
-          final isFolderSelected = _selectedFolderId == folder.id;
-          return PopupMenuItem<String?>(
-            value: folder.id,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.folder,
-                  size: 18,
-                  color: folderColor,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        folder.name,
-                        style: TextStyle(
-                          color: isFolderSelected ? folderColor : Theme.of(context).textTheme.bodyLarge?.color,
-                          fontWeight: isFolderSelected ? FontWeight.w700 : FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        '${folder.itemCount}개',
-                        style: TextStyle(
-                          color: Theme.of(context).disabledColor,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isFolderSelected)
-                  Icon(Icons.check, size: 18, color: folderColor),
-              ],
-            ),
-          );
-        }),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (selectedFolder != null
-                  ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withOpacity(0.1)
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.05))
-              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).cardColor),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? (selectedFolder != null
-                    ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF'))).withOpacity(0.3)
-                    : Theme.of(context).dividerColor)
-                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.folder_outlined,
-              size: 14,
-              color: isSelected && selectedFolder != null
-                  ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                  : Theme.of(context).iconTheme.color,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              isSelected && selectedFolder != null ? selectedFolder.name : '폴더',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isSelected && selectedFolder != null
-                    ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                    : Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down,
-              size: 16,
-              color: isSelected && selectedFolder != null
-                  ? Color(int.parse(selectedFolder.color.replaceFirst('#', '0xFF')))
-                  : Theme.of(context).iconTheme.color,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChip(String label, FilterOption option) {
-    final isSelected = _currentFilter == option;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).primaryColor;
-    
-    return GestureDetector(
-      onTap: () => setState(() {
-        _currentFilter = option;
-      }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? Colors.white.withOpacity(0.1) : Colors.black)
-              : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? Colors.transparent
-                : (isDark ? Colors.transparent : Theme.of(context).dividerColor),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? (isDark ? Colors.white : Colors.white)
-                : Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard(MemoCard card) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
 
@@ -433,7 +82,7 @@ class _LibraryListViewState extends State<LibraryListView> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl, isProcessing: true),
+                  _buildThumbnail(context, card.imageUrl, sourceUrl: card.sourceUrl, isProcessing: true),
                   Container(
                     color: Colors.black45,
                     child: Center(
@@ -502,7 +151,7 @@ class _LibraryListViewState extends State<LibraryListView> {
       confirmDismiss: (direction) async {
         return await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) {
+          builder: (BuildContext ctx) {
             return AlertDialog(
               backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(
@@ -525,11 +174,11 @@ class _LibraryListViewState extends State<LibraryListView> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => Navigator.of(ctx).pop(false),
                   child: Text('Cancel', style: TextStyle(color: Theme.of(context).disabledColor)),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () => Navigator.of(ctx).pop(true),
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.red.withOpacity(0.1),
                   ),
@@ -541,7 +190,7 @@ class _LibraryListViewState extends State<LibraryListView> {
         ) ?? false;
       },
       onDismissed: (direction) {
-        widget.onDelete?.call(card);
+        onDelete?.call(card);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${card.title} deleted'),
@@ -559,7 +208,7 @@ class _LibraryListViewState extends State<LibraryListView> {
         child: const Icon(Icons.delete_outline, color: Colors.red, size: 28),
       ),
       child: GestureDetector(
-        onTap: () => widget.onSelect(card),
+        onTap: () => onSelect(card),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -590,7 +239,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: _buildThumbnail(card.imageUrl, sourceUrl: card.sourceUrl),
+                child: _buildThumbnail(context, card.imageUrl, sourceUrl: card.sourceUrl),
               ),
               const SizedBox(width: 16),
               // Content
@@ -602,7 +251,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildCategoryBadge(card),
+                        _buildBadges(context, card),
                         const SizedBox(height: 8),
                         Text(
                           card.title,
@@ -649,7 +298,7 @@ class _LibraryListViewState extends State<LibraryListView> {
                         ),
                         if (card.isFavorite) ...[
                            const SizedBox(width: 8),
-                           Icon(Icons.star, size: 12, color: Colors.amber),
+                           const Icon(Icons.star, size: 12, color: Colors.amber),
                         ],
                       ],
                     ),
@@ -663,7 +312,135 @@ class _LibraryListViewState extends State<LibraryListView> {
     );
   }
 
-  Widget _buildThumbnail(String url, {String? sourceUrl, bool isProcessing = false}) {
+  // 출처 타입 + 대표 태그 배지 (개선된 버전)
+  Widget _buildBadges(BuildContext context, MemoCard card) {
+    return Row(
+      children: [
+        // 1. 출처 타입 배지
+        _buildSourceTypeBadge(context, card.sourceType),
+        const SizedBox(width: 6),
+        // 2. 대표 태그 배지 (tags[0] 또는 category)
+        _buildMainTagBadge(context, card),
+      ],
+    );
+  }
+
+  Widget _buildSourceTypeBadge(BuildContext context, String sourceType) {
+    IconData icon;
+    String label;
+    Color color;
+
+    switch (sourceType) {
+      case 'url':
+        icon = Icons.link;
+        label = 'URL';
+        color = const Color(0xFF60A5FA); // Blue
+        break;
+      case 'photo':
+        icon = Icons.camera_alt;
+        label = '사진';
+        color = const Color(0xFF34D399); // Green
+        break;
+      case 'screenshot':
+      default:
+        icon = Icons.smartphone;
+        label = '스크린샷';
+        color = const Color(0xFF8B5CF6); // Purple
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainTagBadge(BuildContext context, MemoCard card) {
+    // 우선순위: 태그 첫번째 > 카테고리 (Inbox 제외)
+    String label = '';
+
+    if (card.tags.isNotEmpty) {
+      // URL 관련 태그나 시스템 태그 제외
+      final validTags = card.tags.where((t) =>
+          !['Screenshot', 'Imported', 'Photo', 'Shared', 'Web'].contains(t) &&
+          !t.contains('.com') &&
+          !t.contains('.io') &&
+          t.length <= 15
+      ).toList();
+
+      if (validTags.isNotEmpty) {
+        label = validTags.first;
+      }
+    }
+
+    // 태그가 없으면 카테고리 사용 (Inbox 제외)
+    if (label.isEmpty && card.category.isNotEmpty && card.category != 'Inbox') {
+      label = card.category;
+    }
+
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    final color = _getTagColor(label);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          color: color.withOpacity(0.9),
+        ),
+      ),
+    );
+  }
+
+  Color _getTagColor(String tag) {
+    final lower = tag.toLowerCase();
+    if (lower.contains('design') || lower.contains('ui') || lower.contains('ux') || lower.contains('디자인')) {
+      return const Color(0xFF2DD4BF); // Teal
+    }
+    if (lower.contains('tech') || lower.contains('code') || lower.contains('dev') || lower.contains('개발') || lower.contains('기술')) {
+      return const Color(0xFF60A5FA); // Blue
+    }
+    if (lower.contains('food') || lower.contains('cook') || lower.contains('음식') || lower.contains('요리')) {
+      return const Color(0xFF34D399); // Green
+    }
+    if (lower.contains('shop') || lower.contains('buy') || lower.contains('쇼핑') || lower.contains('구매')) {
+      return const Color(0xFFFB923C); // Orange
+    }
+    if (lower.contains('work') || lower.contains('job') || lower.contains('업무') || lower.contains('회의')) {
+      return const Color(0xFFF472B6); // Pink
+    }
+    if (lower.contains('news') || lower.contains('뉴스') || lower.contains('기사')) {
+      return const Color(0xFFEF4444); // Red
+    }
+    return const Color(0xFF9CA3AF); // Gray (default)
+  }
+
+  Widget _buildThumbnail(BuildContext context, String url, {String? sourceUrl, bool isProcessing = false}) {
     if (url.isNotEmpty) {
         if (url.startsWith('http')) {
         return Image.network(
@@ -672,7 +449,7 @@ class _LibraryListViewState extends State<LibraryListView> {
             width: double.infinity,
             height: double.infinity,
             opacity: const AlwaysStoppedAnimation(0.9),
-            errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
+            errorBuilder: (_, __, ___) => _buildPlaceholder(context, hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
         );
         } else {
         final file = File(url);
@@ -683,15 +460,15 @@ class _LibraryListViewState extends State<LibraryListView> {
             width: double.infinity,
             height: double.infinity,
             opacity: const AlwaysStoppedAnimation(0.9),
-            errorBuilder: (_, __, ___) => _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
+            errorBuilder: (_, __, ___) => _buildPlaceholder(context, hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
             );
         }
         }
     }
-    return _buildPlaceholder(hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
+    return _buildPlaceholder(context, hasUrl: sourceUrl != null && sourceUrl.isNotEmpty);
   }
 
-  Widget _buildPlaceholder({bool hasUrl = false}) {
+  Widget _buildPlaceholder(BuildContext context, {bool hasUrl = false}) {
     return Container(
       color: const Color(0xFF1F2937),
       child: Center(
@@ -715,56 +492,6 @@ class _LibraryListViewState extends State<LibraryListView> {
               ),
       ),
     );
-  }
-
-  Widget _buildCategoryBadge(MemoCard card) {
-    // If exact category is known and valid, use it.
-    // Otherwise rely on manual overrides or tags.
-    String label = card.category.toUpperCase();
-    if (label == 'INBOX' || label.isEmpty) {
-         if (card.sourceUrl != null && card.sourceUrl!.isNotEmpty) {
-             try {
-                final uri = Uri.parse(card.sourceUrl!.startsWith('http') ? card.sourceUrl! : 'https://${card.sourceUrl!}');
-                label = uri.host.replaceFirst('www.', '').split('.').first.toUpperCase();
-             } catch (_) { label = 'WEB'; }
-         } else if (card.tags.contains('Screenshot')) {
-             label = 'SCREENSHOT';
-         } else {
-             label = 'NOTE';
-         }
-    }
-
-    final color = _getCategoryColor(label);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: color.withOpacity(0.1),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    final lower = category.toLowerCase();
-    if (lower.contains('design') || lower.contains('ui') || lower.contains('ux')) return const Color(0xFF2DD4BF); // Teal
-    if (lower.contains('tech') || lower.contains('code') || lower.contains('dev')) return const Color(0xFF60A5FA); // Blue
-    if (lower.contains('food') || lower.contains('cook')) return const Color(0xFF34D399); // Green
-    if (lower.contains('shop') || lower.contains('buy')) return const Color(0xFFFB923C); // Orange
-    if (lower.contains('work') || lower.contains('job')) return const Color(0xFFF472B6); // Pink
-    return const Color(0xFF2DD4BF); // Default Teal
   }
 
   String _getCleanSummary(String summary) {

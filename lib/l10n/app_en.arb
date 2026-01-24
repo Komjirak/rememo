@@ -43,6 +43,10 @@
   "detailTags": "TAGS",
   "detailTitleEdit": "Edit Title",
   "detailTitleHint": "Enter title",
+  "detailEditTitle": "Edit Title",
+  "detailEditSummary": "Edit Summary",
+  "detailEditNote": "Edit Note",
+  "detailSummaryHint": "Write your summary...",
   "tagAiAnalysis": "AI Analysis",
 
   "menuFavorite": "Favorite",

@@ -43,6 +43,10 @@
   "detailTags": "태그",
   "detailTitleEdit": "제목 편집",
   "detailTitleHint": "제목 입력",
+  "detailEditTitle": "제목 편집",
+  "detailEditSummary": "요약 편집",
+  "detailEditNote": "메모 편집",
+  "detailSummaryHint": "요약을 작성하세요...",
   "tagAiAnalysis": "AI 분석",
 
   "menuFavorite": "즐겨찾기",
