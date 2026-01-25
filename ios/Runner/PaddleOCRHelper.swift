@@ -159,7 +159,7 @@ class PaddleOCRHelper {
 
             for observation in observations {
                 guard let candidate = observation.topCandidates(1).first,
-                      candidate.confidence > 0.3 else { continue }
+                      candidate.confidence > 0.4 else { continue }
 
                 // Vision의 bounding box는 좌측 하단 기준, Y축이 뒤집혀 있음
                 let box = observation.boundingBox
@@ -259,7 +259,7 @@ class PaddleOCRHelper {
                 // 최상위 후보들 중에서 가장 높은 신뢰도 선택
                 let candidates = observation.topCandidates(3)
                 for candidate in candidates {
-                    if candidate.confidence > 0.3 { // 신뢰도 임계값 낮춤
+                    if candidate.confidence > 0.4 { // 신뢰도 임계값 낮춤
                         return candidate.string
                     }
                 }

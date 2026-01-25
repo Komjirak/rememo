@@ -486,16 +486,16 @@ class EnhancedContentAnalyzer {
             
             print("[EnhancedContentAnalyzer] Checking block: '\(text)' (top: \(top), conf: \(confidence))")
             
-            // 1. 신뢰도 필터
-            if confidence < 0.6 { 
+            // 1. 신뢰도 필터 (0.6 → 0.5로 낮춰 유용한 텍스트 보존)
+            if confidence < 0.5 {
                 print("[EnhancedContentAnalyzer] ❌ FILTERED: Low confidence")
-                return false 
+                return false
             }
-            
-            // 2. 위치 필터 (상단 5%, 하단 10%)
-            if top < 0.05 || top > 0.90 { 
+
+            // 2. 위치 필터 (상단 3%, 하단 5%로 축소하여 콘텐츠 손실 방지)
+            if top < 0.03 || top > 0.95 {
                 print("[EnhancedContentAnalyzer] ❌ FILTERED: Position (Header/Footer)")
-                return false 
+                return false
             }
             
             // 3. 길이 필터 (너무 짧으면 노이즈)
@@ -514,19 +514,20 @@ class EnhancedContentAnalyzer {
                 "^www\\..*",                       // www로 시작
             ]
 
-            // URL 도메인 패턴 (확장된 목록)
-            let urlDomains = [".com", ".io", ".im", ".kr", ".net", ".org", ".co", ".app", ".dev", ".me", ".tv", ".ai"]
-            for domain in urlDomains {
-                if text.contains(domain) {
-                    print("[EnhancedContentAnalyzer] ❌ FILTERED: URL domain '\(domain)' detected in '\(text)'")
+            // URL 패턴 필터링 (정규식 기반으로 정확도 향상)
+            // 전체 URL 형태인 경우만 필터링 (부분 매칭 오탐 방지)
+            let urlPatterns = [
+                "^https?://",                           // URL 프로토콜로 시작
+                "^www\\.",                              // www로 시작
+                "\\.[a-z]{2,4}(/|$|\\?)",              // .com/, .io 등으로 끝나거나 경로 시작
+                "^[a-z0-9-]+\\.[a-z]{2,4}$",          // 단순 도메인 (example.com)
+            ]
+
+            for pattern in urlPatterns {
+                if text.lowercased().range(of: pattern, options: .regularExpression) != nil {
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: URL pattern '\(pattern)' matched in '\(text)'")
                     return false
                 }
-            }
-
-            // URL 프로토콜 패턴
-            if text.contains("https://") || text.contains("http://") || text.contains("www.") {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: URL protocol detected")
-                return false
             }
 
             // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
@@ -537,10 +538,22 @@ class EnhancedContentAnalyzer {
             }
 
             // 하이픈이 2개 이상 포함된 텍스트 (URL일 가능성 높음)
+            // 단, 날짜(2024-01-25) 및 전화번호(010-1234-5678) 패턴은 예외 처리
             let hyphenCount = text.filter { $0 == "-" }.count
             if hyphenCount >= 2 && text.count > 10 {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: Multiple hyphens (likely URL): '\(text)'")
-                return false
+                // 날짜 패턴: YYYY-MM-DD 또는 YY-MM-DD
+                let isDatePattern = text.range(of: "^\\d{2,4}-\\d{1,2}-\\d{1,2}$", options: .regularExpression) != nil
+                // 전화번호 패턴: 010-1234-5678, 02-123-4567 등
+                let isPhonePattern = text.range(of: "^\\d{2,4}-\\d{3,4}-\\d{4}$", options: .regularExpression) != nil
+                // 날짜 범위 패턴: 2024-01-01 ~ 2024-12-31
+                let isDateRangePattern = text.range(of: "\\d{4}-\\d{2}-\\d{2}.*\\d{4}-\\d{2}-\\d{2}", options: .regularExpression) != nil
+
+                if !isDatePattern && !isPhonePattern && !isDateRangePattern {
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: Multiple hyphens (likely URL): '\(text)'")
+                    return false
+                } else {
+                    print("[EnhancedContentAnalyzer] ✅ KEPT (date/phone pattern): '\(text)'")
+                }
             }
 
             // 숫자로만 구성된 텍스트 (섹션 번호)
