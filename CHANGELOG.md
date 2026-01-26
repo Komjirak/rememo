@@ -8,7 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.1] - Build 19 - 2026-01-26 (Current)
+## [0.5.1] - Build 20 - 2026-01-26 (Current)
+
+### UI/UX Improvements
+- ✅ **앱 아이콘 업데이트**: 스플래시 화면과 일치하는 새로운 앱 아이콘 적용
+  - 검은색 배경에 accent-teal 색상의 모서리 브래킷
+  - 중앙 auto_awesome 아이콘 (별/스파클 모양)
+  - iOS 스타일 22.5% border-radius
+  - 모든 플랫폼 (iOS, Android, macOS) 아이콘 자동 생성
+
+---
+
+## [0.5.1] - Build 19 - 2026-01-26
 
 ### AI & On-Device Translation (by Claude Code & AI Assistant)
 - ✅ **Full On-Device Translation**: Google ML Kit 기반 온디바이스 번역 시스템 구축
@@ -202,4 +213,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *Last Updated: 2026-01-26*  
-*Current Version: 0.5.1 (Build 19)*
+*Current Version: 0.5.1 (Build 20)*

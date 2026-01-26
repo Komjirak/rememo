@@ -7,13 +7,13 @@ import 'package:flutter/rendering.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Generate icon image
+  // Generate icon image matching splash screen design
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   final size = const Size(1024, 1024);
   
-  // Draw icon
-  _drawIcon(canvas, size);
+  // Draw icon matching splash screen design
+  _drawSplashIcon(canvas, size);
   
   // Convert to image
   final picture = recorder.endRecording();
@@ -25,123 +25,215 @@ void main() async {
   final file = File('assets/icon.png');
   await file.writeAsBytes(buffer);
   
-  print('Icon generated successfully at: ${file.path}');
+  print('✅ Icon generated successfully at: ${file.path}');
+  print('📱 Run: flutter pub run flutter_launcher_icons');
   exit(0);
 }
 
-void _drawIcon(Canvas canvas, Size size) {
+void _drawSplashIcon(Canvas canvas, Size size) {
   final center = Offset(size.width / 2, size.height / 2);
   
-  // Background
-  final bgPaint = Paint()..color = const Color(0xFF0A0A0B);
+  // Background - black (#000000)
+  final bgPaint = Paint()..color = const Color(0xFF000000);
   canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
   
-  final tealColor = const Color(0xFF2DD4BF);
+  // Accent Teal color (#2DD4BF)
+  const accentTeal = Color(0xFF2DD4BF);
+  
+  // Icon container size (scaled to 1024x1024)
+  // In splash: 224x224, so scale factor = 1024/224 ≈ 4.57
+  final iconSize = size.width * 0.875; // ~896px to leave some margin
+  final iconRect = Rect.fromCenter(
+    center: center,
+    width: iconSize,
+    height: iconSize,
+  );
+  
+  // Draw rounded rectangle background (22.5% border-radius)
+  final borderRadius = iconSize * 0.225;
+  final iconRRect = RRect.fromRectAndRadius(iconRect, Radius.circular(borderRadius));
+  final iconBgPaint = Paint()..color = const Color(0xFF000000);
+  canvas.drawRRect(iconRRect, iconBgPaint);
+  
+  // Inner border circle (white/10 opacity)
+  final innerCircleRadius = iconSize * 0.357; // ~320px (32/224 * 896)
+  final innerCirclePaint = Paint()
+    ..color = Colors.white.withOpacity(0.1)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1;
+  canvas.drawCircle(center, innerCircleRadius, innerCirclePaint);
   
   // Corner brackets
-  _drawCornerBrackets(canvas, size, tealColor);
+  _drawCornerBrackets(canvas, iconRect, accentTeal);
   
-  // Hexagon
-  _drawHexagon(canvas, center, size.width * 0.35, tealColor);
-  
-  // Dashed circle
-  _drawDashedCircle(canvas, center, size.width * 0.25, tealColor);
-  
-  // Dots in circle
-  _drawDotsCircle(canvas, center, size.width * 0.18, tealColor);
-  
-  // Center square
-  final squareSize = size.width * 0.08;
-  final squareRect = Rect.fromCenter(
-    center: center,
-    width: squareSize,
-    height: squareSize,
-  );
-  final squarePaint = Paint()
-    ..color = tealColor
-    ..style = PaintingStyle.fill;
-  
-  final squareRRect = RRect.fromRectAndRadius(
-    squareRect,
-    Radius.circular(squareSize * 0.15),
-  );
-  canvas.drawRRect(squareRRect, squarePaint);
-  
-  // Glow effect
-  final glowPaint = Paint()
-    ..color = tealColor.withOpacity(0.3)
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30);
-  canvas.drawRRect(squareRRect, glowPaint);
+  // Center icon (auto_awesome)
+  _drawAutoAwesomeIcon(canvas, center, iconSize * 0.25, accentTeal); // ~224px icon size
 }
 
-void _drawCornerBrackets(Canvas canvas, Size size, Color color) {
+void _drawCornerBrackets(Canvas canvas, Rect iconRect, Color color) {
+  final bracketSize = iconRect.width * 0.143; // 32/224
+  final borderWidth = iconRect.width * 0.0134; // 3/224
+  final cornerRadius = iconRect.width * 0.0179; // 4/224
+  final margin = 0.0; // Brackets start at edges
+  
   final paint = Paint()
     ..color = color
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 8
+    ..strokeWidth = borderWidth
     ..strokeCap = StrokeCap.round;
   
-  final bracketSize = size.width * 0.12;
-  final margin = size.width * 0.08;
+  // Glow effect paint
+  final glowPaint = Paint()
+    ..color = color.withOpacity(0.6)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = borderWidth
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
   
-  // Top-left
+  // Top Left
+  final topLeft = Offset(iconRect.left + margin, iconRect.top + margin);
   canvas.drawLine(
-    Offset(margin, margin + bracketSize),
-    Offset(margin, margin),
+    Offset(topLeft.dx, topLeft.dy + bracketSize),
+    topLeft,
     paint,
   );
   canvas.drawLine(
-    Offset(margin, margin),
-    Offset(margin + bracketSize, margin),
+    topLeft,
+    Offset(topLeft.dx + bracketSize, topLeft.dy),
     paint,
   );
-  
-  // Top-right
+  // Glow
   canvas.drawLine(
-    Offset(size.width - margin - bracketSize, margin),
-    Offset(size.width - margin, margin),
-    paint,
+    Offset(topLeft.dx, topLeft.dy + bracketSize),
+    topLeft,
+    glowPaint,
   );
   canvas.drawLine(
-    Offset(size.width - margin, margin),
-    Offset(size.width - margin, margin + bracketSize),
-    paint,
-  );
-  
-  // Bottom-left
-  canvas.drawLine(
-    Offset(margin, size.height - margin - bracketSize),
-    Offset(margin, size.height - margin),
-    paint,
-  );
-  canvas.drawLine(
-    Offset(margin, size.height - margin),
-    Offset(margin + bracketSize, size.height - margin),
-    paint,
+    topLeft,
+    Offset(topLeft.dx + bracketSize, topLeft.dy),
+    glowPaint,
   );
   
-  // Bottom-right
+  // Top Right
+  final topRight = Offset(iconRect.right - margin, iconRect.top + margin);
   canvas.drawLine(
-    Offset(size.width - margin - bracketSize, size.height - margin),
-    Offset(size.width - margin, size.height - margin),
+    Offset(topRight.dx - bracketSize, topRight.dy),
+    topRight,
     paint,
   );
   canvas.drawLine(
-    Offset(size.width - margin, size.height - margin),
-    Offset(size.width - margin, size.height - margin - bracketSize),
+    topRight,
+    Offset(topRight.dx, topRight.dy + bracketSize),
     paint,
+  );
+  // Glow
+  canvas.drawLine(
+    Offset(topRight.dx - bracketSize, topRight.dy),
+    topRight,
+    glowPaint,
+  );
+  canvas.drawLine(
+    topRight,
+    Offset(topRight.dx, topRight.dy + bracketSize),
+    glowPaint,
+  );
+  
+  // Bottom Left
+  final bottomLeft = Offset(iconRect.left + margin, iconRect.bottom - margin);
+  canvas.drawLine(
+    Offset(bottomLeft.dx, bottomLeft.dy - bracketSize),
+    bottomLeft,
+    paint,
+  );
+  canvas.drawLine(
+    bottomLeft,
+    Offset(bottomLeft.dx + bracketSize, bottomLeft.dy),
+    paint,
+  );
+  // Glow
+  canvas.drawLine(
+    Offset(bottomLeft.dx, bottomLeft.dy - bracketSize),
+    bottomLeft,
+    glowPaint,
+  );
+  canvas.drawLine(
+    bottomLeft,
+    Offset(bottomLeft.dx + bracketSize, bottomLeft.dy),
+    glowPaint,
+  );
+  
+  // Bottom Right
+  final bottomRight = Offset(iconRect.right - margin, iconRect.bottom - margin);
+  canvas.drawLine(
+    Offset(bottomRight.dx - bracketSize, bottomRight.dy),
+    bottomRight,
+    paint,
+  );
+  canvas.drawLine(
+    bottomRight,
+    Offset(bottomRight.dx, bottomRight.dy - bracketSize),
+    paint,
+  );
+  // Glow
+  canvas.drawLine(
+    Offset(bottomRight.dx - bracketSize, bottomRight.dy),
+    bottomRight,
+    glowPaint,
+  );
+  canvas.drawLine(
+    bottomRight,
+    Offset(bottomRight.dx, bottomRight.dy - bracketSize),
+    glowPaint,
   );
 }
 
-void _drawHexagon(Canvas canvas, Offset center, double radius, Color color) {
-  final paint = Paint()
-    ..color = color
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 6;
+void _drawAutoAwesomeIcon(Canvas canvas, Offset center, double size, Color color) {
+  // Draw glow effect behind icon
+  final glowPaint = Paint()
+    ..color = color.withOpacity(0.3)
+    ..style = PaintingStyle.fill
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+  canvas.drawCircle(center, size * 0.43, glowPaint);
   
+  // Draw auto_awesome icon (sparkle/star shape)
+  // This is a simplified representation of Material Icons' auto_awesome
+  final iconPaint = Paint()
+    ..color = color
+    ..style = PaintingStyle.fill;
+  
+  final iconSize = size * 0.5; // Icon takes 50% of the allocated space
+  
+  // Draw sparkle/star shape
+  // Main star (5-pointed)
+  _drawStar(canvas, center, iconSize * 0.6, iconSize * 0.3, iconPaint);
+  
+  // Small sparkles around
+  final sparkleCount = 6;
+  final sparkleRadius = iconSize * 0.15;
+  final sparkleDistance = iconSize * 0.85;
+  
+  for (int i = 0; i < sparkleCount; i++) {
+    final angle = (i * 360 / sparkleCount) * math.pi / 180;
+    final sparkleCenter = Offset(
+      center.dx + sparkleDistance * math.cos(angle),
+      center.dy + sparkleDistance * math.sin(angle),
+    );
+    _drawSmallSparkle(canvas, sparkleCenter, sparkleRadius, iconPaint);
+  }
+  
+  // Add glow shadow to icon
+  final shadowPaint = Paint()
+    ..color = color.withOpacity(0.8)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+  _drawStar(canvas, center, iconSize * 0.6, iconSize * 0.3, shadowPaint);
+}
+
+void _drawStar(Canvas canvas, Offset center, double outerRadius, double innerRadius, Paint paint) {
   final path = Path();
-  for (int i = 0; i < 6; i++) {
-    final angle = (i * 60 - 90) * math.pi / 180;
+  const points = 5;
+  
+  for (int i = 0; i < points * 2; i++) {
+    final angle = (i * math.pi / points) - math.pi / 2;
+    final radius = i.isEven ? outerRadius : innerRadius;
     final x = center.dx + radius * math.cos(angle);
     final y = center.dy + radius * math.sin(angle);
     
@@ -152,56 +244,28 @@ void _drawHexagon(Canvas canvas, Offset center, double radius, Color color) {
     }
   }
   path.close();
-  
   canvas.drawPath(path, paint);
-  
-  // Glow
-  final glowPaint = Paint()
-    ..color = color.withOpacity(0.3)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 6
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-  canvas.drawPath(path, glowPaint);
 }
 
-void _drawDashedCircle(Canvas canvas, Offset center, double radius, Color color) {
-  final paint = Paint()
-    ..color = color.withOpacity(0.6)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 3;
+void _drawSmallSparkle(Canvas canvas, Offset center, double size, Paint paint) {
+  // Draw a small 4-pointed star
+  final path = Path();
+  const points = 4;
+  final outerRadius = size;
+  final innerRadius = size * 0.4;
   
-  const dashCount = 40;
-  const dashLength = 10.0;
-  const gapLength = 10.0;
-  
-  for (int i = 0; i < dashCount; i++) {
-    final angle1 = (i * (360 / dashCount)) * math.pi / 180;
-    final angle2 = angle1 + (dashLength / (2 * math.pi * radius));
-    
-    final path = Path();
-    path.addArc(
-      Rect.fromCircle(center: center, radius: radius),
-      angle1,
-      angle2 - angle1,
-    );
-    
-    canvas.drawPath(path, paint);
-  }
-}
-
-void _drawDotsCircle(Canvas canvas, Offset center, double radius, Color color) {
-  final paint = Paint()
-    ..color = color.withOpacity(0.8)
-    ..style = PaintingStyle.fill;
-  
-  const dotCount = 24;
-  const dotRadius = 6.0;
-  
-  for (int i = 0; i < dotCount; i++) {
-    final angle = (i * 360 / dotCount) * math.pi / 180;
+  for (int i = 0; i < points * 2; i++) {
+    final angle = (i * math.pi / points) - math.pi / 4;
+    final radius = i.isEven ? outerRadius : innerRadius;
     final x = center.dx + radius * math.cos(angle);
     final y = center.dy + radius * math.sin(angle);
     
-    canvas.drawCircle(Offset(x, y), dotRadius, paint);
+    if (i == 0) {
+      path.moveTo(x, y);
+    } else {
+      path.lineTo(x, y);
+    }
   }
+  path.close();
+  canvas.drawPath(path, paint);
 }
