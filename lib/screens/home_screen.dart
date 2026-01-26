@@ -8,12 +8,11 @@ import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/library_list_view.dart';
 import 'package:stribe/widgets/detail_view_screen.dart';
 import 'package:stribe/widgets/empty_state_view.dart';
-import 'package:stribe/widgets/folder_management_view.dart';
 import 'package:stribe/services/database_helper.dart';
 import 'package:stribe/services/native_service.dart';
 import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/share_service.dart';
-import 'package:stribe/services/document_parser_service.dart';
+import 'package:stribe/services/unified_analysis_service.dart';
 import 'package:stribe/screens/settings_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -362,11 +361,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // 이미지를 앱의 영구 저장소에 복사
       final permanentPath = await _saveToDocuments(File(imagePath));
 
-      // 🎯 온디바이스 분석으로 스마트한 제목과 요약 생성 (Bounding Box 포함)
-      final analysis = await _analyzeScreenshotOnDevice(
-          ocrText, 
-          ocrBlocks: ocrBlocks,
-          suggestedCategory: suggestedCategory
+      // 🎯 통합 분석 서비스 사용 (일관된 결과 보장)
+      final analysis = await UnifiedAnalysisService.analyze(
+        blocks: ocrBlocks,
+        ocrText: ocrText,
+        suggestedCategory: suggestedCategory,
       );
 
       // UI 노이즈가 필터링된 OCR 텍스트 생성
@@ -963,26 +962,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           throw Exception('No text detected');
         }
         
-        // 3. Enhanced LLM 분석 (NEW)
-        final llmResult = await OnDeviceLLMService.analyzeSummaryEnhanced(
+        // 3. 통합 분석 서비스 사용
+        final analysis = await UnifiedAnalysisService.analyze(
           blocks: ocrBlocks,
-          layoutRegions: analysisData['layoutRegions'],     // NEW
-          importantAreas: analysisData['importantAreas'],   // NEW
-          imageSize: analysisData['imageSize'],             // NEW
+          ocrText: analysisData['ocrText'] as String?,
+          suggestedCategory: null,
+          imageSize: analysisData['imageSize'],
+          layoutRegions: analysisData['layoutRegions'],
+          importantAreas: analysisData['importantAreas'],
         );
         
-        String title = llmResult['title'] ?? 'New Memory';
-        String summary = llmResult['summary'] ?? '';
-        List<String> tags = List<String>.from(llmResult['tags'] ?? []);
-        String category = llmResult['contentType'] != 'general' ? llmResult['contentType'] : 'Inbox';
-        bool wasTranslated = llmResult['wasTranslated'] ?? false;
-        String? originalSummary = llmResult['originalSummary'];
-        String? originalTitle = llmResult['originalTitle']; // OnDeviceLLMService should return this if translated
-        
-        // 대문자화 (Category)
-        if (category.isNotEmpty) {
-            category = category[0].toUpperCase() + category.substring(1);
-        }
+        String title = analysis.title;
+        String summary = analysis.summary;
+        List<String> tags = analysis.keyInsights;
+        String category = 'Inbox'; // 카테고리는 향후 분석 결과에서 추출 가능
+        bool wasTranslated = false; // 향후 통합 분석 서비스에서 반환
+        String? originalSummary;
+        String? originalTitle;
         
         // Image Path Handling
         final imagePath = analysisData['imagePath'];
@@ -1181,36 +1177,86 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록');
     }
 
-    // 🚀 OnDeviceLLMService 사용 (iOS Native NLP 활용)
-    try {
-      print('🔍 OnDeviceLLMService 시작 (Native NLP)...');
-      
-      // Native AI Analysis
-      final analysis = await OnDeviceLLMService.analyzeScreenshotLegacy(
-          ocrText: ocrText,
-          ocrBlocks: blocks ?? []
-      );
-      
-      print('✅ 분석 완료: Title="${analysis.title}"');
-      return analysis;
+    // 🚀 통합 분석 서비스 사용 (단계적 Fallback 포함)
+    return await UnifiedAnalysisService.analyze(
+      blocks: blocks,
+      ocrText: ocrText,
+      suggestedCategory: suggestedCategory,
+    );
+  }
 
-    } catch (e) {
-      print('❌ Native LLM 분석 실패 (Fallback to Basic Parser): $e');
-      
-      // Fallback: DocumentParserService
-      try {
-         return DocumentParserService.parseDocument(
-            blocks ?? [], 
-            externalCategory: suggestedCategory
-         );
-      } catch (e2) {
-         return ScreenshotAnalysis(
-            title: "Screen Capture",
-            summary: ocrText.length > 100 ? "${ocrText.substring(0, 100)}..." : ocrText,
-            keyInsights: [],
-         );
+  /// 최소한의 Fallback 분석 생성 (레거시 호환성, UnifiedAnalysisService로 이동됨)
+  @Deprecated('Use UnifiedAnalysisService.analyze instead')
+  ScreenshotAnalysis _generateMinimalAnalysis(String ocrText, List<OCRBlock> blocks) {
+    // 필터링된 블록에서 의미있는 텍스트 추출
+    final cleanedBlocks = OnDeviceLLMService.filterUINoiseBlocksPublic(blocks);
+    
+    String title = 'Screen Capture';
+    String summary = '';
+    List<String> keyInsights = [];
+    
+    if (cleanedBlocks.isNotEmpty) {
+      // 제목: 상단 블록 중 가장 큰 텍스트
+      final topBlocks = cleanedBlocks.where((b) => b.boundingBox.top < 0.3).toList();
+      if (topBlocks.isNotEmpty) {
+        topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
+        final candidate = topBlocks.first.text.trim();
+        if (candidate.length >= 5 && candidate.length <= 80) {
+          title = candidate;
+        }
       }
+      
+      // 요약: 처음 2-3개 문단을 의미있게 조합
+      final paragraphs = <String>[];
+      String currentPara = '';
+      double lastBottom = 0;
+      
+      for (final block in cleanedBlocks) {
+        final gap = block.boundingBox.top - lastBottom;
+        if (lastBottom > 0 && gap > 0.04 && currentPara.isNotEmpty) {
+          paragraphs.add(currentPara);
+          currentPara = '';
+        }
+        currentPara += '${block.text.trim()} ';
+        lastBottom = block.boundingBox.bottom;
+      }
+      if (currentPara.isNotEmpty) paragraphs.add(currentPara);
+      
+      // 상위 3개 문단 선택
+      final selected = paragraphs.take(3).join(' ').trim();
+      summary = selected.length > 150 
+        ? '${selected.substring(0, 147)}...' 
+        : selected;
+      
+      // 키 인사이트: 적절한 길이의 문단
+      keyInsights = paragraphs
+        .where((p) => p.length >= 10 && p.length <= 100)
+        .take(3)
+        .toList();
+    } else if (ocrText.isNotEmpty) {
+      // OCR 텍스트가 있으면 사용
+      summary = ocrText.length > 150 
+        ? '${ocrText.substring(0, 147)}...' 
+        : ocrText;
+      
+      // 첫 줄을 제목으로
+      final lines = ocrText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      if (lines.isNotEmpty) {
+        final firstLine = lines.first.trim();
+        if (firstLine.length >= 5 && firstLine.length <= 80) {
+          title = firstLine;
+        }
+      }
+    } else {
+      summary = '텍스트 내용이 감지되었습니다.';
     }
+    
+    print('✅ [Level 4] 최소한의 분석 생성: $title');
+    return ScreenshotAnalysis(
+      title: title,
+      summary: summary,
+      keyInsights: keyInsights,
+    );
   }
 
   Future<void> _pickImage() async {
@@ -1240,7 +1286,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
              final ocrText = result['ocrText'] as String? ?? '';
              final suggestedTags = List<String>.from(result['suggestedTags'] ?? ['Photo']);
              final suggestedCategory = result['suggestedCategory'] as String? ?? 'Inbox';
-             final suggestedTitle = result['suggestedTitle'] as String? ?? "New Capture";
              
              // 🆕 Bounding Box 정보가 포함된 OCR 블록 파싱 (Checking for existence)
              final rawOcrBlocks = result['ocrBlocks'] as List? ?? [];
@@ -1258,10 +1303,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   }).toList();
              }
 
-             // On-device analysis using extracted text and blocks
-             final analysis = await _analyzeScreenshotOnDevice(
-                ocrText, 
-                ocrBlocks: ocrBlocks
+             // 통합 분석 서비스 사용
+             final analysis = await UnifiedAnalysisService.analyze(
+                blocks: ocrBlocks,
+                ocrText: ocrText,
+                suggestedCategory: suggestedCategory,
              );
              
              // Create card with analyzed data
@@ -1546,7 +1592,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildFilterBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
 
     return Container(
@@ -1560,12 +1605,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           // Folders Dropdown
           Expanded(
-            child: _buildFilterDropdown(
+            child: _buildFilterDropdown<Folder?>(
               label: _selectedFolder?.name ?? AppLocalizations.of(context)!.filterFolder,
               icon: Icons.folder_outlined,
               items: [
-                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
-                ..._folders.map((f) => DropdownMenuItem(
+                DropdownMenuItem<Folder?>(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
+                ..._folders.map((f) => DropdownMenuItem<Folder?>(
                   value: f,
                   child: Text(f.name),
                 )),
@@ -1580,7 +1625,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           // Type Dropdown (Source Type)
           Expanded(
-            child: _buildFilterDropdown(
+            child: _buildFilterDropdown<String?>(
               label: _selectedType != null
                   ? (_selectedType == 'screenshot' ? AppLocalizations.of(context)!.typeScreenshot
                       : _selectedType == 'url' ? AppLocalizations.of(context)!.typeUrl
@@ -1588,10 +1633,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   : AppLocalizations.of(context)!.filterType,
               icon: Icons.category_outlined,
               items: [
-                DropdownMenuItem(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
-                DropdownMenuItem(value: 'screenshot', child: Text(AppLocalizations.of(context)!.typeScreenshot)),
-                DropdownMenuItem(value: 'url', child: Text(AppLocalizations.of(context)!.typeUrl)),
-                DropdownMenuItem(value: 'photo', child: Text(AppLocalizations.of(context)!.typePhoto)),
+                DropdownMenuItem<String?>(value: null, child: Text(AppLocalizations.of(context)!.filterAll)),
+                DropdownMenuItem<String?>(value: 'screenshot', child: Text(AppLocalizations.of(context)!.typeScreenshot)),
+                DropdownMenuItem<String?>(value: 'url', child: Text(AppLocalizations.of(context)!.typeUrl)),
+                DropdownMenuItem<String?>(value: 'photo', child: Text(AppLocalizations.of(context)!.typePhoto)),
               ],
               value: _selectedType,
               onChanged: (String? type) {

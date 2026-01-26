@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.1] - Build 17 - 2026-01-24 (Current)
+## [0.5.1] - Build 19 - 2026-01-26 (Current)
 
 ### AI & On-Device Translation (by Claude Code & AI Assistant)
 - ✅ **Full On-Device Translation**: Google ML Kit 기반 온디바이스 번역 시스템 구축
@@ -22,6 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Design System**: 통합 디자인 시스템 가이드 문서 작성 (DESIGNSYSTEM.md)
 - ✅ **Home Screen Filters**: 전체 | 즐겨찾기 | 폴더 (드롭다운) | 타입 (드롭다운) 필터 추가
 - ✅ **Detail Screen Menus**: 플로팅 메뉴 및 더보기 메뉴 한국어화 (즐겨찾기 | 폴더로 이동 | 삭제)
+- ✅ **Share Extension UI Redesign**: 
+  - 다크모드/라이트모드 완전 지원 (Glass morphism 효과)
+  - 3가지 액션 버튼: View in App (저장 + 앱 실행), Save (저장만), Close (종료)
+  - 링크 프리뷰 이미지 및 제목 표시 개선
+  - AI 분석 중 인디케이터 (펄싱 애니메이션)
+  - HTML 디자인 참고한 모던한 UI 적용
+- ✅ **Detail Screen Image Button**: 스크린샷/사진에도 원본 보기 버튼 추가 (URL과 동일한 위치)
+
+### AI 분석 및 요약 시스템 개선
+- ✅ **통합 분석 서비스**: 모든 입력 경로에서 일관된 분석 결과 제공 (UnifiedAnalysisService)
+- ✅ **UI 노이즈 필터링 통일**: Dart와 Swift 필터링 규칙 통일, 신뢰도 필터 추가, URL 패턴 감지 강화
+- ✅ **요약 생성 알고리즘 개선**: 문장 중요도 점수화, 의미 있는 요약 생성
+- ✅ **제목 추출 로직 개선**: 다중 전략 조합 (위치, 크기, 의미 분석), 점수 기반 후보 선택
+- ✅ **단계적 Fallback 전략**: 4단계 Fallback (EnhancedContentAnalyzer → OnDeviceLLM → DocumentParser → Minimal)
+- ✅ **성능 모니터링**: 분석 통계 수집, 실행 시간 측정, 구조화된 로깅
 
 ### Settings Updates
 - ✅ **AI Preferences 제거**: 사용하지 않는 AI 설정 메뉴 제거
@@ -186,5 +201,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-*Last Updated: 2026-01-24*  
-*Current Version: 0.5.1 (Build 17)*
+*Last Updated: 2026-01-26*  
+*Current Version: 0.5.1 (Build 19)*

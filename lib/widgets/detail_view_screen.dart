@@ -844,10 +844,12 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   Widget _buildImageSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasUrl = _card.sourceUrl != null && _card.sourceUrl!.isNotEmpty;
+    
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty) {
+        if (hasUrl) {
            widget.onOpenLink?.call(_card.sourceUrl!);
         } else {
            _expandImage();
@@ -872,20 +874,29 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           children: [
             _buildImage(_card.imageUrl),
             
-            // Link Indicator
-            if (_card.sourceUrl != null && _card.sourceUrl!.isNotEmpty)
+            // 원본 보기 버튼 (URL 또는 스크린샷/사진 모두에 표시)
             Positioned(
               top: 16,
               right: 16,
-              child: Container(
-                width: 40, 
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (hasUrl) {
+                    widget.onOpenLink?.call(_card.sourceUrl!);
+                  } else {
+                    _expandImage();
+                  }
+                },
+                child: Container(
+                  width: 40, 
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  ),
+                  child: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
                 ),
-                child: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
               ),
             ),
           ],

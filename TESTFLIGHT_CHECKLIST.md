@@ -1,5 +1,7 @@
 # TestFlight 배포 전 체크리스트
 
+## Build 19 - 2026-01-26
+
 ## ✅ 완료된 작업
 
 1. **PaddleOCR iOS 통합**
@@ -10,13 +12,29 @@
 2. **상세 화면 개선**
    - ✅ 제목: 스크린샷 핵심 제목 추론 표시
    - ✅ AI Summary: 스크린샷 정보 요약 표시
-   - ✅ Original Message: 전체 OCR 원본 텍스트 표시 (새로 추가)
+   - ✅ Original Message: 전체 OCR 원본 텍스트 표시
+   - ✅ 원본 보기 버튼: 스크린샷/사진에도 추가 (URL과 동일한 위치)
+
+3. **Share Extension UI 개선**
+   - ✅ 다크모드/라이트모드 완전 지원
+   - ✅ 3가지 액션 버튼: View in App, Save, Close
+   - ✅ 모던한 UI 디자인 적용
+
+4. **AI 분석 시스템 개선**
+   - ✅ 통합 분석 서비스 (UnifiedAnalysisService)
+   - ✅ UI 노이즈 필터링 통일 및 강화
+   - ✅ 요약 생성 알고리즘 개선
+   - ✅ 제목 추출 로직 개선
+   - ✅ 단계적 Fallback 전략
+   - ✅ 성능 모니터링 및 로깅 강화
 
 ## 🔍 빌드 전 확인사항
 
 ### 1. 코드 검증
-- [x] Linter 오류 없음
-- [x] `_buildOriginalMessageSection()` 메서드 구현됨
+- [x] Linter 오류 없음 (에러 0개)
+- [x] 모든 import 정리 완료
+- [x] 타입 추론 오류 수정 완료
+- [x] `UnifiedAnalysisService` 통합 완료
 - [x] `ocrText` 필드가 데이터베이스에 저장됨
 
 ### 2. iOS 빌드 확인
@@ -65,11 +83,24 @@
    - [ ] 카드 생성 확인
 
 2. **상세 화면 확인**
-   - [ ] 제목이 올바르게 표시됨
-   - [ ] AI Summary가 요약된 내용으로 표시됨
-   - [ ] **Original Message 섹션이 표시됨** (새 기능)
-   - [ ] Original Message에 전체 OCR 텍스트가 표시됨
-   - [ ] Copy 버튼 동작 확인
+   - [ ] 제목이 올바르게 표시됨 (개선된 추출 로직)
+   - [ ] AI Summary가 요약된 내용으로 표시됨 (개선된 알고리즘)
+   - [ ] Original Message 섹션이 표시됨
+   - [ ] 원본 보기 버튼이 모든 이미지에 표시됨 (URL, 스크린샷, 사진)
+   - [ ] 원본 보기 버튼 클릭 시 이미지 확대 동작 확인
+
+3. **Share Extension 테스트**
+   - [ ] 다크모드에서 UI 정상 표시
+   - [ ] 라이트모드에서 UI 정상 표시
+   - [ ] View in App 버튼: 저장 + 앱 실행 확인
+   - [ ] Save 버튼: 저장만 하고 앱 실행 안 함 확인
+   - [ ] Close 버튼: ShareExtension 종료 확인
+
+4. **AI 분석 품질 확인**
+   - [ ] UI 노이즈가 잘 제거됨 (시간, 배터리, 버튼 텍스트 등)
+   - [ ] 제목 추출 정확도 향상 확인
+   - [ ] 요약 품질 향상 확인
+   - [ ] 다양한 스크린샷 형식에서 일관된 결과
 
 3. **PaddleOCR 정확도 확인**
    - [ ] Vision Framework보다 정확도 향상 확인

@@ -171,38 +171,116 @@ class OnDeviceLLMService {
   }
 
   static List<OCRBlock> _filterUINoiseBlocks(List<OCRBlock> blocks) {
-    return blocks.where((block) {
+    print('🔍 [UI 노이즈 필터링] 입력 블록: ${blocks.length}개');
+    
+    final filtered = blocks.where((block) {
       final text = block.text.trim();
       final box = block.boundingBox;
 
       // 1. 빈 텍스트 제거
-      if (text.isEmpty) return false;
-
-      // 2. 너무 짧은 텍스트 (2자 이하)
-      if (text.length <= 2) return false;
-
-      // 3. 상태바 영역 제거 (상단 8%) - 확장
-      if (box.top < 0.08) {
-        // 시간 패턴 (다양한 형식)
-        if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(text)) return false;
-        if (RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|오전|오후)?$', caseSensitive: false).hasMatch(text)) return false;
-        // 배터리/신호
-        if (RegExp(r'^\d{1,3}%$').hasMatch(text)) return false;
-        // 통신사, 와이파이 등
-        if (RegExp(r'^(LTE|5G|4G|3G|Wi-Fi|WiFi)$', caseSensitive: false).hasMatch(text)) return false;
-        // 짧은 상태바 텍스트
-        if (text.length <= 6 && box.height < 0.03) return false;
-      }
-
-      // 4. 하단 네비게이션 영역 제거 (하단 10%) - 확장
-      if (box.top > 0.90) {
+      if (text.isEmpty) {
+        print('   ❌ 필터링: 빈 텍스트');
         return false;
       }
 
-      // 5. 시간/날짜 패턴 (전체 영역에서)
-      if (_isTimeOrDatePattern(text)) return false;
+      // 2. 신뢰도 필터 (0.5 이하 제거) - Swift와 통일
+      if (block.confidence < 0.5) {
+        print('   ❌ 필터링: 낮은 신뢰도 (${block.confidence})');
+        return false;
+      }
 
-      // 6. UI 버튼/메뉴 키워드 필터링 (영어) - 확장
+      // 3. 너무 짧은 텍스트 (2자 이하)
+      if (text.length <= 2) {
+        print('   ❌ 필터링: 너무 짧음 (${text.length}자)');
+        return false;
+      }
+
+      // 4. 위치 필터 (상단 5%, 하단 8%로 통일 - Swift 3%/5%와 Dart 8%/10%의 균형)
+      if (box.top < 0.05) {
+        // 상단 영역: 상태바 요소만 제거
+        // 시간 패턴 (다양한 형식)
+        if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(text)) {
+          print('   ❌ 필터링: 시간 패턴 (상단)');
+          return false;
+        }
+        if (RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|오전|오후)?$', caseSensitive: false).hasMatch(text)) {
+          print('   ❌ 필터링: 시간 패턴 (상단)');
+          return false;
+        }
+        // 배터리/신호
+        if (RegExp(r'^\d{1,3}%$').hasMatch(text)) {
+          print('   ❌ 필터링: 배터리/신호 (상단)');
+          return false;
+        }
+        // 통신사, 와이파이 등
+        if (RegExp(r'^(LTE|5G|4G|3G|Wi-Fi|WiFi)$', caseSensitive: false).hasMatch(text)) {
+          print('   ❌ 필터링: 통신사/와이파이 (상단)');
+          return false;
+        }
+        // 짧은 상태바 텍스트
+        if (text.length <= 6 && box.height < 0.03) {
+          print('   ❌ 필터링: 짧은 상태바 텍스트 (상단)');
+          return false;
+        }
+      }
+
+      // 5. 하단 네비게이션 영역 제거 (하단 8%)
+      if (box.top > 0.92) {
+        print('   ❌ 필터링: 하단 네비게이션 영역');
+        return false;
+      }
+
+      // 6. 시간/날짜 패턴 (전체 영역에서)
+      if (_isTimeOrDatePattern(text)) {
+        print('   ❌ 필터링: 시간/날짜 패턴');
+        return false;
+      }
+
+      // 7. URL 패턴 필터링 (Swift 로직과 통일)
+      final urlPatterns = [
+        RegExp(r'^https?://', caseSensitive: false),  // URL 프로토콜로 시작
+        RegExp(r'^www\.', caseSensitive: false),      // www로 시작
+        RegExp(r'\.[a-z]{2,4}(/|$|\?)', caseSensitive: false),  // .com/, .io 등
+        RegExp(r'^[a-z0-9-]+\.[a-z]{2,4}$', caseSensitive: false),  // 단순 도메인
+      ];
+      
+      for (final pattern in urlPatterns) {
+        if (pattern.hasMatch(text)) {
+          print('   ❌ 필터링: URL 패턴');
+          return false;
+        }
+      }
+      
+      // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
+      if (RegExp(r'^[a-z]+-[a-z]+.*\.[a-z]+', caseSensitive: false).hasMatch(text)) {
+        print('   ❌ 필터링: 케밥케이스 URL');
+        return false;
+      }
+      
+      // 하이픈이 2개 이상 포함된 텍스트 (URL일 가능성 높음)
+      // 단, 날짜 및 전화번호 패턴은 예외 처리
+      final hyphenCount = text.split('-').length - 1;
+      if (hyphenCount >= 2 && text.length > 10) {
+        // 날짜 패턴: YYYY-MM-DD 또는 YY-MM-DD
+        final isDatePattern = RegExp(r'^\d{2,4}-\d{1,2}-\d{1,2}$').hasMatch(text);
+        // 전화번호 패턴: 010-1234-5678, 02-123-4567 등
+        final isPhonePattern = RegExp(r'^\d{2,4}-\d{3,4}-\d{4}$').hasMatch(text);
+        // 날짜 범위 패턴: 2024-01-01 ~ 2024-12-31
+        final isDateRangePattern = RegExp(r'\d{4}-\d{2}-\d{2}.*\d{4}-\d{2}-\d{2}').hasMatch(text);
+        
+        if (!isDatePattern && !isPhonePattern && !isDateRangePattern) {
+          print('   ❌ 필터링: 다중 하이픈 (URL 가능성)');
+          return false;
+        }
+      }
+      
+      // 숫자로만 구성된 텍스트 (섹션 번호)
+      if (RegExp(r'^[0-9]+\.$').hasMatch(text)) {
+        print('   ❌ 필터링: 섹션 번호');
+        return false;
+      }
+
+      // 8. UI 버튼/메뉴 키워드 필터링 (영어) - 확장
       final englishUIKeywords = [
         'back', 'next', 'done', 'cancel', 'ok', 'yes', 'no', 'close',
         'search', 'menu', 'home', 'settings', 'edit', 'delete', 'share',
@@ -217,7 +295,7 @@ class OnDeviceLLMService {
         'ad', 'ads', 'sponsored', 'promoted', 'advertisement',
       ];
 
-      // 7. UI 버튼/메뉴 키워드 필터링 (한국어) - 확장
+      // 9. UI 버튼/메뉴 키워드 필터링 (한국어) - 확장
       final koreanUIKeywords = [
         '뒤로', '다음', '완료', '취소', '확인', '설정', '닫기',
         '검색', '메뉴', '홈', '편집', '삭제', '공유', '저장',
@@ -234,56 +312,82 @@ class OnDeviceLLMService {
       ];
 
       final lowerText = text.toLowerCase();
-      if (englishUIKeywords.contains(lowerText)) return false;
-      if (koreanUIKeywords.contains(text)) return false;
-
-      // 8. 짧은 버튼 텍스트 (작은 영역 + 짧은 텍스트)
-      if (box.width < 0.20 && box.height < 0.05 && text.length < 12) {
-        // 의미있는 내용이 아니면 제거
-        if (!_containsMeaningfulContent(text)) return false;
+      if (englishUIKeywords.contains(lowerText)) {
+        print('   ❌ 필터링: 영어 UI 키워드');
+        return false;
       }
-
-      // 9. 아이콘/이모지만 있는 경우
-      if (RegExp(r'^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$', unicode: true).hasMatch(text)) {
+      if (koreanUIKeywords.contains(text)) {
+        print('   ❌ 필터링: 한국어 UI 키워드');
         return false;
       }
 
-      // 10. 네비게이션 바 요소 (좌우 끝에 있는 짧은 텍스트)
-      if ((box.left < 0.15 || box.right > 0.85) && box.top < 0.12 && text.length < 15) {
+      // 10. 짧은 버튼 텍스트 (작은 영역 + 짧은 텍스트)
+      if (box.width < 0.20 && box.height < 0.05 && text.length < 12) {
+        // 의미있는 내용이 아니면 제거
         if (!_containsMeaningfulContent(text)) {
+          print('   ❌ 필터링: 짧은 버튼 텍스트 (의미 없음)');
           return false;
         }
       }
 
-      // 11. 탭바/세그먼트 컨트롤 (가로로 배열된 짧은 텍스트들)
+      // 11. 아이콘/이모지만 있는 경우
+      if (RegExp(r'^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$', unicode: true).hasMatch(text)) {
+        print('   ❌ 필터링: 이모지만');
+        return false;
+      }
+
+      // 12. 네비게이션 바 요소 (좌우 끝에 있는 짧은 텍스트)
+      if ((box.left < 0.15 || box.right > 0.85) && box.top < 0.12 && text.length < 15) {
+        if (!_containsMeaningfulContent(text)) {
+          print('   ❌ 필터링: 네비게이션 바 요소');
+          return false;
+        }
+      }
+
+      // 13. 탭바/세그먼트 컨트롤 (가로로 배열된 짧은 텍스트들)
       if (box.height < 0.05 && text.length < 15) {
         final buttonLikeKeywords = ['all', 'recent', 'popular', 'new', 'hot',
           '전체', '최신', '인기', '추천', '즐겨찾기', 'favorites',
           '피드', 'feed', '탐색', 'explore', '트렌드', 'trending',
           '팔로잉', 'following', '추천', 'for you', 'foryou'];
-        if (buttonLikeKeywords.contains(lowerText)) return false;
+        if (buttonLikeKeywords.contains(lowerText)) {
+          print('   ❌ 필터링: 탭바 키워드');
+          return false;
+        }
       }
 
-      // 12. 광고/프로모션 패턴
-      if (_isAdvertisementPattern(text)) return false;
+      // 14. 광고/프로모션 패턴
+      if (_isAdvertisementPattern(text)) {
+        print('   ❌ 필터링: 광고 패턴');
+        return false;
+      }
 
-      // 13. 앱 이름/브랜드 패턴 (상단에 있는 경우)
+      // 15. 앱 이름/브랜드 패턴 (상단에 있는 경우)
       if (box.top < 0.15 && text.length < 20) {
-        if (_isAppBrandPattern(text)) return false;
+        if (_isAppBrandPattern(text)) {
+          print('   ❌ 필터링: 앱 브랜드 패턴');
+          return false;
+        }
       }
 
-      // 14. 숫자만 있는 경우 (조회수, 좋아요 수 등)
+      // 16. 숫자만 있는 경우 (조회수, 좋아요 수 등)
       if (RegExp(r'^[\d,\.]+[KMB]?$', caseSensitive: false).hasMatch(text)) {
+        print('   ❌ 필터링: 숫자만');
         return false;
       }
 
-      // 15. 매우 작은 영역의 텍스트 (UI 요소일 가능성 높음)
+      // 17. 매우 작은 영역의 텍스트 (UI 요소일 가능성 높음)
       if (box.area < 0.002 && text.length < 15) {
+        print('   ❌ 필터링: 매우 작은 영역');
         return false;
       }
 
+      print('   ✅ 유지: "$text"');
       return true;
     }).toList();
+    
+    print('🔍 [UI 노이즈 필터링] 출력 블록: ${filtered.length}개 (${blocks.length - filtered.length}개 제거됨)');
+    return filtered;
   }
 
   /// 시간/날짜 패턴 확인
@@ -403,45 +507,92 @@ class OnDeviceLLMService {
     );
   }
 
-  /// 제목 추정 (여러 전략 조합)
+  /// 제목 추정 (개선된 다중 전략 조합)
   static String? _estimateTitle(List<OCRBlock> blocks) {
     if (blocks.isEmpty) return null;
 
-    // 전략 1: 상단 20% 영역에서 가장 높이가 큰 텍스트 (큰 폰트 = 제목)
-    final topBlocks = blocks.where((b) => b.boundingBox.top < 0.20).toList();
+    // 후보 수집 및 점수화
+    final candidates = <MapEntry<OCRBlock, double>>[];
 
-    if (topBlocks.isNotEmpty) {
-      // 높이가 가장 큰 블록 찾기
-      topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
-
-      for (final block in topBlocks) {
-        final text = block.text.trim();
-        // 제목으로 적합한 길이 (5~80자)
-        if (text.length >= 5 && text.length <= 80) {
-          // URL이 아닌 경우
-          if (!text.contains('http') && !text.contains('www')) {
-            return text;
-          }
-        }
-      }
-    }
-
-    // 전략 2: 첫 번째 의미있는 텍스트
     for (final block in blocks) {
       final text = block.text.trim();
-      if (text.length >= 5 && text.length <= 80) {
-        if (!text.contains('http') && !_isUIElement(text)) {
-          return text;
-        }
+      final box = block.boundingBox;
+      
+      // 기본 필터링
+      if (text.length < 5 || text.length > 80) continue;
+      if (text.contains('http') || text.contains('www.')) continue;
+      if (_isUIElement(text) || _isTimeOrDatePattern(text)) continue;
+      
+      double score = 0.0;
+      
+      // 전략 1: 위치 점수 (상단에 있을수록 높음)
+      if (box.top < 0.20) {
+        score += 20.0;
+        if (box.top < 0.10) score += 10.0; // 더 상단이면 추가 점수
+      } else if (box.top < 0.30) {
+        score += 10.0;
+      } else {
+        score -= 5.0; // 하단이면 감점
       }
+      
+      // 전략 2: 크기 점수 (큰 폰트 = 제목)
+      final avgHeight = blocks.map((b) => b.boundingBox.height).reduce((a, b) => a + b) / blocks.length;
+      if (box.height > avgHeight * 1.5) {
+        score += 15.0; // 평균보다 1.5배 크면 높은 점수
+      } else if (box.height > avgHeight) {
+        score += 5.0;
+      }
+      
+      // 전략 3: 의미 분석 점수
+      // 명사 비율 (간단한 휴리스틱)
+      final words = text.split(RegExp(r'\s+'));
+      final meaningfulWords = words.where((w) => 
+        w.length >= 3 && 
+        !RegExp(r'^(the|a|an|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|were|been|be|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|need|this|that|these|those|it|its|you|your|we|our|they|their|he|his|she|her|i|my|me|이|그|저|것|수|등|및|또는|그리고|하지만)$', caseSensitive: false).hasMatch(w.toLowerCase())
+      ).length;
+      
+      if (words.isNotEmpty) {
+        final meaningfulRatio = meaningfulWords / words.length;
+        score += meaningfulRatio * 10.0;
+      }
+      
+      // 전략 4: 길이 점수 (적절한 길이: 10-50자)
+      if (text.length >= 10 && text.length <= 50) {
+        score += 10.0;
+      } else if (text.length >= 5 && text.length < 10) {
+        score += 5.0;
+      } else if (text.length > 50) {
+        score -= 5.0; // 너무 길면 감점
+      }
+      
+      // 전략 5: 중앙 정렬 점수 (제목은 보통 중앙에 위치)
+      final centerX = box.centerX;
+      if (centerX > 0.3 && centerX < 0.7) {
+        score += 5.0;
+      }
+      
+      // 전략 6: UI 요소 제외 강화
+      if (_isAppBrandPattern(text)) {
+        score -= 20.0;
+      }
+      
+      candidates.add(MapEntry(block, score));
     }
-
-    return null;
+    
+    if (candidates.isEmpty) return null;
+    
+    // 점수 순으로 정렬
+    candidates.sort((a, b) => b.value.compareTo(a.value));
+    
+    // 최고 점수 후보 반환
+    final topCandidate = candidates.first;
+    print('📌 제목 추정: "${topCandidate.key.text}" (점수: ${topCandidate.value.toStringAsFixed(1)})');
+    
+    return topCandidate.key.text.trim();
   }
 
   /// UI 요소인지 확인
   static bool _isUIElement(String text) {
-    final lower = text.toLowerCase();
     final uiPatterns = [
       RegExp(r'^\d{1,2}:\d{2}'),  // 시간
       RegExp(r'^\d+%$'),           // 퍼센트
@@ -581,17 +732,107 @@ class OnDeviceLLMService {
     return result.trim().isEmpty ? title.substring(0, 20) : result.trim();
   }
 
-  /// Fallback: 규칙 기반 요약 생성
+  /// Fallback: 규칙 기반 요약 생성 (개선된 알고리즘)
   static String _generateFallbackSummary(DocumentStructure structure) {
     if (structure.paragraphs.isEmpty) {
       return '텍스트 내용이 감지되었습니다.';
     }
 
-    // 처음 2-3개 문단을 120자 이내로 요약
-    final combined = structure.paragraphs.take(3).join(' ');
-    if (combined.length <= 120) return combined;
-
-    return '${combined.substring(0, 117)}...';
+    // 문장 중요도 기반 선택
+    final allSentences = <MapEntry<String, double>>[];
+    
+    for (final para in structure.paragraphs) {
+      final sentences = _splitIntoSentences(para);
+      for (final sentence in sentences) {
+        final score = _scoreSentenceForSummary(sentence, structure);
+        allSentences.add(MapEntry(sentence, score));
+      }
+    }
+    
+    // 점수 순으로 정렬
+    allSentences.sort((a, b) => b.value.compareTo(a.value));
+    
+    // 상위 3개 문장 선택 (최대 150자)
+    final selectedSentences = <String>[];
+    int totalLength = 0;
+    
+    for (final entry in allSentences) {
+      if (totalLength + entry.key.length > 150) break;
+      selectedSentences.add(entry.key);
+      totalLength += entry.key.length;
+    }
+    
+    if (selectedSentences.isEmpty) {
+      // Fallback: 처음 2-3개 문단을 120자 이내로 요약
+      final combined = structure.paragraphs.take(3).join(' ');
+      if (combined.length <= 120) return combined;
+      return '${combined.substring(0, 117)}...';
+    }
+    
+    final summary = selectedSentences.join(' ');
+    return summary.length > 150 ? '${summary.substring(0, 147)}...' : summary;
+  }
+  
+  /// 문장을 문장 단위로 분리
+  static List<String> _splitIntoSentences(String text) {
+    // 문장 종료 기호로 분리
+    final sentences = text.split(RegExp(r'[.!?。！？]\s*'))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty && s.length >= 10)
+      .toList();
+    
+    return sentences;
+  }
+  
+  /// 문장 중요도 점수화
+  static double _scoreSentenceForSummary(String sentence, DocumentStructure structure) {
+    double score = 0.0;
+    final text = sentence.trim();
+    
+    // 1. 길이 점수 (적절한 길이: 20-100자)
+    if (text.length >= 20 && text.length <= 100) {
+      score += 10.0;
+    } else if (text.length > 100 && text.length <= 150) {
+      score += 5.0;
+    } else {
+      score -= 5.0;
+    }
+    
+    // 2. 위치 점수 (첫 번째 문단에 있으면 높음)
+    bool isInFirstParagraph = false;
+    if (structure.paragraphs.isNotEmpty) {
+      isInFirstParagraph = structure.paragraphs.first.contains(text);
+    }
+    if (isInFirstParagraph) score += 5.0;
+    
+    // 3. 키워드 밀도 (명사, 동사 비율)
+    final words = text.split(RegExp(r'\s+'));
+    final meaningfulWords = words.where((w) => 
+      w.length >= 3 && 
+      !RegExp(r'^(the|a|an|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|were|been|be|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|need|this|that|these|those|it|its|you|your|we|our|they|their|he|his|she|her|i|my|me)$', caseSensitive: false).hasMatch(w.toLowerCase())
+    ).length;
+    
+    if (words.isNotEmpty) {
+      final meaningfulRatio = meaningfulWords / words.length;
+      score += meaningfulRatio * 10.0;
+    }
+    
+    // 4. UI 노이즈 제외
+    if (_isUIElement(text) || _isTimeOrDatePattern(text)) {
+      score -= 100.0; // 강력히 제외
+    }
+    
+    // 5. URL 패턴 제외
+    if (text.contains('http://') || text.contains('https://') || text.contains('www.')) {
+      score -= 50.0;
+    }
+    
+    // 6. 문장 구조 점수 (주어+동사 형태)
+    if (text.contains(' ') && text.length > 15) {
+      score += 3.0;
+    }
+    
+    return score;
   }
 }
 
