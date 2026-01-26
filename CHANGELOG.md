@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.1] - Build 20 - 2026-01-26 (Current)
+## [0.5.1] - Build 21 - 2026-01-26 (Current)
 
 ### Reverted Changes
 - 🔄 **앱 아이콘 및 스플래시 화면 원복**: 이전 버전의 디자인으로 복원
+
+---
+
+## [0.5.1] - Build 20 - 2026-01-26
 
 ---
 
@@ -209,4 +213,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *Last Updated: 2026-01-26*  
-*Current Version: 0.5.1 (Build 20) - 아이콘 및 스플래시 화면 원복*
+*Current Version: 0.5.1 (Build 21) - 아이콘 및 스플래시 화면 원복*
