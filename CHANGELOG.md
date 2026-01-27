@@ -8,10 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.1] - Build 21 - 2026-01-26 (Current)
+## [0.5.1] - Build 22 - 2026-01-26 (Current)
+
+### UI/UX Improvements
+- ✅ **새로운 앱 아이콘 적용**: assets/icon.png를 활용한 새로운 앱 아이콘
+  - 모든 플랫폼 (iOS, Android, macOS) 아이콘 자동 생성
+  
+- ✅ **스플래시 화면 재디자인**: 아이콘 이미지 기반 스플래시 화면
+  - assets/icon.png 이미지 활용
+  - 다크모드/라이트모드 완전 지원
+  - 스캐닝 애니메이션 추가 (R 우측 하단 라인 스캔 효과)
+  - 부드러운 페이드인 및 스케일 애니메이션
+
+### Technical Improvements
+- ✅ **iOS 배포 타겟 통일**: 모든 타겟을 iOS 15.5로 통일하여 빌드 경고 해결
+
+---
+
+## [0.5.1] - Build 21 - 2026-01-26
 
 ### Reverted Changes
 - 🔄 **앱 아이콘 및 스플래시 화면 원복**: 이전 버전의 디자인으로 복원
+
+### Technical Improvements
+- ✅ **iOS 배포 타겟 통일**: 빌드 경고 해결
 
 ---
 
@@ -213,4 +233,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *Last Updated: 2026-01-26*  
-*Current Version: 0.5.1 (Build 21) - 아이콘 및 스플래시 화면 원복*
+*Current Version: 0.5.1 (Build 22) - 새로운 아이콘 및 스캐닝 애니메이션 스플래시 화면*
