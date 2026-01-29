@@ -206,23 +206,47 @@ class UnifiedAnalysisService {
            analysis.summary.isNotEmpty;
   }
   
-  /// OCR 텍스트에서 간단한 블록 생성
+  /// OCR 텍스트에서 간단한 블록 생성 (구조 힌트 포함)
   static List<OCRBlock> _createBlocksFromText(String text) {
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    return lines.asMap().entries.map((entry) {
-      final index = entry.key;
-      final line = entry.value;
-      return OCRBlock(
-        text: line.trim(),
-        boundingBox: BoundingBox(
-          top: index * 0.05, // 간격을 두고 배치
-          left: 0.1,
-          width: 0.8,
-          height: 0.04,
-        ),
-        confidence: 0.8,
-      );
-    }).toList();
+    final blocks = <OCRBlock>[];
+    
+    double currentTop = 0.05;
+    
+    for (int i = 0; i < lines.length; i++) {
+        final line = lines[i].trim();
+        final isTopArea = i < 3; // Check first 3 lines
+        
+        // 제목 후보 휴리스틱: 상단에 위치하고, 길이가 적당하며, 문장 부호로 끝나지 않음
+        // (SNS 게시글의 경우 첫 줄이 작성자일 수 있으므로 2-3번째 줄도 허용)
+        final isTitleCandidate = isTopArea && 
+            line.length > 3 && line.length < 80 && 
+            !line.endsWith('.') && !line.endsWith('?') &&
+            !line.startsWith('@'); // Handle is unlikely to be main title
+            
+        double height = isTitleCandidate ? 0.08 : 0.04; // 제목이면 2배 크기 힌트
+        
+        // 제목일 가능성이 높으면(키워드 포함) 더 큰 힌트 부여
+        if (isTitleCandidate && (line.contains('TOP') || line.contains('Insight') || line.contains('요약'))) {
+            height = 0.10;
+        }
+        
+        blocks.add(OCRBlock(
+            text: line,
+            boundingBox: BoundingBox(
+                top: currentTop,
+                left: 0.1,
+                width: 0.8,
+                height: height,
+            ),
+            confidence: 0.95, // 인위적으로 높은 신뢰도 부여
+        ));
+        
+        // 다음 블록 위치 계산
+        currentTop += height + (isTitleCandidate ? 0.04 : 0.015);
+    }
+    
+    return blocks;
   }
   
   /// 블록에서 OCR 텍스트 생성

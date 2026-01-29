@@ -102,45 +102,85 @@ class OnDeviceLLM {
         ]
     }
 
-    // MARK: - 도메인 감지 (Context Analysis)
+    // MARK: - 도메인 감지 (Semantic Analysis with NLEmbedding)
 
     private func detectDomain(from paragraphs: [String]) -> ContentDomain {
         let fullText = paragraphs.prefix(10).joined(separator: "\n").lowercased()
         
-        // Shopping Keywords
-        let shoppingKeywords = ["price", "won", "buy", "order", "total", "cart", "shipping", "delivery",
-                                "가격", "원", "구매", "주문", "합계", "장바구니", "배송", "결제", "품절"]
-        if shoppingKeywords.contains(where: { fullText.contains($0) }) {
-            // 가격 패턴(\d원, $\d)이 있으면 확실시
-            if fullText.range(of: "[0-9,]+원|\\$[0-9,]+", options: .regularExpression) != nil {
+        // 1. Regex/Keyword Fast Path (기존 로직 유지 - 확실한 신호)
+        if fullText.range(of: "[0-9,]+원|\\$[0-9,]+", options: .regularExpression) != nil {
+            if fullText.contains("주문") || fullText.contains("결제") || fullText.contains("shipping") {
                 return .shopping
             }
         }
-        
-        // SNS Keywords
-        let snsKeywords = ["like", "comment", "share", "follow", "repost", "caption",
-                           "좋아요", "댓글", "공유", "팔로우", "리포스트", "조회수"]
-        if snsKeywords.contains(where: { fullText.contains($0) }) {
-            // @username 패턴이나 해시태그 #
-             if fullText.contains("@") || fullText.contains("#") {
-                 return .sns
-             }
+        if fullText.contains("@") && (fullText.contains("post") || fullText.contains("likes")) {
+            return .sns
         }
         
-        // Receipt/Finance
-        let receiptKeywords = ["receipt", "payment", "card", "transferred", "balance",
-                               "영수증", "결제완료", "카드", "이체", "잔액", "입금", "출금"]
-        if receiptKeywords.contains(where: { fullText.contains($0) }) {
-             return .receipt
+        // 2. Semantic Embedding Check (NLEmbedding)
+        // 용량 0MB 증가: iOS 내장 임베딩 사용
+        guard let embedding = NLEmbedding.wordEmbedding(for: .english) else {
+            return .generic // 임베딩 로드 실패시 일반 처리
         }
         
-        // Article/News (긴 문단)
+        // 문서의 핵심 키워드 추출 (간단한 빈도수/명사 추출)
+        let keywords = extractKeyNouns(from: fullText)
+        if keywords.isEmpty { return .generic }
+        
+        // 도메인별 대표 단어와 거리 계산
+        let shoppingDistance = averageDistance(from: keywords, to: ["shopping", "price", "buy", "product", "cart"], in: embedding)
+        let snsDistance = averageDistance(from: keywords, to: ["social", "post", "comment", "like", "share", "friend"], in: embedding)
+        let financeDistance = averageDistance(from: keywords, to: ["receipt", "money", "bank", "card", "payment"], in: embedding)
+        
+        print("   - Semantic Distances: Shop=\(shoppingDistance), SNS=\(snsDistance), Fin=\(financeDistance)")
+        
+        let minDistance = min(shoppingDistance, snsDistance, financeDistance)
+        
+        if minDistance < 0.8 { // 임계값 (작을수록 관련성 높음, 0~2 범위)
+            if minDistance == shoppingDistance { return .shopping }
+            if minDistance == snsDistance { return .sns }
+            if minDistance == financeDistance { return .receipt }
+        }
+        
+        // Article check (length based)
         let avgLength = paragraphs.reduce(0) { $0 + $1.count } / max(1, paragraphs.count)
-        if avgLength > 80 {
-            return .article
-        }
-
+        if avgLength > 80 { return .article }
+        
         return .generic
+    }
+    
+    private func extractKeyNouns(from text: String) -> [String] {
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        var nouns: [String] = []
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass, options: [.omitPunctuation, .omitWhitespace]) { tag, range in
+            if tag == .noun {
+                nouns.append(String(text[range]).lowercased())
+            }
+            return true
+        }
+        // 빈도수 높은 상위 5개 정도만 사용하면 좋지만, 여기선 전체 중 일부만 랜덤/순서대로 사용
+        return Array(nouns.prefix(10))
+    }
+    
+    private func averageDistance(from textWords: [String], to targetWords: [String], in embedding: NLEmbedding) -> Double {
+        var totalDist: Double = 0
+        var count: Int = 0
+        
+        for target in targetWords {
+            for word in textWords {
+                // Determine distance
+                // Note: The compiler indicates this returns a non-optional Double in this context
+                let dist = embedding.distance(between: target, and: word)
+                
+                // NLDistance.greatestFiniteMagnitude usually indicates 'not found' / infinite distance
+                if dist < NLDistance.greatestFiniteMagnitude {
+                     totalDist += dist
+                     count += 1
+                }
+            }
+        }
+        return count > 0 ? totalDist / Double(count) : 2.0 // Max distance
     }
 
     // MARK: - 스마트 제목 생성 (강화)
@@ -372,9 +412,24 @@ class OnDeviceLLM {
         if count >= 20 && count <= 100 { score += 10 }
         else if count < 10 { return 0 }
         
-        let keywords = ["important", "summary", "conclusion", "total", "price", "order", "중요", "요약", "결론", "합계", "가격", "주문"]
         let lower = sentence.lowercased()
+        
+        // 1. Keyword Bonus (Legacy)
+        let keywords = ["important", "summary", "conclusion", "total", "price", "order", "중요", "요약", "결론", "합계", "가격", "주문"]
         for key in keywords { if lower.contains(key) { score += 20 } }
+        
+        // 2. Semantic Similarity Bonus (iOS 13+ NLEmbedding)
+        // 문장이 "important information"이나 "summary"와 의미적으로 가까운지 확인
+        if #available(iOS 13.0, *), 
+           let embedding = NLEmbedding.sentenceEmbedding(for: .english), // 문장 임베딩은 영어 위주 지원
+           language == .english {
+            // Compiler indicates non-optional return
+            let dist = embedding.distance(between: lower, and: "this is an important summary of the content")
+            
+            // dist는 0(완전일치) ~ 2(완전불일치). 0.8 이하면 꽤 관련 있음
+            if dist < 0.6 { score += 30 }
+            else if dist < 0.8 { score += 15 }
+        }
         
         if lower.contains("http") { score -= 10 }
         return score
@@ -452,7 +507,8 @@ class EnhancedContentAnalyzer {
         let summary = generateSummary(
             textBlocks: filteredBlocks,
             layout: layout,
-            contentType: contentType
+            contentType: contentType,
+            title: title
         )
         
         // 6. 태그 생성
@@ -711,10 +767,12 @@ class EnhancedContentAnalyzer {
         
         // 패턴 매칭
         let patterns: [(type: String, keywords: [String])] = [
-            ("news", ["사고", "정전", "피해", "발생", "경찰", "소방", "news", "report"]),
+            ("news", ["사고", "정전", "피해", "발생", "경찰", "소방", "news", "report", "기자", "일보", "뉴스", "times", "herald"]),
             ("weather", ["날씨", "기온", "예보", "강수", "℃", "weather"]),
-            ("shopping", ["주문", "배송", "결제", "원", "price", "won", "shipping", "order"]),
-            ("tech", ["api", "코드", "개발", "programming", "code", "software"])
+            ("shopping", ["주문", "배송", "결제", "원", "price", "won", "shipping", "order", "쿠팡", "coupang", "store", "shop", "장바구니", "구매", "할인", "sale", "sold out", "품절"]),
+            ("place", ["map", "지도", "place", "location", "영업", "리뷰", "별점", "맛집", "길찾기", "주소", "navi", "네이버지도", "카카오맵"]),
+            ("tech", ["api", "코드", "개발", "programming", "code", "software", "github", "stack overflow"]),
+            ("sns", ["instagram", "twitter", "threads", "facebook", "post", "like", "share", "follow", "comment", "좋아요", "팔로우", "댓글", "feed", "timeline"])
         ]
         
         var scores: [String: Int] = [:]
@@ -754,11 +812,35 @@ class EnhancedContentAnalyzer {
             }
         }
         
-        // 폴백: 첫 섹션
+        // 폴백 1: 타이틀 패턴 매칭 (레이아웃 없을 때)
+        let candidates = textBlocks.prefix(5)
+        for block in candidates {
+            if let text = block["text"] as? String {
+                let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                // 제목 패턴: 적당한 길이 + 문장부호 없음 + 특정 키워드(TOP, Insight 등)
+                if cleaned.count > 5 && cleaned.count < 60 && !cleaned.hasSuffix(".") {
+                    if cleaned.range(of: "(TOP|Insight|Summary|Best|Key|Guide|Review|vs|Top\\d+)", options: .regularExpression) != nil {
+                         return cleanTitle(cleaned)
+                    }
+                    // 한글 제목 패턴 (조사로 끝나지 않음 등 - 간단히 길이만 체크)
+                }
+            }
+        }
+        
+        // 폴백 2: 첫 섹션 or 첫 줄
         if let firstSection = layout.contentSections.first {
             let text = firstSection
                 .compactMap { $0["text"] as? String }
                 .joined(separator: " ")
+            // 첫 줄이 너무 길지 않으면 제목으로 사용
+            if text.count < 60 {
+                return cleanTitle(text)
+            }
+        }
+        
+        // 최후의 수단: 첫 번째 유효 블록
+        if let first = textBlocks.first(where: { ($0["text"] as? String)?.count ?? 0 > 5 }),
+           let text = first["text"] as? String {
             return cleanTitle(text)
         }
         
@@ -787,7 +869,8 @@ class EnhancedContentAnalyzer {
     private func generateSummary(
         textBlocks: [[String: Any]],
         layout: LayoutAnalysis,
-        contentType: String
+        contentType: String,
+        title: String
     ) -> String {
         print("[EnhancedContentAnalyzer] === Generating Summary ===")
         
@@ -814,12 +897,43 @@ class EnhancedContentAnalyzer {
         let topSentences = sentences.sorted { $0.1 > $1.1 }.prefix(3)
         print("[EnhancedContentAnalyzer] Top 3 sentences selected")
         
-        let result = topSentences.map { $0.0 }.joined(separator: " ")
+        var result = topSentences.map { $0.0 }.joined(separator: " ")
         print("[EnhancedContentAnalyzer] Final summary: \(result)")
         
         if result.isEmpty {
-             return String(fullText.prefix(150)) + "..."
+             result = String(fullText.prefix(150)) + "..."
         }
+        
+        // Content Type Specific Templates
+        if !title.isEmpty && title != "New Memory" {
+            switch contentType {
+            case "place":
+                // 맛집/장소 템플릿
+                return "해당 링크는 '\(title)'의 위치 및 정보를 담고 있습니다.\n\n" + result
+                
+            case "shopping":
+                // 쇼핑 템플릿 (가격 정보 추출 시도)
+                var priceInfo = ""
+                if let priceMatch = fullText.range(of: "[0-9,]+(원|\\$)", options: .regularExpression) {
+                    let price = String(fullText[priceMatch])
+                    priceInfo = " (가격: \(price))"
+                }
+                return "해당 링크는 '\(title)' 판매 페이지입니다.\(priceInfo)\n\n" + result
+                
+            case "news", "tech":
+                // 뉴스/테크 템플릿
+                return "해당 링크는 '\(title)' 내용을 설명한 글로, 주요 인사이트를 전달하고 있습니다.\n\n" + result
+                
+            case "sns":
+                // SNS 템플릿
+                return "해당 링크는 '\(title)' 내용을 설명한 글로, 주요 인사이트를 전달하고 있습니다.\n\n" + result
+                
+            default:
+                break
+            }
+        }
+        
+        return result
         
         return result
     }
