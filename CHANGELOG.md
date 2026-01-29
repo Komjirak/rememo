@@ -1,3 +1,10 @@
+## [1.0.0+25] - 2026-01-29
+
+### Enhanced
+- **Template-based Content Summaries**: Applied the content-type specific summary templates to screenshots and image captures as well, ensuring consistent quality across all input methods (Share Link, Screenshot, Camera).
+- **Refined Content Type Detection**: Improved logic to distinguish between `Place` (Map/Restaurant), `Shopping`, `News`, and `SNS` more accurately using expanded keyword sets.
+- **Unified Analysis Logic**: Merged analysis pathways in `OnDeviceLLM` so that enhanced title extraction and summarization benefit all user flows.
+
 ## [1.0.0+24] - 2026-01-29
 
 ### Enhanced
