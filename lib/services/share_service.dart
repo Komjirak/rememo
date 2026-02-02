@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:stribe/services/unified_analysis_service.dart';
+import 'package:stribe/services/ondevice_llm_service.dart';
 
 /// Model for shared content received from Share Extension
 class SharedItem {
@@ -163,7 +165,7 @@ class URLMetadata {
 /// Service for handling Share Extension data
 class ShareService {
   static const _channel = MethodChannel('com.rememo.komjirak/share');
-  static const _llmChannel = MethodChannel('com.rememo.komjirak/llm'); // Added
+  // _llmChannel removed: Using UnifiedAnalysisService instead
 
   static final ShareService _instance = ShareService._internal();
   factory ShareService() => _instance;
@@ -244,44 +246,7 @@ class ShareService {
     }
   }
 
-  /// Generate AI Summary using On-Device LLM
-  Future<Map<String, dynamic>?> _generateAISummary(String title, String content) async {
-    try {
-        // Split content into paragraphs for the LLM API
-        final paragraphs = content.split(RegExp(r'\n+'))
-            .map((p) => p.trim())
-            .where((p) => p.length > 20)
-            .toList();
-            
-        if (paragraphs.isEmpty) return null;
-
-        // Create synthetic blocks from paragraphs
-        final textBlocks = paragraphs.map((p) => {
-            'text': p,
-            'top': 0.5, // Dummy values
-            'left': 0.1,
-            'width': 0.8,
-            'height': 0.1,
-            'confidence': 1.0,
-        }).toList();
-
-        final result = await _llmChannel.invokeMethod('analyzeSummary', {
-            'textBlocks': textBlocks,
-            'imageSize': {'width': 1000.0, 'height': 2000.0}, // Dummy size
-             // Optional args
-            'layoutRegions': [],
-            'importantAreas': [],
-        });
-        
-        if (result != null) {
-            return Map<String, dynamic>.from(result);
-        }
-        return null;
-    } catch (e) {
-        print("Failed to generate AI summary: $e");
-        return null;
-    }
-  }
+  // _generateAISummary removed: Using UnifiedAnalysisService instead
 
   /// Process a shared item with AI analysis
   /// Returns the processed SharedItem with OCR text, tags, category etc.
@@ -367,12 +332,46 @@ class ShareService {
            }
         }
         
-        // AI Summarization if text is available
+        // AI Analysis using UnifiedAnalysisService (replaces manual _generateAISummary)
         if (currentText.isNotEmpty) {
-            final aiResult = await _generateAISummary(currentTitle, currentText);
-            if (aiResult != null) {
-                if (aiResult['summary'] != null) currentSummary = aiResult['summary'];
-                // Could also use aiResult['keyInsights'] for tags or separate field
+            print('🧠 [ShareService] Requesting Unified Analysis for URL content...');
+            final analysis = await UnifiedAnalysisService.analyze(
+                blocks: null,
+                ocrText: currentText,
+                suggestedCategory: 'Web',
+            );
+
+            // 1. Title Strategy: Use AI title if current one is weak
+            // Weak conditions: Empty, Security page, or looks like raw domain
+            final bool isWeakTitle = currentTitle.isEmpty || 
+                                   _isSecurityPageTitle(currentTitle) || 
+                                   currentTitle == _prettifyHost(item.url ?? '');
+            
+            if (isWeakTitle && analysis.title.isNotEmpty && analysis.title != 'New Memory') {
+                print('✨ [ShareService] Replacing weak title "$currentTitle" with AI title: "${analysis.title}"');
+                currentTitle = analysis.title;
+            }
+
+            // 2. Summary Strategy: Merge or Prefer AI
+            // If metadata description is short, prefer AI summary
+            if (analysis.summary.isNotEmpty) {
+                if (currentSummary.isEmpty || currentSummary.length < 50) {
+                    currentSummary = analysis.summary;
+                } else {
+                    // Both exist: Maybe append or keep metadata?
+                    // For now, if AI summary provides more detail, we might want to use it
+                    // But metadata description is usually human-written and good.
+                    // Let's stick to: Metadata Primary, AI Backup, unless Metadata is very short.
+                    // If AI summary is significantly longer/richer, maybe use it?
+                    if (analysis.summary.length > currentSummary.length * 2) {
+                         currentSummary = analysis.summary;
+                    }
+                }
+            }
+            
+            // 3. Tags
+            if (analysis.keyInsights.isNotEmpty) {
+                // Merge tags? For now, let UnifiedService handle tags if we want
             }
         }
 
@@ -383,7 +382,7 @@ class ShareService {
             imageUrl: currentImageUrl,
             category: 'Web',
             tags: _extractTagsFromText(currentTitle + ' ' + currentSummary),
-            ocrText: currentText, // 🔹 Save web content to ocrText property so it persists in DB
+            ocrText: currentText, 
         );
         
       } else if (item.type == 'text') {
@@ -401,9 +400,19 @@ class ShareService {
           
           // Try AI Summary for URL content if available from metadata
           if (metadata?.text != null && metadata!.text!.isNotEmpty) {
-               final aiResult = await _generateAISummary(title, metadata.text!);
-               if (aiResult != null && aiResult['summary'] != null) {
-                   summary = aiResult['summary'];
+               final analysis = await UnifiedAnalysisService.analyze(
+                    blocks: null,
+                    ocrText: metadata!.text!,
+                    suggestedCategory: 'Web',
+               );
+               
+               if (analysis.summary.isNotEmpty) {
+                   summary = analysis.summary;
+               }
+               
+               // Also upgrade title if weak
+               if ((title.isEmpty || title == _prettifyHost(extractedUrl)) && analysis.title.isNotEmpty) {
+                   title = analysis.title;
                }
           }
 
