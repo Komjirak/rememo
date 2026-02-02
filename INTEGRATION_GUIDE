@@ -1,0 +1,514 @@
+# Rememo 앱 완전 재구현 가이드
+
+스크린샷 분석 앱과 동일한 기능을 구현하기 위한 완전 가이드입니다.
+
+## 🎯 구현 목표
+
+```
+✅ Foundation Models (Apple Native APIs) 사용
+✅ NLSummarizer로 "About This Screenshot" 생성
+✅ NSDataDetector로 구조화된 데이터 추출
+✅ Key Insights 5개 생성
+✅ AI Provider 선택 (Apple AI / OpenAI)
+✅ 설정 화면 구현
+✅ 노트 상세 화면 UI
+```
+
+---
+
+## 📁 파일 구조
+
+```
+ios/Runner/
+├── FoundationModelsAnalyzer_v2.swift          # ⭐ 새로운 Apple Native 구현
+├── ContentAnalyzerAdapter_v2.swift            # ⭐ 라우팅 로직
+└── EnhancedContentAnalyzer.swift              # 기존 fallback
+
+lib/
+├── models/
+│   └── memo_model.dart                        # ⭐ 새로운 데이터 모델
+├── screens/
+│   ├── note_detail_screen.dart                # ⭐ 노트 상세 UI
+│   └── settings_screen.dart                   # ⭐ 설정 화면
+└── main.dart
+```
+
+---
+
+## 🔧 Step 1: iOS Native 코드 교체
+
+### 1-1. FoundationModelsAnalyzer 교체
+
+**파일:** `ios/Runner/FoundationModelsAnalyzer.swift`
+
+**작업:**
+```bash
+# 기존 파일 백업
+mv ios/Runner/FoundationModelsAnalyzer.swift ios/Runner/FoundationModelsAnalyzer.swift.backup
+
+# 새 파일로 교체
+cp FoundationModelsAnalyzer_v2.swift ios/Runner/FoundationModelsAnalyzer.swift
+```
+
+**변경 사항:**
+- ✅ `NLSummarizer` 통합
+- ✅ `NSDataDetector` 통합
+- ✅ Insights 추출 로직 5가지
+- ✅ 고급 UI 노이즈 필터링
+- ✅ `explanation` 필드 생성
+
+---
+
+### 1-2. ContentAnalyzerAdapter 교체
+
+**파일:** `ios/Runner/ContentAnalyzerAdapter.swift`
+
+**작업:**
+```bash
+cp ContentAnalyzerAdapter_v2.swift ios/Runner/ContentAnalyzerAdapter.swift
+```
+
+**변경 사항:**
+- ✅ Foundation Models 우선 사용
+- ✅ 에러 시 Enhanced Rules로 fallback
+- ✅ 로그 개선
+
+---
+
+### 1-3. Device Detection 수정
+
+**FoundationModelsAnalyzer_v2.swift**의 `isAvailable()` 함수 확인:
+
+```swift
+let isSupported = 
+    deviceModel.hasPrefix("iPhone15,3") ||   // 15 Pro
+    deviceModel.hasPrefix("iPhone15,4") ||   // 15 Pro Max
+    deviceModel.hasPrefix("iPhone16,") ||    // 16 Pro 시리즈
+    deviceModel.hasPrefix("iPhone17,")       // 16 전체 시리즈 ✅
+```
+
+이미 포함되어 있습니다! ✅
+
+---
+
+## 🎨 Step 2: Flutter UI 구현
+
+### 2-1. 데이터 모델 추가
+
+**파일:** `lib/models/memo_model.dart`
+
+**작업:**
+```bash
+# Freezed 패키지 추가
+flutter pub add freezed_annotation
+flutter pub add --dev build_runner
+flutter pub add --dev freezed
+
+# 모델 파일 추가
+cp memo_model.dart lib/models/
+```
+
+**코드 생성:**
+```bash
+flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+---
+
+### 2-2. 노트 상세 화면 추가
+
+**파일:** `lib/screens/note_detail_screen.dart`
+
+**작업:**
+```bash
+cp note_detail_screen.dart lib/screens/
+```
+
+**UI 구성:**
+- ✅ Source Screenshot 섹션
+- ✅ Title & OCR Only
+- ✅ About This Screenshot (파란색 배경)
+- ✅ Key Insights (노란색 전구, PRO 배지)
+- ✅ Copy / Share / Redo 버튼
+- ✅ 언어 선택 (PRO)
+
+---
+
+### 2-3. 설정 화면 추가
+
+**파일:** `lib/screens/settings_screen.dart`
+
+**작업:**
+```bash
+# SharedPreferences 추가
+flutter pub add shared_preferences
+
+# 설정 화면 추가
+cp settings_screen.dart lib/screens/
+```
+
+**기능:**
+- ✅ 노트 통계
+- ✅ Foundation Models 상태
+- ✅ AI Provider 선택 (Apple AI / OpenAI)
+- ✅ 언어 설정
+- ✅ 캐시 관리
+
+---
+
+## 🔗 Step 3: Flutter ↔ iOS 연결
+
+### 3-1. Method Channel 업데이트
+
+**파일:** `ios/Runner/AppDelegate.swift`
+
+**확인 사항:**
+```swift
+// Method channel이 제대로 연결되어 있는지 확인
+let channel = FlutterMethodChannel(name: "com.yourapp.rememo/analyzer", ...)
+
+channel.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+    if call.method == "analyzeScreenshot" {
+        // ContentAnalyzerAdapter 호출
+        let adapter = ContentAnalyzerAdapter.shared
+        let analysisResult = await adapter.analyze(textBlocks: ..., imageSize: ...)
+        result(analysisResult)
+    }
+})
+```
+
+---
+
+### 3-2. Flutter에서 호출
+
+**파일:** `lib/services/analyzer_service.dart`
+
+```dart
+class AnalyzerService {
+  static const platform = MethodChannel('com.yourapp.rememo/analyzer');
+  
+  Future<MemoModel> analyzeScreenshot(String imagePath) async {
+    try {
+      final result = await platform.invokeMethod('analyzeScreenshot', {
+        'imagePath': imagePath,
+      });
+      
+      return MemoModel.fromJson(result as Map<String, dynamic>);
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
+    }
+  }
+}
+```
+
+---
+
+## 📊 Step 4: JSON 응답 구조
+
+### Before (기존):
+```json
+{
+  "title": "2:411",
+  "summary": "2:411\n100\nX\n던킨 원더스청담...",
+  "tags": [],
+  "contentType": "general"
+}
+```
+
+### After (새로운):
+```json
+{
+  "title": "던킨 원더스청담",
+  "summary": "이 스크린샷은 던킨 원더스 청담 매장에서 도넛 리뷰, 위치, 주문 방법...",
+  "explanation": "이 스크린샷은 던킨 원더스 청담 매장에서 도넛 리뷰, 위치...",
+  "insights": [
+    "영업 시간: 23:00",
+    "주문 방법: N 주문",
+    "배달 및 포장 이용 가능",
+    "화장실 구분: 남/녀 구분",
+    "무선 인터넷 이용 가능"
+  ],
+  "tags": ["도넛", "청담", "맛집"],
+  "contentType": "place",
+  "refinedText": "던킨 원더스청담\n도넛 리뷰 1,025...",
+  "detectedData": {
+    "urls": ["https://100원커피이벤트-선착순주문하기.com"],
+    "phoneNumbers": ["0507-1396-1261"],
+    "emails": []
+  },
+  "provider": "foundation",
+  "analyzerUsed": "FoundationModels (Apple Native)"
+}
+```
+
+---
+
+## 🧪 Step 5: 테스트
+
+### 5-1. 디바이스 테스트
+
+```bash
+# Xcode로 빌드
+cd ios
+pod install
+open Runner.xcworkspace
+
+# 실제 iPhone 16 Pro에서 실행
+```
+
+### 5-2. 로그 확인
+
+**예상 로그:**
+```
+============================================================
+🔍 ContentAnalyzerAdapter: Starting Analysis
+============================================================
+✨ Using: Apple Intelligence (Foundation Models)
+   - Device supports Apple Intelligence
+   - LLM-based analysis with NLSummarizer + NSDataDetector
+============================================================
+[FoundationModelsAnalyzer] 🔍 Device Check
+Device: iPhone17,1
+iOS: 18.2.1
+Apple Intelligence Supported: true
+============================================================
+[FoundationModelsAnalyzer] 🔍 Starting Analysis...
+[FoundationModelsAnalyzer] Input blocks: 45
+[FoundationModelsAnalyzer] Full text length: 1234
+[FoundationModelsAnalyzer] Filtered blocks: 28
+[FoundationModelsAnalyzer] NLSummarizer summary: 이 스크린샷은...
+[FoundationModelsAnalyzer] Detected data: URLs=1, Phones=1, Emails=0
+[FoundationModelsAnalyzer] Generated tags: [도넛, 청담, 맛집]
+[FoundationModelsAnalyzer] ✅ Analysis Complete
+   - Title: 던킨 원더스청담
+   - Explanation: 이 스크린샷은 던킨 원더스 청담...
+   - Insights: 5
+   - Tags: [도넛, 청담, 맛집]
+```
+
+---
+
+## 🎨 Step 6: UI 연결
+
+### 6-1. 메인 화면에서 노트 탭 시
+
+```dart
+// lib/screens/home_screen.dart
+
+onTap: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => NoteDetailScreen(memo: memo),
+    ),
+  );
+}
+```
+
+### 6-2. 설정 화면 열기
+
+```dart
+// AppBar에 설정 버튼 추가
+
+IconButton(
+  icon: Icon(Icons.settings),
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(),
+      ),
+    );
+  },
+)
+```
+
+---
+
+## 🚀 Step 7: OpenAI Provider 추가 (Optional)
+
+### 7-1. OpenAI API 통합
+
+**파일:** `ios/Runner/OpenAIAnalyzer.swift` (새로 생성)
+
+```swift
+import Foundation
+
+class OpenAIAnalyzer {
+    static let shared = OpenAIAnalyzer()
+    private let apiKey = "YOUR_OPENAI_API_KEY"
+    
+    func analyze(textBlocks: [[String: Any]]) async throws -> AnalysisResult {
+        let fullText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+        
+        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "model": "gpt-4-turbo-preview",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": """
+                    Analyze this screenshot text and return JSON:
+                    
+                    \(fullText)
+                    
+                    Return:
+                    {
+                      "title": "...",
+                      "explanation": "...",
+                      "insights": ["...", "...", "..."],
+                      "tags": ["...", "..."]
+                    }
+                    """
+                ]
+            ]
+        ]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        // Parse and return...
+    }
+}
+```
+
+### 7-2. ContentAnalyzerAdapter에서 Provider 선택
+
+```swift
+func analyze(textBlocks: [[String: Any]], imageSize: [String: CGFloat]) async -> [String: Any] {
+    let prefs = UserDefaults.standard
+    let selectedProvider = prefs.string(forKey: "ai_provider") ?? "apple"
+    
+    if selectedProvider == "openai" {
+        return try await OpenAIAnalyzer.shared.analyze(textBlocks: textBlocks).toDict()
+    } else {
+        return try await FoundationModelsAnalyzer.shared.analyze(...).toDict()
+    }
+}
+```
+
+---
+
+## ✅ 완료 체크리스트
+
+### iOS (Native)
+- [ ] FoundationModelsAnalyzer_v2.swift 교체
+- [ ] ContentAnalyzerAdapter_v2.swift 교체
+- [ ] Device detection 확인 (iPhone17 포함)
+- [ ] 빌드 성공
+- [ ] 실제 기기 테스트
+
+### Flutter (UI)
+- [ ] memo_model.dart 추가 + freezed 코드 생성
+- [ ] note_detail_screen.dart 추가
+- [ ] settings_screen.dart 추가
+- [ ] SharedPreferences 통합
+- [ ] Method Channel 연결 확인
+
+### 기능 테스트
+- [ ] 스크린샷 분석 시 Foundation Models 사용
+- [ ] "About This Screenshot" 표시
+- [ ] "Key Insights" 5개 표시
+- [ ] URL/전화번호/이메일 감지
+- [ ] AI Provider 선택 동작
+- [ ] 설정 저장/로드
+
+---
+
+## 🐛 문제 해결
+
+### "Foundation Models not available"
+
+**확인:**
+1. Device model이 `iPhone17,x`로 인식되는지
+2. iOS 버전이 18.2 이상인지
+3. `isAvailable()` 함수에 `hasPrefix("iPhone17,")`가 있는지
+
+**해결:**
+```swift
+// FoundationModelsAnalyzer_v2.swift
+deviceModel.hasPrefix("iPhone17,")  // ✅ 추가됨
+```
+
+---
+
+### NLSummarizer가 한국어를 지원 안함
+
+**현재 구현:**
+- NLSummarizer 실패 시 fallback으로 문장 스코어링 사용
+- 길이 + 키워드 기반 문장 선택
+
+**개선 방법:**
+```swift
+// 한국어 특화 요약 알고리즘
+private func summarizeKorean(_ text: String) -> String {
+    // 명사 추출 + 빈도 기반
+    // 중요 문장 선택
+}
+```
+
+---
+
+## 📝 다음 단계
+
+1. **OpenAI 통합** (Optional)
+   - API 키 설정
+   - Provider 전환 로직
+   
+2. **PRO 기능 구현**
+   - Key Insights 제한
+   - 언어 선택 제한
+   - Redo 기능 제한
+
+3. **품질 개선**
+   - 더 많은 Insights 패턴
+   - 콘텐츠 타입별 맞춤 설명
+   - 태그 품질 향상
+
+---
+
+## 🎉 결과 예상
+
+**던킨 도넛 스크린샷:**
+```
+Title: 던킨 원더스청담
+Explanation: 이 스크린샷은 던킨 원더스 청담 매장에서 도넛 리뷰, 위치, 주문 방법, 영업 시간, 그리고 이용 편의시설을 포함한 매장 정보를 제공합니다.
+Insights:
+  • 영업 시간: 23:00
+  • 주문 방법: N 주문
+  • 배달 및 포장 이용 가능
+  • 화장실 구분: 남/녀 구분
+  • 무선 인터넷 이용 가능
+Tags: [도넛, 청담, 맛집]
+Provider: foundation
+```
+
+**동아대 스크린샷:**
+```
+Title: 동아대학교 설립 배경 및 특별 혜택
+Explanation: 이 스크린샷은 동아대학교의 설립 배경과 특징을 소개하는 내용을 포함하고 있습니다.
+Insights:
+  • 날짜: 1946년
+  • 위치: 부산
+  • 설립자: 강원석
+Tags: [대학, 교육, 역사]
+Provider: foundation
+```
+
+---
+
+## 📞 지원
+
+문제가 발생하면:
+1. Xcode Console 로그 확인
+2. Flutter Debug Console 확인
+3. `isAvailable()` 리턴값 확인
+4. Method Channel 연결 확인
+
+성공하면 참조 앱과 동일한 기능이 작동합니다! 🎉

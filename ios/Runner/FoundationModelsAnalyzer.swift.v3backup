@@ -1,0 +1,423 @@
+//
+//  FoundationModelsAnalyzer.swift
+//  Runner - Version 3 FINAL
+//
+//  Complete rewrite with proper debugging
+//
+
+import Foundation
+import NaturalLanguage
+import CoreGraphics
+
+// MARK: - Data Structures
+struct DetectedData: Codable {
+    let urls: [String]
+    let phoneNumbers: [String]
+    let emails: [String]
+}
+
+struct AnalysisResult: Codable {
+    let title: String
+    let explanation: String
+    let summary: String
+    let insights: [String]
+    let tags: [String]
+    let contentType: String
+    let refinedText: String
+    let detectedData: DetectedData
+    let provider: String
+    
+    func toDict() -> [String: Any] {
+        return [
+            "title": title,
+            "summary": explanation,
+            "insights": insights,
+            "tags": tags,
+            "contentType": contentType,
+            "refinedText": refinedText,
+            "detectedData": [
+                "urls": detectedData.urls,
+                "phoneNumbers": detectedData.phoneNumbers,
+                "emails": detectedData.emails
+            ],
+            "analyzerUsed": "FoundationModels (v3)"
+        ]
+    }
+}
+
+// MARK: - Foundation Models Analyzer
+@available(iOS 15.0, *)
+class FoundationModelsAnalyzer {
+    static let shared = FoundationModelsAnalyzer()
+    
+    private init() {
+        print("[FoundationModelsAnalyzer] 🚀 v3 FINAL initialized")
+    }
+    
+    // MARK: - Availability Check
+    static func isAvailable() -> Bool {
+        if #available(iOS 18.2, *) {
+            let deviceModel = getDeviceModel()
+            let iosVersion = UIDevice.current.systemVersion
+            
+            print("============================================================")
+            print("[FoundationModelsAnalyzer] 🔍 Device Check")
+            print("============================================================")
+            print("Device: \(deviceModel)")
+            print("iOS: \(iosVersion)")
+            
+            let isSupported = 
+                deviceModel.hasPrefix("iPhone15,3") ||
+                deviceModel.hasPrefix("iPhone15,4") ||
+                deviceModel.hasPrefix("iPhone16,") ||
+                deviceModel.hasPrefix("iPhone17,")
+            
+            print("Apple Intelligence Supported: \(isSupported)")
+            print("============================================================")
+            
+            return isSupported
+        }
+        
+        return false
+    }
+    
+    private static func getDeviceModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        return identifier
+    }
+    
+    // MARK: - Main Analysis Function
+    func analyze(
+        textBlocks: [[String: Any]],
+        imageSize: [String: CGFloat]
+    ) async throws -> AnalysisResult {
+        
+        print("[FoundationModelsAnalyzer] 🔍 Starting Analysis...")
+        print("[FoundationModelsAnalyzer] Input blocks: \(textBlocks.count)")
+        
+        let fullText = textBlocks
+            .compactMap { $0["text"] as? String }
+            .joined(separator: "\n")
+        
+        print("[FoundationModelsAnalyzer] Full text length: \(fullText.count)")
+        
+        // Filter UI Noise
+        let filteredBlocks = filterUINoiseBlocks(textBlocks, imageSize: imageSize)
+        let cleanText = filteredBlocks
+            .compactMap { $0["text"] as? String }
+            .joined(separator: "\n")
+        
+        print("[FoundationModelsAnalyzer] Clean text length: \(cleanText.count)")
+        
+        // Generate components
+        let explanation = generateExplanation(cleanText)
+        let insights = extractInsights(from: cleanText)
+        let detectedData = detectStructuredData(in: fullText)
+        let tags = generateTags(from: cleanText)
+        let contentType = detectContentType(cleanText)
+        let title = generateTitle(from: cleanText, blocks: filteredBlocks)
+        
+        let result = AnalysisResult(
+            title: title,
+            explanation: explanation,
+            summary: explanation,
+            insights: insights,
+            tags: tags,
+            contentType: contentType,
+            refinedText: cleanText,
+            detectedData: detectedData,
+            provider: "foundation"
+        )
+        
+        print("[FoundationModelsAnalyzer] ✅ Analysis Complete")
+        print("[FoundationModelsAnalyzer]   - Title: \(title)")
+        print("[FoundationModelsAnalyzer]   - Explanation: \(explanation.prefix(50))...")
+        print("[FoundationModelsAnalyzer]   - Insights: \(insights.count)")
+        print("[FoundationModelsAnalyzer]   - Tags: \(tags)")
+        
+        return result
+    }
+    
+    // MARK: - UI Noise Filtering v3
+    private func filterUINoiseBlocks(
+        _ blocks: [[String: Any]],
+        imageSize: [String: CGFloat]
+    ) -> [[String: Any]] {
+        
+        print("[FoundationModelsAnalyzer] 🧹 Filtering \(blocks.count) blocks...")
+        
+        var kept: [[String: Any]] = []
+        var reasons: [String: Int] = [:]
+        
+        for block in blocks {
+            guard let text = block["text"] as? String,
+                  let top = block["top"] as? Double else {
+                reasons["missing_data", default: 0] += 1
+                continue
+            }
+            
+            let confidence = block["confidence"] as? Double ?? 1.0
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Rule 1: Empty
+            if trimmed.isEmpty {
+                reasons["empty", default: 0] += 1
+                continue
+            }
+            
+            // Rule 2: Status bar
+            if top < 0.05 && trimmed.count < 10 {
+                if trimmed.range(of: "^\\d{1,2}:\\d{2}", options: .regularExpression) != nil {
+                    reasons["status_time", default: 0] += 1
+                    continue
+                }
+                if trimmed.range(of: "^\\d{1,3}%?$", options: .regularExpression) != nil {
+                    reasons["status_battery", default: 0] += 1
+                    continue
+                }
+            }
+            
+            // Rule 3: Naver menu (EXACT match)
+            let naverMenu = [
+                "로그인이 필요합니다", "로그인", "내소식", "이웃목록", "통계",
+                "클립만들기", "글쓰기", "My Menu 닫기", "내 체크인",
+                "최근 본 글", "내 동영상", "내 클립", "내 상품 관리",
+                "마켓 플레이스", "장바구니", "마켓 구매내역",
+                "블로그팀 공식블로그", "이달의 블로그", "공식 블로그", "블로그 앱",
+                "블로그 고객센터", "PC버전으로 보기", "본문 바로가기",
+                "카테고리 이동", "MY메뉴 열기", "이웃추가",
+                "본문 기타 기능", "본문 폰트 크기 조정", "공유하기",
+                "URL복사", "신고하기", "NEW"
+            ]
+            
+            if naverMenu.contains(where: { trimmed == $0 || trimmed.hasPrefix($0 + " ") }) {
+                print("[FoundationModelsAnalyzer] 🚫 Naver menu: \(trimmed)")
+                reasons["naver_menu", default: 0] += 1
+                continue
+            }
+            
+            // Rule 4: Simple buttons
+            if trimmed.count <= 6 {
+                let buttons = ["홈", "검색", "저장", "편집", "삭제", "취소", "확인", "닫기", 
+                              "공유", "출발", "도착", "주문", "배달", "포장", "매장"]
+                if buttons.contains(trimmed) {
+                    reasons["button", default: 0] += 1
+                    continue
+                }
+            }
+            
+            // Rule 5: AD markers
+            if trimmed == "AD" || trimmed == "광고" {
+                reasons["ad", default: 0] += 1
+                continue
+            }
+            
+            // Rule 6: Standalone URL
+            if trimmed.range(of: "^https?://[^\\s]+$", options: .regularExpression) != nil {
+                reasons["url", default: 0] += 1
+                continue
+            }
+            
+            // Rule 7: Too short (1 char only)
+            if trimmed.count == 1 {
+                reasons["too_short", default: 0] += 1
+                continue
+            }
+            
+            // Rule 8: Low confidence (very lenient)
+            if confidence < 0.05 {
+                reasons["low_confidence", default: 0] += 1
+                continue
+            }
+            
+            // ✅ KEEP
+            print("[FoundationModelsAnalyzer] ✅ Kept: \(trimmed.prefix(50))...")
+            kept.append(block)
+        }
+        
+        // Print statistics
+        print("[FoundationModelsAnalyzer] 📊 Filtering Results:")
+        print("[FoundationModelsAnalyzer]   - Kept: \(kept.count)")
+        print("[FoundationModelsAnalyzer]   - Filtered: \(blocks.count - kept.count)")
+        for (reason, count) in reasons.sorted(by: { $0.value > $1.value }) {
+            print("[FoundationModelsAnalyzer]     • \(reason): \(count)")
+        }
+        
+        return kept
+    }
+    
+    // MARK: - Other methods (same as before)
+    private func generateExplanation(_ text: String) -> String {
+        guard !text.isEmpty else { 
+            return "스크린샷 분석 결과가 없습니다."
+        }
+        
+        if text.count < 50 {
+            return text
+        }
+        
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".!?\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.count > 10 }
+        
+        if sentences.isEmpty {
+            return text.prefix(200).description
+        }
+        
+        let importantSentences = sentences
+            .sorted { scoreSentence($0, in: text) > scoreSentence($1, in: text) }
+            .prefix(3)
+        
+        return importantSentences.joined(separator: " ")
+    }
+    
+    private func scoreSentence(_ sentence: String, in fullText: String) -> Double {
+        var score = 0.0
+        
+        if sentence.count >= 30 && sentence.count <= 150 {
+            score += 3.0
+        } else if sentence.count >= 20 && sentence.count <= 200 {
+            score += 1.0
+        }
+        
+        if sentence.last == "." || sentence.last == "다" || sentence.last == "요" {
+            score += 1.5
+        }
+        
+        if sentence.range(of: "\\d", options: .regularExpression) != nil {
+            score += 1.0
+        }
+        
+        let keywords = ["매장", "위치", "리뷰", "영업", "가격", "배달", "주문", "이용"]
+        for keyword in keywords {
+            if sentence.contains(keyword) {
+                score += 0.5
+            }
+        }
+        
+        return score
+    }
+    
+    private func extractInsights(from text: String) -> [String] {
+        var insights: [String] = []
+        
+        if let match = text.range(of: "\\d{1,2}:\\d{2}에 영업 종료", options: .regularExpression) {
+            insights.append("영업 시간: " + String(text[match]).replacingOccurrences(of: "에 영업 종료", with: ""))
+        }
+        
+        if let match = text.range(of: "\\d{1,3}(,\\d{3})*원", options: .regularExpression) {
+            insights.append("가격: \(text[match])")
+        }
+        
+        if text.contains("배달") || text.contains("포장") {
+            var services: [String] = []
+            if text.contains("배달") { services.append("배달") }
+            if text.contains("포장") { services.append("포장") }
+            insights.append(services.joined(separator: ", ") + " 이용 가능")
+        }
+        
+        return Array(insights.prefix(5))
+    }
+    
+    private func detectStructuredData(in text: String) -> DetectedData {
+        var urls: [String] = []
+        var phoneNumbers: [String] = []
+        var emails: [String] = []
+        
+        let types: NSTextCheckingResult.CheckingType = [.link, .phoneNumber, .address, .date]
+        guard let detector = try? NSDataDetector(types: types.rawValue) else {
+            return DetectedData(urls: urls, phoneNumbers: phoneNumbers, emails: emails)
+        }
+        
+        let matches = detector.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
+        
+        for match in matches {
+            if let url = match.url {
+                urls.append(url.absoluteString)
+            }
+            if let phone = match.phoneNumber {
+                phoneNumbers.append(phone)
+            }
+        }
+        
+        return DetectedData(
+            urls: Array(Set(urls)),
+            phoneNumbers: Array(Set(phoneNumbers)),
+            emails: Array(Set(emails))
+        )
+    }
+    
+    private func generateTags(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+        
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        
+        var wordFreq: [String: Int] = [:]
+        
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex,
+                            unit: .word,
+                            scheme: .lexicalClass,
+                            options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+            if tag == .noun || tag == .personalName || tag == .placeName {
+                let word = String(text[range])
+                if word.count >= 2 {
+                    wordFreq[word, default: 0] += 1
+                }
+            }
+            return true
+        }
+        
+        let tags = wordFreq
+            .filter { $0.value >= 1 }
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { $0.key }
+        
+        return Array(tags)
+    }
+    
+    private func detectContentType(_ text: String) -> String {
+        let lowercased = text.lowercased()
+        
+        if lowercased.contains("주문") || lowercased.contains("배달") || lowercased.contains("리뷰") {
+            return "place"
+        }
+        if lowercased.contains("대학") || lowercased.contains("학교") {
+            return "education"
+        }
+        if lowercased.contains("뉴스") || lowercased.contains("기자") {
+            return "news"
+        }
+        
+        return "general"
+    }
+    
+    private func generateTitle(from text: String, blocks: [[String: Any]]) -> String {
+        // Try first meaningful sentence
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: "\n.!?"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.count >= 10 && $0.count <= 100 }
+        
+        for sentence in sentences.prefix(5) {
+            let uiKeywords = ["로그인", "회원가입", "내소식", "통계", "최근 본"]
+            let hasUIKeyword = uiKeywords.contains { sentence.contains($0) }
+            
+            if !hasUIKeyword {
+                return String(sentence.prefix(50))
+            }
+        }
+        
+        if let longest = sentences.max(by: { $0.count < $1.count }), longest.count >= 10 {
+            return String(longest.prefix(50))
+        }
+        
+        return "New Memory"
+    }
+}

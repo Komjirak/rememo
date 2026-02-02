@@ -1,3 +1,9 @@
+## [1.0.0+27] - 2026-02-02
+
+### Fixed
+- **iOS Build Fix**: Resolved `PhaseScriptExecution` error caused by incorrect sorting logic in `home_screen.dart` (replaced `createdAt` with `captureDate`).
+- **CocoaPods Configuration**: Fixed incorrect include paths in `Debug.xcconfig` and `Release.xcconfig` to resolve build warnings and potential linking errors.
+
 ## [1.0.0+25] - 2026-01-29
 
 ### Enhanced
