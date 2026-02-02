@@ -2,125 +2,81 @@
 //  ContentAnalyzerAdapter.swift
 //  Runner
 //
-//  Adapter for content analysis that routes to the appropriate analyzer
-//  - iOS 26+: Uses Apple Foundation Models (on-device LLM)
-//  - iOS 25 and below: Uses EnhancedContentAnalyzer (NLP-based)
+//  Routes between Enhanced Rules and Foundation Models
 //
 
 import Foundation
-import CoreGraphics
 
+@available(iOS 13.0, *)
 class ContentAnalyzerAdapter {
     static let shared = ContentAnalyzerAdapter()
-
+    
+    private let foundationModels: FoundationModelsAnalyzer
+    private let enhancedAnalyzer: EnhancedContentAnalyzer
+    
     private init() {
-        print("[ContentAnalyzerAdapter] Initializing...")
-        logAvailability()
+        self.foundationModels = FoundationModelsAnalyzer.shared
+        self.enhancedAnalyzer = EnhancedContentAnalyzer.shared
+        print("[ContentAnalyzerAdapter] Initialized")
     }
-
-    // MARK: - Availability Logging
-    private func logAvailability() {
-        if isFoundationModelsAvailable() {
-            print("[ContentAnalyzerAdapter] Foundation Models available (iOS 26+)")
-        } else {
-            print("[ContentAnalyzerAdapter] Using EnhancedContentAnalyzer (fallback)")
-        }
-    }
-
-    // MARK: - Foundation Models Availability Check
-    func isFoundationModelsAvailable() -> Bool {
-        if #available(iOS 26.0, *) {
-            return FoundationModelsAnalyzer.isAvailable()
-        }
-        return false
-    }
-
-    // MARK: - Main Analysis API
-    /// Analyzes content using the best available analyzer
-    /// - Parameters:
-    ///   - textBlocks: OCR text blocks with position info
-    ///   - layoutRegions: Optional layout region info
-    ///   - importantAreas: Optional saliency areas
-    ///   - imageSize: Image dimensions
-    /// - Returns: Analysis result dictionary
-    func analyzeSummary(
-        textBlocks: [[String: Any]],
+    
+    // MARK: - Main Analysis Entry Point
+    func analyze(
+        textBlocks: [[String: Any]], 
         layoutRegions: [[String: Any]]? = nil,
         importantAreas: [[String: Any]]? = nil,
         imageSize: [String: CGFloat]
     ) async -> [String: Any] {
-
-        // Try Foundation Models first (iOS 26+)
-        if #available(iOS 26.0, *), isFoundationModelsAvailable() {
+        print("============================================================")
+        print("🔍 ContentAnalyzerAdapter: Starting Analysis")
+        print("============================================================")
+        
+        let useFoundationModels = FoundationModelsAnalyzer.isAvailable()
+        
+        if useFoundationModels {
+            print("✨ Using: Apple Intelligence (Foundation Models)")
+            print("   - Device supports Apple Intelligence")
+            print("   - LLM-based analysis with NLSummarizer + NSDataDetector")
+            print("============================================================")
+            
             do {
-                print("[ContentAnalyzerAdapter] Using Foundation Models (iOS 26+)")
-
-                let result = try await FoundationModelsAnalyzer.shared.analyze(
+                let result = try await foundationModels.analyze(
                     textBlocks: textBlocks,
                     imageSize: imageSize
                 )
-
-                return [
-                    "title": result.title,
-                    "summary": result.summary,
-                    "tags": result.tags,
-                    "contentType": result.contentType,
-                    "analyzerUsed": "FoundationModels"
-                ]
+                return result.toDict()
             } catch {
-                print("[ContentAnalyzerAdapter] Foundation Models failed: \(error)")
-                print("[ContentAnalyzerAdapter] Falling back to EnhancedContentAnalyzer")
+                print("⚠️ Foundation Models error: \(error)")
+                print("   Falling back to Enhanced Rules...")
+                return enhancedAnalyzer.analyzeSummary(
+                    textBlocks: textBlocks,
+                    layoutRegions: layoutRegions,
+                    importantAreas: importantAreas,
+                    imageSize: imageSize
+                )
             }
+        } else {
+            print("📊 Using: Enhanced Rules (Pattern-based)")
+            print("   - Apple Intelligence not available")
+            print("   - Fallback to pattern matching")
+            print("============================================================")
+            
+            return enhancedAnalyzer.analyzeSummary(
+                textBlocks: textBlocks,
+                layoutRegions: layoutRegions,
+                importantAreas: importantAreas,
+                imageSize: imageSize
+            )
         }
-
-        // Fallback to EnhancedContentAnalyzer
-        print("[ContentAnalyzerAdapter] Using EnhancedContentAnalyzer (fallback)")
-
-        let result = EnhancedContentAnalyzer.shared.analyzeSummary(
-            textBlocks: textBlocks,
-            layoutRegions: layoutRegions,
-            importantAreas: importantAreas,
-            imageSize: imageSize
-        )
-
-        var mutableResult = result
-        mutableResult["analyzerUsed"] = "EnhancedContentAnalyzer"
-        return mutableResult
     }
-
-    // MARK: - Synchronous API for compatibility
-    /// Synchronous wrapper for analyzeSummary (blocks current thread)
-    func analyzeSummarySync(
-        textBlocks: [[String: Any]],
-        layoutRegions: [[String: Any]]? = nil,
-        importantAreas: [[String: Any]]? = nil,
-        imageSize: [String: CGFloat]
-    ) -> [String: Any] {
-
-        // For iOS 26+, we'd need to use async/await
-        // For backward compatibility, use the synchronous EnhancedContentAnalyzer
-        print("[ContentAnalyzerAdapter] Using EnhancedContentAnalyzer (sync mode)")
-
-        var result = EnhancedContentAnalyzer.shared.analyzeSummary(
-            textBlocks: textBlocks,
-            layoutRegions: layoutRegions,
-            importantAreas: importantAreas,
-            imageSize: imageSize
-        )
-
-        result["analyzerUsed"] = "EnhancedContentAnalyzer"
-        return result
-    }
-
-    // MARK: - Status API
-    /// Returns information about the current analyzer being used
+    
+    // MARK: - Analyzer Info
     func getAnalyzerInfo() -> [String: Any] {
-        let useFoundationModels = isFoundationModelsAvailable()
-
+        let foundationModelsAvailable = FoundationModelsAnalyzer.isAvailable()
         return [
-            "foundationModelsAvailable": useFoundationModels,
-            "currentAnalyzer": useFoundationModels ? "FoundationModels" : "EnhancedContentAnalyzer",
-            "iosVersion": ProcessInfo.processInfo.operatingSystemVersionString
+            "foundationModelsAvailable": foundationModelsAvailable,
+            "currentAnalyzer": foundationModelsAvailable ? "FoundationModels" : "EnhancedRules",
+            "iosVersion": UIDevice.current.systemVersion
         ]
     }
 }

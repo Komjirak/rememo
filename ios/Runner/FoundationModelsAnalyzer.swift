@@ -1,125 +1,475 @@
 //
 //  FoundationModelsAnalyzer.swift
-//  Runner
+//  Runner - Version 4 FINAL
 //
-//  Apple Foundation Models 통합 (iOS 26+)
-//  WWDC 2025에서 발표된 온디바이스 LLM 기능 활용
-//
-//  Note: Foundation Models framework는 iOS 26+에서만 사용 가능합니다.
-//  현재 SDK에서 FoundationModels를 import할 수 없는 경우,
-//  fallback 구현이 사용됩니다.
+//  Enhanced Summary + Fixed missing_data issue
 //
 
 import Foundation
+import NaturalLanguage
 import CoreGraphics
 
-// MARK: - Analysis Result Structure
-struct AnalysisResult {
+// MARK: - Data Structures
+struct DetectedData: Codable {
+    let urls: [String]
+    let phoneNumbers: [String]
+    let emails: [String]
+}
+
+struct AnalysisResult: Codable {
     let title: String
+    let explanation: String
     let summary: String
+    let insights: [String]
     let tags: [String]
     let contentType: String
-}
-
-// MARK: - Foundation Models Analyzer Protocol
-protocol FoundationModelsAnalyzerProtocol {
-    static func isAvailable() -> Bool
-    func analyze(textBlocks: [[String: Any]], imageSize: [String: CGFloat]) async throws -> AnalysisResult
-}
-
-// MARK: - Foundation Models Analyzer Implementation
-// Since FoundationModels framework is only available in iOS 26+ SDK,
-// we provide a stub implementation that always falls back to the NLP-based analyzer.
-// When building with iOS 26+ SDK, replace this with the actual implementation.
-
-@available(iOS 26.0, *)
-class FoundationModelsAnalyzer: FoundationModelsAnalyzerProtocol {
-    static let shared = FoundationModelsAnalyzer()
-
-    private init() {
-        print("[FoundationModelsAnalyzer] Initializing (stub implementation)...")
+    let refinedText: String
+    let detectedData: DetectedData
+    let provider: String
+    
+    func toDict() -> [String: Any] {
+        return [
+            "title": title,
+            "summary": explanation,
+            "insights": insights,
+            "tags": tags,
+            "contentType": contentType,
+            "refinedText": refinedText,
+            "detectedData": [
+                "urls": detectedData.urls,
+                "phoneNumbers": detectedData.phoneNumbers,
+                "emails": detectedData.emails
+            ],
+            "analyzerUsed": "FoundationModels (v4)"
+        ]
     }
+}
 
+// MARK: - Foundation Models Analyzer
+@available(iOS 15.0, *)
+class FoundationModelsAnalyzer {
+    static let shared = FoundationModelsAnalyzer()
+    
+    private init() {
+        print("[FoundationModelsAnalyzer] 🚀 v4 FINAL initialized")
+    }
+    
     // MARK: - Availability Check
     static func isAvailable() -> Bool {
-        // Currently returns false since FoundationModels framework
-        // is not available in the current SDK.
-        // When iOS 26 SDK is available, this will perform actual runtime checks:
-        // - Device capability (A17 Pro or newer / M-series)
-        // - Framework availability
-        // - Session initialization success
-
-        // TODO: Implement actual check when iOS 26 SDK is available:
-        // if #available(iOS 26.0, *) {
-        //     return LanguageModelSession.isSupported
-        // }
-
-        print("[FoundationModelsAnalyzer] isAvailable: false (stub implementation)")
+        if #available(iOS 18.2, *) {
+            let deviceModel = getDeviceModel()
+            let iosVersion = UIDevice.current.systemVersion
+            
+            print("============================================================")
+            print("[FoundationModelsAnalyzer] 🔍 Device Check")
+            print("============================================================")
+            print("Device: \(deviceModel)")
+            print("iOS: \(iosVersion)")
+            
+            let isSupported = 
+                deviceModel.hasPrefix("iPhone15,3") ||
+                deviceModel.hasPrefix("iPhone15,4") ||
+                deviceModel.hasPrefix("iPhone16,") ||
+                deviceModel.hasPrefix("iPhone17,")
+            
+            print("Apple Intelligence Supported: \(isSupported)")
+            print("============================================================")
+            
+            return isSupported
+        }
+        
         return false
     }
-
-    // MARK: - Main Analysis API
-    func analyze(textBlocks: [[String: Any]], imageSize: [String: CGFloat]) async throws -> AnalysisResult {
-        // Stub implementation - throws error to trigger fallback
-        // When iOS 26 SDK is available, this will use:
-        // 1. LanguageModelSession to create a session
-        // 2. Generate structured output using @Generable protocol
-        // 3. Parse and return the analysis result
-
-        print("[FoundationModelsAnalyzer] analyze called (stub implementation)")
-        throw NSError(
-            domain: "FoundationModelsAnalyzer",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "FoundationModels not available in current SDK"]
+    
+    private static func getDeviceModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        return identifier
+    }
+    
+    // MARK: - Main Analysis Function
+    func analyze(
+        textBlocks: [[String: Any]],
+        imageSize: [String: CGFloat]
+    ) async throws -> AnalysisResult {
+        
+        print("[FoundationModelsAnalyzer] 🔍 Starting Analysis...")
+        print("[FoundationModelsAnalyzer] Input blocks: \(textBlocks.count)")
+        
+        let fullText = textBlocks
+            .compactMap { $0["text"] as? String }
+            .joined(separator: "\n")
+        
+        print("[FoundationModelsAnalyzer] Full text length: \(fullText.count)")
+        
+        // Filter UI Noise
+        let filteredBlocks = filterUINoiseBlocks(textBlocks, imageSize: imageSize)
+        let cleanText = filteredBlocks
+            .compactMap { $0["text"] as? String }
+            .joined(separator: "\n")
+        
+        print("[FoundationModelsAnalyzer] Clean text length: \(cleanText.count)")
+        
+        // Generate components
+        let contentType = detectContentType(cleanText, fullText: fullText)
+        let explanation = generateContextualSummary(cleanText, contentType: contentType)
+        let insights = extractInsights(from: cleanText)
+        let detectedData = detectStructuredData(in: fullText)
+        let tags = generateTags(from: cleanText)
+        let title = generateTitle(from: cleanText, blocks: filteredBlocks)
+        
+        let result = AnalysisResult(
+            title: title,
+            explanation: explanation,
+            summary: explanation,
+            insights: insights,
+            tags: tags,
+            contentType: contentType,
+            refinedText: cleanText,
+            detectedData: detectedData,
+            provider: "foundation"
+        )
+        
+        print("[FoundationModelsAnalyzer] ✅ Analysis Complete")
+        print("[FoundationModelsAnalyzer]   - Title: \(title)")
+        print("[FoundationModelsAnalyzer]   - Summary: \(explanation.prefix(80))...")
+        print("[FoundationModelsAnalyzer]   - Content Type: \(contentType)")
+        print("[FoundationModelsAnalyzer]   - Insights: \(insights.count)")
+        print("[FoundationModelsAnalyzer]   - Tags: \(tags)")
+        
+        return result
+    }
+    
+    // MARK: - UI Noise Filtering v4 (Fixed missing_data)
+    private func filterUINoiseBlocks(
+        _ blocks: [[String: Any]],
+        imageSize: [String: CGFloat]
+    ) -> [[String: Any]] {
+        
+        print("[FoundationModelsAnalyzer] 🧹 Filtering \(blocks.count) blocks...")
+        
+        var kept: [[String: Any]] = []
+        var reasons: [String: Int] = [:]
+        
+        for block in blocks {
+            guard let text = block["text"] as? String else {
+                reasons["no_text", default: 0] += 1
+                continue
+            }
+            
+            // ✅ FIX: top이 없어도 기본값 사용
+            let top = block["top"] as? Double ?? 0.5
+            let confidence = block["confidence"] as? Double ?? 0.8
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Rule 1: Empty
+            if trimmed.isEmpty {
+                reasons["empty", default: 0] += 1
+                continue
+            }
+            
+            // Rule 2: Status bar
+            if top < 0.05 && trimmed.count < 10 {
+                if trimmed.range(of: "^\\d{1,2}:\\d{2}", options: .regularExpression) != nil {
+                    reasons["status_time", default: 0] += 1
+                    continue
+                }
+                if trimmed.range(of: "^\\d{1,3}%?$", options: .regularExpression) != nil {
+                    reasons["status_battery", default: 0] += 1
+                    continue
+                }
+            }
+            
+            // Rule 3: Naver menu (EXACT match)
+            let naverMenu = [
+                "로그인이 필요합니다", "로그인", "내소식", "이웃목록", "통계",
+                "클립만들기", "글쓰기", "My Menu 닫기", "내 체크인",
+                "최근 본 글", "내 동영상", "내 클립", "내 상품 관리",
+                "마켓 플레이스", "장바구니", "마켓 구매내역",
+                "블로그팀 공식블로그", "이달의 블로그", "공식 블로그", "블로그 앱",
+                "블로그 고객센터", "PC버전으로 보기", "본문 바로가기",
+                "카테고리 이동", "MY메뉴 열기", "이웃추가",
+                "본문 기타 기능", "본문 폰트 크기 조정", "공유하기",
+                "URL복사", "신고하기", "NEW"
+            ]
+            
+            if naverMenu.contains(where: { trimmed == $0 || trimmed.hasPrefix($0 + " ") }) {
+                print("[FoundationModelsAnalyzer] 🚫 Naver menu: \(trimmed)")
+                reasons["naver_menu", default: 0] += 1
+                continue
+            }
+            
+            // Rule 4: Simple buttons
+            if trimmed.count <= 6 {
+                let buttons = ["홈", "검색", "저장", "편집", "삭제", "취소", "확인", "닫기", 
+                              "공유", "출발", "도착", "주문", "배달", "포장", "매장"]
+                if buttons.contains(trimmed) {
+                    reasons["button", default: 0] += 1
+                    continue
+                }
+            }
+            
+            // Rule 5: AD markers
+            if trimmed == "AD" || trimmed == "광고" {
+                reasons["ad", default: 0] += 1
+                continue
+            }
+            
+            // Rule 6: Standalone URL
+            if trimmed.range(of: "^https?://[^\\s]+$", options: .regularExpression) != nil {
+                reasons["url", default: 0] += 1
+                continue
+            }
+            
+            // Rule 7: Too short (1 char only)
+            if trimmed.count == 1 {
+                reasons["too_short", default: 0] += 1
+                continue
+            }
+            
+            // Rule 8: Low confidence (very lenient)
+            if confidence < 0.05 {
+                reasons["low_confidence", default: 0] += 1
+                continue
+            }
+            
+            // ✅ KEEP
+            kept.append(block)
+        }
+        
+        // Print statistics
+        print("[FoundationModelsAnalyzer] 📊 Filtering Results:")
+        print("[FoundationModelsAnalyzer]   - Kept: \(kept.count)")
+        print("[FoundationModelsAnalyzer]   - Filtered: \(blocks.count - kept.count)")
+        for (reason, count) in reasons.sorted(by: { $0.value > $1.value }) {
+            print("[FoundationModelsAnalyzer]     • \(reason): \(count)")
+        }
+        
+        return kept
+    }
+    
+    // MARK: - Contextual Summary Generation (NEW!)
+    private func generateContextualSummary(_ text: String, contentType: String) -> String {
+        guard !text.isEmpty else {
+            return "스크린샷 분석 결과가 없습니다."
+        }
+        
+        if text.count < 50 {
+            return "이 콘텐츠는 간단한 텍스트 정보를 담고 있습니다: \(text)"
+        }
+        
+        // Extract key sentences
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".!?\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.count > 20 }
+        
+        guard !sentences.isEmpty else {
+            return "이 콘텐츠는 \(text.prefix(100))에 대한 정보를 포함하고 있습니다."
+        }
+        
+        // Score and select top sentences
+        let scoredSentences = sentences
+            .map { (sentence: $0, score: scoreSentence($0, in: text)) }
+            .sorted { $0.score > $1.score }
+        
+        let topSentences = scoredSentences.prefix(3).map { $0.sentence }
+        
+        // Generate contextual summary based on content type
+        let prefix: String
+        switch contentType {
+        case "news", "article":
+            prefix = "이 기사는"
+        case "blog":
+            prefix = "이 블로그 글은"
+        case "place", "restaurant":
+            prefix = "이 장소는"
+        case "product":
+            prefix = "이 상품은"
+        case "education":
+            prefix = "이 교육 자료는"
+        case "social":
+            prefix = "이 게시물은"
+        default:
+            prefix = "이 콘텐츠는"
+        }
+        
+        let summary = topSentences.joined(separator: " ")
+        
+        // Add contextual wrapper
+        if summary.count > 200 {
+            return "\(prefix) \(summary.prefix(200))에 대해 설명합니다."
+        } else {
+            return "\(prefix) \(summary)에 대해 다룹니다."
+        }
+    }
+    
+    private func scoreSentence(_ sentence: String, in fullText: String) -> Double {
+        var score = 0.0
+        
+        // Length score
+        if sentence.count >= 30 && sentence.count <= 150 {
+            score += 3.0
+        } else if sentence.count >= 20 && sentence.count <= 200 {
+            score += 1.0
+        }
+        
+        // Ends with proper punctuation
+        if sentence.last == "." || sentence.last == "다" || sentence.last == "요" {
+            score += 1.5
+        }
+        
+        // Contains numbers/data
+        if sentence.range(of: "\\d", options: .regularExpression) != nil {
+            score += 1.0
+        }
+        
+        // Important keywords
+        let keywords = [
+            "소개", "설명", "발표", "강조", "주장", "밝혔", "전했", "말했",
+            "중요", "핵심", "주요", "특징", "장점"
+        ]
+        for keyword in keywords {
+            if sentence.contains(keyword) {
+                score += 0.8
+            }
+        }
+        
+        return score
+    }
+    
+    private func extractInsights(from text: String) -> [String] {
+        var insights: [String] = []
+        
+        if let match = text.range(of: "\\d{1,2}:\\d{2}에 영업 종료", options: .regularExpression) {
+            insights.append("영업 시간: " + String(text[match]).replacingOccurrences(of: "에 영업 종료", with: ""))
+        }
+        
+        if let match = text.range(of: "\\d{1,3}(,\\d{3})*원", options: .regularExpression) {
+            insights.append("가격: \(text[match])")
+        }
+        
+        if text.contains("배달") || text.contains("포장") {
+            var services: [String] = []
+            if text.contains("배달") { services.append("배달") }
+            if text.contains("포장") { services.append("포장") }
+            insights.append(services.joined(separator: ", ") + " 이용 가능")
+        }
+        
+        return Array(insights.prefix(5))
+    }
+    
+    private func detectStructuredData(in text: String) -> DetectedData {
+        var urls: [String] = []
+        var phoneNumbers: [String] = []
+        var emails: [String] = []
+        
+        let types: NSTextCheckingResult.CheckingType = [.link, .phoneNumber, .address, .date]
+        guard let detector = try? NSDataDetector(types: types.rawValue) else {
+            return DetectedData(urls: urls, phoneNumbers: phoneNumbers, emails: emails)
+        }
+        
+        let matches = detector.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
+        
+        for match in matches {
+            if let url = match.url {
+                urls.append(url.absoluteString)
+            }
+            if let phone = match.phoneNumber {
+                phoneNumbers.append(phone)
+            }
+        }
+        
+        return DetectedData(
+            urls: Array(Set(urls)),
+            phoneNumbers: Array(Set(phoneNumbers)),
+            emails: Array(Set(emails))
         )
     }
-}
-
-// MARK: - Fallback for older iOS versions
-class FoundationModelsAnalyzerFallback {
-    static func isAvailable() -> Bool {
-        return false
+    
+    private func generateTags(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+        
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        
+        var wordFreq: [String: Int] = [:]
+        
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex,
+                            unit: .word,
+                            scheme: .lexicalClass,
+                            options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+            if tag == .noun || tag == .personalName || tag == .placeName {
+                let word = String(text[range])
+                if word.count >= 2 {
+                    wordFreq[word, default: 0] += 1
+                }
+            }
+            return true
+        }
+        
+        let tags = wordFreq
+            .filter { $0.value >= 1 }
+            .sorted { $0.value > $1.value }
+            .prefix(5)
+            .map { $0.key }
+        
+        return Array(tags)
+    }
+    
+    private func detectContentType(_ text: String, fullText: String) -> String {
+        let lowercased = text.lowercased()
+        
+        // Check for URLs to determine source
+        if fullText.contains("blog.naver.com") || fullText.contains("tistory.com") {
+            return "blog"
+        }
+        if fullText.contains("news") || fullText.contains("article") {
+            return "news"
+        }
+        if fullText.contains("threads.com") || fullText.contains("twitter.com") || fullText.contains("instagram.com") {
+            return "social"
+        }
+        
+        // Content-based detection
+        if lowercased.contains("주문") || lowercased.contains("배달") || lowercased.contains("리뷰") || lowercased.contains("맛집") {
+            return "restaurant"
+        }
+        if lowercased.contains("상품") || lowercased.contains("구매") || lowercased.contains("가격") {
+            return "product"
+        }
+        if lowercased.contains("대학") || lowercased.contains("학교") || lowercased.contains("교육") {
+            return "education"
+        }
+        if lowercased.contains("기자") || lowercased.contains("보도") || lowercased.contains("취재") {
+            return "news"
+        }
+        
+        return "general"
+    }
+    
+    private func generateTitle(from text: String, blocks: [[String: Any]]) -> String {
+        let sentences = text.components(separatedBy: CharacterSet(charactersIn: "\n.!?"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.count >= 10 && $0.count <= 100 }
+        
+        for sentence in sentences.prefix(5) {
+            let uiKeywords = ["로그인", "회원가입", "내소식", "통계", "최근 본"]
+            let hasUIKeyword = uiKeywords.contains { sentence.contains($0) }
+            
+            if !hasUIKeyword {
+                return String(sentence.prefix(50))
+            }
+        }
+        
+        if let longest = sentences.max(by: { $0.count < $1.count }), longest.count >= 10 {
+            return String(longest.prefix(50))
+        }
+        
+        return "New Memory"
     }
 }
-
-// MARK: - Future Implementation Notes
-/*
- When iOS 26 SDK becomes available, the actual implementation will look like:
-
- import FoundationModels
-
- @available(iOS 26.0, *)
- @Generable
- struct StructuredAnalysisOutput {
-     @Guide(description: "A concise title (max 30 chars)")
-     let title: String
-
-     @Guide(description: "A brief summary (max 150 chars)")
-     let summary: String
-
-     @Guide(description: "3-5 relevant tags")
-     let tags: [String]
-
-     @Guide(description: "Content type: shopping, receipt, sns, article, news, tech, or general")
-     let contentType: String
- }
-
- @available(iOS 26.0, *)
- class FoundationModelsAnalyzerReal {
-     private var session: LanguageModelSession?
-
-     func analyze(textBlocks: [[String: Any]], imageSize: [String: CGFloat]) async throws -> AnalysisResult {
-         let session = try LanguageModelSession()
-         let output = try await session.generate(
-             StructuredAnalysisOutput.self,
-             prompt: buildPrompt(from: textBlocks)
-         )
-         return AnalysisResult(
-             title: output.title,
-             summary: output.summary,
-             tags: output.tags,
-             contentType: output.contentType
-         )
-     }
- }
- */

@@ -572,15 +572,22 @@ class EnhancedContentAnalyzer {
             let noisePatterns = [
                 "^\\d{1,2}:\\d{2}$",              // 시간
                 "^\\d{1,3}%$",                     // 배터리
-                "^Back$", "^Close$", "^Menu$", "^Share$", "^Delete$", "^Done$", "^Cancel$",  // UI 버튼
-                "^AD$", "^광고$", "^Sponsored$",  // 광고
+                "^Back$", "^Close$", "^Share$", "^Delete$", "^Done$", "^Cancel$",  // UI 버튼
+                "^AD$", "^Sponsored$",            // 광고
                 "^https?://.*",                    // URL 프로토콜
                 "^www\\..*",                       // www로 시작
-                ".*\\.(com|io|net|org|kr|co\\.kr).*",  // 도메인 포함 ✨ 핵심!
-                "[a-z]+-[a-z]+-[a-z]+\\.",        // 케밥케이스 URL ✨ 핵심!
-                "^\\d+\\.$",                       // 섹션 번호만 (1., 2., 3.)
-                "^[A-Z]{2,}$",                     // 대문자만 (WIFI, LTE)
+                ".*\\.(com|io|net|org|kr|co\\.kr).*",  // 도메인 포함
+                "[a-z]+-[a-z]+-[a-z]+\\.",        // 케밥케이스 URL
+                "^\\d+\\.$",                       // 섹션 번호만
+                "^[A-Z]{2,}$",                     // 대문자만
                 "^\\d+$",                          // 숫자만
+                "판매.*페이지",                    // 광고성 텍스트
+                "해당.*링크",                      // 광고성 텍스트
+                "^\\d+\\)$",                       // ✨ NEW: 번호만 (924))
+                "^blog$",                          // ✨ NEW: blog 단독
+                "^post$",                          // ✨ NEW: post 단독
+                "^\\d+@\\d+",                      // ✨ NEW: 00126@19 같은 패턴
+                "^[A-Z]\\s",                    // ✨ NEW: "E " 같은 단일 알파벳
             ]
             
             for pattern in noisePatterns {
@@ -590,21 +597,42 @@ class EnhancedContentAnalyzer {
                 }
             }
 
-            // 5. URL 포함 텍스트 완전 제거 (추가 체크)
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.contains(".com") || trimmed.contains(".io") || 
-               trimmed.contains(".net") || trimmed.contains(".org") ||
-               trimmed.contains("www.") || trimmed.contains("http") {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: Contains URL domain")
+            // ✨ 추가 필터: UI 관련 키워드 포함 체크
+            let uiKeywords = [
+                "Menu", "메뉴", "닫기", "열기", "편집", "요약", "번역",
+                "즐겨찾기", "삭제", "이동", "공유", "클립", "글쓰기",
+                "바로가기", "카테고리", "폰트", "크기", "조정",
+                "Search", "검색",              // ✨ NEW
+                "matters",                     // ✨ NEW (사이트 이름)
+                "출처:", "이미지 출처",         // ✨ NEW (메타데이터)
+            ]
+            
+            for keyword in uiKeywords {
+                if text.contains(keyword) {
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: UI keyword (\(keyword))")
+                    return false
+                }
+            }
+
+            // ✨ 추가 필터: NAVER, Corp 등 푸터 텍스트
+            if text.contains("NAVER") || text.contains("Corp.") || 
+               text.contains("©") || text.contains("PC버전") {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: Footer/Copyright")
                 return false
             }
 
-            // 6. 케밥케이스 의심 텍스트 (app-name-in-service 형태)
-            let kebabPattern = "[a-z]+-[a-z]+-[a-z]+"
-            if trimmed.range(of: kebabPattern, options: .regularExpression) != nil &&
-               trimmed.count > 20 {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: Kebab-case URL suspected")
-                return false
+            // ✨ 추가 필터: 너무 많은 단어가 붙어있으면 UI 요소
+            let words = text.components(separatedBy: " ")
+            if words.count > 5 && text.count < 100 {
+                // "이웃목록 클립만들기 글쓰기 My Menu 닫기 내 체" 같은 것
+                let hasMultipleUIWords = words.filter { word in
+                    uiKeywords.contains { word.contains($0) }
+                }.count >= 3
+                
+                if hasMultipleUIWords {
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: Multiple UI keywords")
+                    return false
+                }
             }
             
             print("[EnhancedContentAnalyzer] ✅ KEPT: '\(text)'")
@@ -751,7 +779,9 @@ class EnhancedContentAnalyzer {
         let patterns: [(type: String, keywords: [String])] = [
             ("news", ["사고", "정전", "피해", "발생", "경찰", "소방", "news", "report", "기자", "일보", "뉴스", "times", "herald"]),
             ("weather", ["날씨", "기온", "예보", "강수", "℃", "weather"]),
-            ("shopping", ["주문", "배송", "결제", "원", "price", "won", "shipping", "order", "쿠팡", "coupang", "store", "shop", "장바구니", "구매", "할인", "sale", "sold out", "품절"]),
+            ("shopping", ["주문", "배송", "결제", "원", "price", "won", "shipping", "order", "쿠팡", "coupang", "store", "shop", "장바구니", "구매", "할인", "sale", "sold out", "품절", "카트", "cart"]),  // ✨ 확장
+            ("education", ["대학", "학교", "교육", "학생", "교수", "학습", "university", "college", "education"]),  // ✨ NEW
+            ("history", ["역사", "설립", "출범", "년", "당시", "과거", "history", "founded"]),  // ✨ NEW
             ("place", ["map", "지도", "place", "location", "영업", "리뷰", "별점", "맛집", "길찾기", "주소", "navi", "네이버지도", "카카오맵"]),
             ("tech", ["api", "코드", "개발", "programming", "code", "software", "github", "stack overflow"]),
             ("sns", ["instagram", "twitter", "threads", "facebook", "post", "like", "share", "follow", "comment", "좋아요", "팔로우", "댓글", "feed", "timeline"])
@@ -764,6 +794,11 @@ class EnhancedContentAnalyzer {
                 count + (fullText.contains(keyword) ? 1 : 0)
             }
             scores[type] = score
+        }
+        
+        // ✨ NEW: shopping은 최소 2개 이상 매칭되어야 함 (오탐 방지)
+        if let shoppingScore = scores["shopping"], shoppingScore < 2 {
+            scores["shopping"] = 0
         }
         
         // 최고점 타입 반환
@@ -832,7 +867,28 @@ class EnhancedContentAnalyzer {
     private func cleanTitle(_ raw: String) -> String {
         var cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // URL 제거
+        // ✨ NEW: 단일 알파벳 제거 (E, A 등)
+        cleaned = cleaned.replacingOccurrences(
+            of: "^[A-Z]\\s+",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // ✨ NEW: 숫자) 패턴 제거
+        cleaned = cleaned.replacingOccurrences(
+            of: "^\\d+\\)\\s*",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // ✨ NEW: blog, post 단독 단어 제거
+        cleaned = cleaned.replacingOccurrences(
+            of: "^(blog|post)\\s+",
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        
+        // URL 제거 (기존)
         cleaned = cleaned.replacingOccurrences(
             of: "https?://\\S+",
             with: "",
@@ -924,6 +980,38 @@ class EnhancedContentAnalyzer {
         var score = 0.0
 
         print("[EnhancedContentAnalyzer] Scoring: '\(sentence.prefix(50))...'")
+
+        let trimmed = sentence.trimmingCharacters(in: .whitespaces)
+        
+        // ✨ NEW: 노이즈 패턴들 (큰 감점)
+        let noisePatterns = [
+            "Search",           // UI 요소
+            "matters",          // 사이트 이름
+            "이미지 출처",       // 메타데이터
+            "출처:",
+            "유튜브",
+            "블로그",
+            "\\.\\.\\.$",       // "..." 으로 끝남
+        ]
+        
+        for pattern in noisePatterns {
+            if trimmed.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+                print("[EnhancedContentAnalyzer]   - Noise pattern '\(pattern)': -15.0")
+                score -= 15.0
+            }
+        }
+
+        // ✨ NEW: 문장이 숫자나 노이즈로 시작하면 큰 감점
+        if trimmed.range(of: "^\\d+\\)", options: .regularExpression) != nil {
+            // "924) blog..." 같은 것
+            print("[EnhancedContentAnalyzer]   - Starts with number: -10.0")
+            score -= 10.0
+        }
+        
+        if trimmed.lowercased().hasPrefix("blog ") || trimmed.lowercased().hasPrefix("post ") {
+            print("[EnhancedContentAnalyzer]   - Starts with 'blog/post': -5.0")
+            score -= 5.0
+        }
 
         // 1. URL 포함 문장은 큰 감점 (확장된 도메인 목록)
         let urlDomains = [".com", ".io", ".im", ".kr", ".net", ".org", ".co", ".app", ".dev", ".me", ".tv", ".ai"]
@@ -1152,6 +1240,8 @@ class EnhancedContentAnalyzer {
         
         return Array(insights.prefix(5))
     }
+
+
 
     // Helper: 정규식 매칭 추출
     private func extractMatches(

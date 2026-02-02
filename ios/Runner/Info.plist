@@ -68,5 +68,8 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Apple Intelligence 사용 권한 -->
+	<key>NSAppleIntelligenceUsageDescription</key>
+	<string>스크린샷 내용을 분석하여 자동으로 제목, 요약, 태그를 생성합니다.</string>
 </dict>
 </plist>

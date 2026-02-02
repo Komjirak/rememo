@@ -95,7 +95,7 @@ import WebKit
 
         // Use ContentAnalyzerAdapter for automatic routing to best analyzer
         Task {
-            var analysis = await ContentAnalyzerAdapter.shared.analyzeSummary(
+            var analysis = await ContentAnalyzerAdapter.shared.analyze(
                 textBlocks: textBlocks,
                 layoutRegions: layoutRegions,
                 importantAreas: importantAreas,
@@ -186,6 +186,10 @@ import WebKit
 
 
     GeneratedPluginRegistrant.register(with: self)
+    
+    // ✨ Apple Intelligence 테스트
+    testAppleIntelligence()
+    
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -290,29 +294,76 @@ import WebKit
       guard let data = image.jpegData(compressionQuality: 0.8),
             let path = self.saveToTemp(data: data) else { return }
 
-      // 🆕 Bounding Box 정보를 포함한 OCR 수행
-      self.recognizeTextWithBoxes(image: image) { ocrBlocks in
-        // ocrText 조합
-        let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
-        let analysis = self.analyzeText(text: ocrText)
-
-        let result: [String: Any] = [
-          "imagePath": path,
-          "ocrText": ocrText,
-          "ocrBlocks": ocrBlocks,  // 🆕 Bounding Box 포함
-          "date": asset.creationDate?.description ?? "",
-          "suggestedTags": analysis.tags,
-          "suggestedCategory": analysis.category,
-          "suggestedTitle": analysis.title,
-          "sourceUrl": analysis.url ?? "",
-          "assetId": asset.localIdentifier,
-          "imageWidth": image.size.width,
-          "imageHeight": image.size.height
-        ]
-
-        // Send to Flutter via EventChannel
-        DispatchQueue.main.async {
-          self.eventSink?(result)
+      // ✨ Apple Intelligence 통합: Bounding Box + ContentAnalyzerAdapter
+      Task {
+        do {
+          let visionAnalysis = try await PaddleOCRHelper.shared.recognizeTextWithEnhancedAnalysis(image: image)
+          let textBlocks = visionAnalysis["textBlocks"] as? [[String: Any]] ?? []
+          let imageSize = visionAnalysis["imageSize"] as? [String: CGFloat] ?? ["width": image.size.width, "height": image.size.height]
+          
+          print("[processNewScreenshot] 📸 Using Apple Intelligence for screenshot analysis")
+          
+          // 🚀 Apple Intelligence 분석
+          let aiAnalysis = await ContentAnalyzerAdapter.shared.analyze(
+            textBlocks: textBlocks,
+            layoutRegions: visionAnalysis["layoutRegions"] as? [[String: Any]],
+            importantAreas: visionAnalysis["importantAreas"] as? [[String: Any]],
+            imageSize: imageSize
+          )
+          
+          let ocrText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+          
+          var result: [String: Any] = [
+            "imagePath": path,
+            "ocrText": ocrText,
+            "ocrBlocks": textBlocks,
+            "date": asset.creationDate?.description ?? "",
+            "assetId": asset.localIdentifier,
+            "imageWidth": image.size.width,
+            "imageHeight": image.size.height,
+            // ✨ AI 분석 결과
+            "suggestedTitle": aiAnalysis["title"] ?? "New Memory",
+            "suggestedTags": aiAnalysis["tags"] ?? [],
+            "summary": aiAnalysis["summary"] ?? "",
+            "contentType": aiAnalysis["contentType"] ?? "general",
+            "analyzerUsed": aiAnalysis["analyzerUsed"] ?? "Unknown"
+          ]
+          
+          // URL이 있으면 추가
+          if let url = aiAnalysis["sourceUrl"] as? String, !url.isEmpty {
+            result["sourceUrl"] = url
+          }
+          
+          // Send to Flutter via EventChannel
+          DispatchQueue.main.async {
+            self.eventSink?(result)
+          }
+        } catch {
+          print("[processNewScreenshot] ⚠️ Enhanced analysis failed: \(error)")
+          // Fallback to basic analysis
+          self.recognizeTextWithBoxes(image: image) { ocrBlocks in
+            let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
+            let analysis = self.analyzeText(text: ocrText)
+            
+            let result: [String: Any] = [
+              "imagePath": path,
+              "ocrText": ocrText,
+              "ocrBlocks": ocrBlocks,
+              "date": asset.creationDate?.description ?? "",
+              "suggestedTags": analysis.tags,
+              "suggestedCategory": analysis.category,
+              "suggestedTitle": analysis.title,
+              "sourceUrl": analysis.url ?? "",
+              "assetId": asset.localIdentifier,
+              "imageWidth": image.size.width,
+              "imageHeight": image.size.height,
+              "analyzerUsed": "Fallback (Basic NLP)"
+            ]
+            
+            DispatchQueue.main.async {
+              self.eventSink?(result)
+            }
+          }
         }
       }
     }
@@ -350,22 +401,65 @@ import WebKit
                  return
             }
             
-            self.recognizeText(image: image) { ocrText in
-                 // Perform On-Device NLP Analysis
-                 let analysis = self.analyzeText(text: ocrText)
-                
-                 result([
-                    "imagePath": path,
-                    "ocrText": ocrText,
-                    "date": asset.creationDate?.description ?? "",
-                    "suggestedTags": analysis.tags,
-                    "suggestedCategory": analysis.category,
-                    "suggestedTitle": analysis.title,
-                    "sourceUrl": analysis.url ?? ""
-                 ])
+            // ✨ Apple Intelligence 통합
+            Task {
+                do {
+                    let visionAnalysis = try await PaddleOCRHelper.shared.recognizeTextWithEnhancedAnalysis(image: image)
+                    let textBlocks = visionAnalysis["textBlocks"] as? [[String: Any]] ?? []
+                    let imageSize = visionAnalysis["imageSize"] as? [String: CGFloat] ?? ["width": image.size.width, "height": image.size.height]
+                    
+                    print("[analyzeLastScreenshot] 📸 Using Apple Intelligence")
+                    
+                    // 🚀 Apple Intelligence 분석
+                    let aiAnalysis = await ContentAnalyzerAdapter.shared.analyze(
+                        textBlocks: textBlocks,
+                        layoutRegions: visionAnalysis["layoutRegions"] as? [[String: Any]],
+                        importantAreas: visionAnalysis["importantAreas"] as? [[String: Any]],
+                        imageSize: imageSize
+                    )
+                    
+                    let ocrText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+                    
+                    var response: [String: Any] = [
+                        "imagePath": path,
+                        "ocrText": ocrText,
+                        "date": asset.creationDate?.description ?? "",
+                        "suggestedTitle": aiAnalysis["title"] ?? "New Memory",
+                        "suggestedTags": aiAnalysis["tags"] ?? [],
+                        "summary": aiAnalysis["summary"] ?? "",
+                        "contentType": aiAnalysis["contentType"] ?? "general",
+                        "analyzerUsed": aiAnalysis["analyzerUsed"] ?? "Unknown"
+                    ]
+                    
+                    if let url = aiAnalysis["sourceUrl"] as? String, !url.isEmpty {
+                        response["sourceUrl"] = url
+                    }
+                    
+                    DispatchQueue.main.async {
+                        result(response)
+                    }
+                } catch {
+                    print("[analyzeLastScreenshot] ⚠️ Enhanced analysis failed: \(error)")
+                    // Fallback
+                    self.recognizeText(image: image) { ocrText in
+                        let analysis = self.analyzeText(text: ocrText)
+                        
+                        result([
+                            "imagePath": path,
+                            "ocrText": ocrText,
+                            "date": asset.creationDate?.description ?? "",
+                            "suggestedTags": analysis.tags,
+                            "suggestedCategory": analysis.category,
+                            "suggestedTitle": analysis.title,
+                            "sourceUrl": analysis.url ?? "",
+                            "analyzerUsed": "Fallback (Basic NLP)"
+                        ])
+                    }
+                }
             }
         }
     }
+    
     
     private func analyzeImageFile(path: String, result: @escaping FlutterResult) {
         guard let image = UIImage(contentsOfFile: path) else {
@@ -373,30 +467,74 @@ import WebKit
             return
         }
 
-        // Since we already have the path, we don't strictly need to re-save to temp
-        // unless the Flutter side sends a temporary pick path that gets cleaned up.
-        // For consistency, let's just use the path provided if it's readable.
-        // However, recognizeText needs UIImage.
-
-        self.recognizeText(image: image) { ocrText in
-             let analysis = self.analyzeText(text: ocrText)
-
-             // Try to get creation date from file attributes if possible
-             var dateStr = ""
-             if let attr = try? FileManager.default.attributesOfItem(atPath: path),
-                let date = attr[.creationDate] as? Date {
-                 dateStr = date.description
-             }
-
-             result([
-                "imagePath": path, // Echo back the path
-                "ocrText": ocrText,
-                "date": dateStr,
-                "suggestedTags": analysis.tags,
-                "suggestedCategory": analysis.category,
-                "suggestedTitle": analysis.title,
-                "sourceUrl": analysis.url ?? ""
-             ])
+        // ✨ Apple Intelligence 통합
+        Task {
+            do {
+                let visionAnalysis = try await PaddleOCRHelper.shared.recognizeTextWithEnhancedAnalysis(image: image)
+                let textBlocks = visionAnalysis["textBlocks"] as? [[String: Any]] ?? []
+                let imageSize = visionAnalysis["imageSize"] as? [String: CGFloat] ?? ["width": image.size.width, "height": image.size.height]
+                
+                print("[analyzeImageFile] 📷 Using Apple Intelligence for photo analysis")
+                
+                // 🚀 Apple Intelligence 분석
+                let aiAnalysis = await ContentAnalyzerAdapter.shared.analyze(
+                    textBlocks: textBlocks,
+                    layoutRegions: visionAnalysis["layoutRegions"] as? [[String: Any]],
+                    importantAreas: visionAnalysis["importantAreas"] as? [[String: Any]],
+                    imageSize: imageSize
+                )
+                
+                let ocrText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+                
+                // Try to get creation date from file attributes if possible
+                var dateStr = ""
+                if let attr = try? FileManager.default.attributesOfItem(atPath: path),
+                   let date = attr[.creationDate] as? Date {
+                    dateStr = date.description
+                }
+                
+                var response: [String: Any] = [
+                    "imagePath": path,
+                    "ocrText": ocrText,
+                    "date": dateStr,
+                    "suggestedTitle": aiAnalysis["title"] ?? "New Memory",
+                    "suggestedTags": aiAnalysis["tags"] ?? [],
+                    "summary": aiAnalysis["summary"] ?? "",
+                    "contentType": aiAnalysis["contentType"] ?? "general",
+                    "analyzerUsed": aiAnalysis["analyzerUsed"] ?? "Unknown"
+                ]
+                
+                if let url = aiAnalysis["sourceUrl"] as? String, !url.isEmpty {
+                    response["sourceUrl"] = url
+                }
+                
+                DispatchQueue.main.async {
+                    result(response)
+                }
+            } catch {
+                print("[analyzeImageFile] ⚠️ Enhanced analysis failed: \(error)")
+                // Fallback
+                self.recognizeText(image: image) { ocrText in
+                    let analysis = self.analyzeText(text: ocrText)
+                    
+                    var dateStr = ""
+                    if let attr = try? FileManager.default.attributesOfItem(atPath: path),
+                       let date = attr[.creationDate] as? Date {
+                        dateStr = date.description
+                    }
+                    
+                    result([
+                        "imagePath": path,
+                        "ocrText": ocrText,
+                        "date": dateStr,
+                        "suggestedTags": analysis.tags,
+                        "suggestedCategory": analysis.category,
+                        "suggestedTitle": analysis.title,
+                        "sourceUrl": analysis.url ?? "",
+                        "analyzerUsed": "Fallback (Basic NLP)"
+                    ])
+                }
+            }
         }
     }
 
@@ -701,20 +839,64 @@ extension AppDelegate {
       return
     }
 
-    self.recognizeTextWithBoxes(image: image) { ocrBlocks in
-      let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
-      let analysis = self.analyzeText(text: ocrText)
-
-      result([
-        "ocrText": ocrText,
-        "ocrBlocks": ocrBlocks,
-        "suggestedTags": analysis.tags,
-        "suggestedCategory": analysis.category,
-        "suggestedTitle": analysis.title,
-        "sourceUrl": analysis.url ?? "",
-        "imageWidth": image.size.width,
-        "imageHeight": image.size.height
-      ])
+    // ✨ Apple Intelligence 통합
+    Task {
+      do {
+        let visionAnalysis = try await PaddleOCRHelper.shared.recognizeTextWithEnhancedAnalysis(image: image)
+        let textBlocks = visionAnalysis["textBlocks"] as? [[String: Any]] ?? []
+        let imageSize = visionAnalysis["imageSize"] as? [String: CGFloat] ?? ["width": image.size.width, "height": image.size.height]
+        
+        print("[analyzeSharedImage] 🔗 Using Apple Intelligence for shared content")
+        
+        // 🚀 Apple Intelligence 분석
+        let aiAnalysis = await ContentAnalyzerAdapter.shared.analyze(
+          textBlocks: textBlocks,
+          layoutRegions: visionAnalysis["layoutRegions"] as? [[String: Any]],
+          importantAreas: visionAnalysis["importantAreas"] as? [[String: Any]],
+          imageSize: imageSize
+        )
+        
+        let ocrText = textBlocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
+        
+        var response: [String: Any] = [
+          "ocrText": ocrText,
+          "ocrBlocks": textBlocks,
+          "imageWidth": image.size.width,
+          "imageHeight": image.size.height,
+          "suggestedTitle": aiAnalysis["title"] ?? "New Memory",
+          "suggestedTags": aiAnalysis["tags"] ?? [],
+          "summary": aiAnalysis["summary"] ?? "",
+          "contentType": aiAnalysis["contentType"] ?? "general",
+          "analyzerUsed": aiAnalysis["analyzerUsed"] ?? "Unknown"
+        ]
+        
+        if let url = aiAnalysis["sourceUrl"] as? String, !url.isEmpty {
+          response["sourceUrl"] = url
+        }
+        
+        DispatchQueue.main.async {
+          result(response)
+        }
+      } catch {
+        print("[analyzeSharedImage] ⚠️ Enhanced analysis failed: \(error)")
+        // Fallback
+        self.recognizeTextWithBoxes(image: image) { ocrBlocks in
+          let ocrText = ocrBlocks.map { $0["text"] as? String ?? "" }.joined(separator: "\n")
+          let analysis = self.analyzeText(text: ocrText)
+          
+          result([
+            "ocrText": ocrText,
+            "ocrBlocks": ocrBlocks,
+            "suggestedTags": analysis.tags,
+            "suggestedCategory": analysis.category,
+            "suggestedTitle": analysis.title,
+            "sourceUrl": analysis.url ?? "",
+            "imageWidth": image.size.width,
+            "imageHeight": image.size.height,
+            "analyzerUsed": "Fallback (Basic NLP)"
+          ])
+        }
+      }
     }
   }
 
@@ -914,9 +1096,40 @@ extension AppDelegate: FlutterStreamHandler {
     return nil
   }
 
+
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     self.eventSink = nil
     return nil
   }
+}
+
+// MARK: - Apple Intelligence Test
+extension AppDelegate {
+    private func testAppleIntelligence() {
+        let separator = String(repeating: "=", count: 60)
+        print(separator)
+        print("🧪 Apple Intelligence Availability Test")
+        print(separator)
+        
+        if #available(iOS 18.2, *) {
+            let available = FoundationModelsAnalyzer.isAvailable()
+            
+            if available {
+                print("✅ Apple Intelligence is AVAILABLE!")
+                print("   - Device supports Apple Intelligence")
+                print("   - Will use Foundation Models for analysis")
+            } else {
+                print("⚠️ Apple Intelligence is NOT available")
+                print("   - Device does not support Apple Intelligence")
+                print("   - Will use Enhanced Rules fallback")
+            }
+        } else {
+            print("⚠️ iOS version too old (< 18.2)")
+            print("   - Current: \(UIDevice.current.systemVersion)")
+            print("   - Required: iOS 18.2+")
+        }
+        
+        print(separator)
+    }
 }
 

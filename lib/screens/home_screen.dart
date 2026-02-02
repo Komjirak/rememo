@@ -520,6 +520,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }).toList();
     }
 
+    // 5. Sort by createdAt (latest first)
+    filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     return filtered;
   }
 

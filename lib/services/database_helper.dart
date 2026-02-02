@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7, // Incremented version for translation features
+      version: 8, // Incremented version for contentType field
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -41,6 +41,7 @@ CREATE TABLE memo_cards (
   summary $textType,
   category $textType,
   sourceType $textType,
+  contentType $textType,
   tags $listType,
   keyInsights $textNullable, 
   captureDate $textType,
@@ -55,7 +56,6 @@ CREATE TABLE memo_cards (
   originalSummary $textNullable
 )
 ''');
-
     await db.execute('''
 CREATE TABLE folders (
   id $idType,
@@ -104,6 +104,10 @@ CREATE TABLE folders (
       await db.execute('ALTER TABLE memo_cards ADD COLUMN wasTranslated INTEGER DEFAULT 0');
       await db.execute('ALTER TABLE memo_cards ADD COLUMN originalTitle TEXT');
       await db.execute('ALTER TABLE memo_cards ADD COLUMN originalSummary TEXT');
+    }
+    if (oldVersion < 8) {
+      // Add contentType column to memo_cards with default value 'general'
+      await db.execute('ALTER TABLE memo_cards ADD COLUMN contentType TEXT NOT NULL DEFAULT "general"');
     }
   }
 
