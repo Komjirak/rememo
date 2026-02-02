@@ -517,11 +517,19 @@ class EnhancedContentAnalyzer {
             contentType: contentType
         )
         
+        // 7. 인사이트 추출 (NEW!)
+        let insights = extractInsights(
+            from: filteredBlocks,
+            contentType: contentType
+        )
+
         return [
             "title": title,
             "summary": summary,
             "tags": tags,
-            "contentType": contentType
+            "contentType": contentType,
+            "refinedText": generateRefinedText(from: filteredBlocks),  // ✨ NEW
+            "insights": insights  // ✨ NEW
         ]
     }
     
@@ -560,69 +568,43 @@ class EnhancedContentAnalyzer {
                 return false 
             }
             
-            // 4. 패턴 필터 개선
+            // 4. 패턴 기반 필터 (확장됨)
             let noisePatterns = [
                 "^\\d{1,2}:\\d{2}$",              // 시간
                 "^\\d{1,3}%$",                     // 배터리
-                "^Back$", "^Close$", "^Menu$",    // UI 버튼
+                "^Back$", "^Close$", "^Menu$", "^Share$", "^Delete$", "^Done$", "^Cancel$",  // UI 버튼
                 "^AD$", "^광고$", "^Sponsored$",  // 광고
                 "^https?://.*",                    // URL 프로토콜
                 "^www\\..*",                       // www로 시작
+                ".*\\.(com|io|net|org|kr|co\\.kr).*",  // 도메인 포함 ✨ 핵심!
+                "[a-z]+-[a-z]+-[a-z]+\\.",        // 케밥케이스 URL ✨ 핵심!
+                "^\\d+\\.$",                       // 섹션 번호만 (1., 2., 3.)
+                "^[A-Z]{2,}$",                     // 대문자만 (WIFI, LTE)
+                "^\\d+$",                          // 숫자만
             ]
-
-            // URL 패턴 필터링 (정규식 기반으로 정확도 향상)
-            // 전체 URL 형태인 경우만 필터링 (부분 매칭 오탐 방지)
-            let urlPatterns = [
-                "^https?://",                           // URL 프로토콜로 시작
-                "^www\\.",                              // www로 시작
-                "\\.[a-z]{2,4}(/|$|\\?)",              // .com/, .io 등으로 끝나거나 경로 시작
-                "^[a-z0-9-]+\\.[a-z]{2,4}$",          // 단순 도메인 (example.com)
-            ]
-
-            for pattern in urlPatterns {
-                if text.lowercased().range(of: pattern, options: .regularExpression) != nil {
-                    print("[EnhancedContentAnalyzer] ❌ FILTERED: URL pattern '\(pattern)' matched in '\(text)'")
-                    return false
-                }
-            }
-
-            // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
-            // 예: developers-apps-in-toss.toss.im
-            if text.matches("^[a-z]+-[a-z]+.*\\.[a-z]+") {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: Kebab-case URL pattern")
-                return false
-            }
-
-            // 하이픈이 2개 이상 포함된 텍스트 (URL일 가능성 높음)
-            // 단, 날짜(2024-01-25) 및 전화번호(010-1234-5678) 패턴은 예외 처리
-            let hyphenCount = text.filter { $0 == "-" }.count
-            if hyphenCount >= 2 && text.count > 10 {
-                // 날짜 패턴: YYYY-MM-DD 또는 YY-MM-DD
-                let isDatePattern = text.range(of: "^\\d{2,4}-\\d{1,2}-\\d{1,2}$", options: .regularExpression) != nil
-                // 전화번호 패턴: 010-1234-5678, 02-123-4567 등
-                let isPhonePattern = text.range(of: "^\\d{2,4}-\\d{3,4}-\\d{4}$", options: .regularExpression) != nil
-                // 날짜 범위 패턴: 2024-01-01 ~ 2024-12-31
-                let isDateRangePattern = text.range(of: "\\d{4}-\\d{2}-\\d{2}.*\\d{4}-\\d{2}-\\d{2}", options: .regularExpression) != nil
-
-                if !isDatePattern && !isPhonePattern && !isDateRangePattern {
-                    print("[EnhancedContentAnalyzer] ❌ FILTERED: Multiple hyphens (likely URL): '\(text)'")
-                    return false
-                } else {
-                    print("[EnhancedContentAnalyzer] ✅ KEPT (date/phone pattern): '\(text)'")
-                }
-            }
-
-            // 숫자로만 구성된 텍스트 (섹션 번호)
-            if text.matches("^[0-9]+\\.$") {
-                print("[EnhancedContentAnalyzer] ❌ FILTERED: Section number")
-                return false
-            }
             
             for pattern in noisePatterns {
                 if text.range(of: pattern, options: .regularExpression) != nil {
-                    print("[EnhancedContentAnalyzer] ❌ FILTERED: Pattern match (\(pattern))")
+                    print("[EnhancedContentAnalyzer] ❌ FILTERED: Pattern matched (\(pattern))")
                     return false
                 }
+            }
+
+            // 5. URL 포함 텍스트 완전 제거 (추가 체크)
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.contains(".com") || trimmed.contains(".io") || 
+               trimmed.contains(".net") || trimmed.contains(".org") ||
+               trimmed.contains("www.") || trimmed.contains("http") {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: Contains URL domain")
+                return false
+            }
+
+            // 6. 케밥케이스 의심 텍스트 (app-name-in-service 형태)
+            let kebabPattern = "[a-z]+-[a-z]+-[a-z]+"
+            if trimmed.range(of: kebabPattern, options: .regularExpression) != nil &&
+               trimmed.count > 20 {
+                print("[EnhancedContentAnalyzer] ❌ FILTERED: Kebab-case URL suspected")
+                return false
             }
             
             print("[EnhancedContentAnalyzer] ✅ KEPT: '\(text)'")
@@ -1089,6 +1071,172 @@ class EnhancedContentAnalyzer {
         print("[EnhancedContentAnalyzer] Final tags: \(Array(tags))")
         
         return Array(tags).prefix(5).map { $0 }
+    }
+
+    // MARK: - Extract Insights (NEW!)
+
+    private func extractInsights(
+        from blocks: [[String: Any]],
+        contentType: String
+    ) -> [String] {
+        var insights: [String] = []
+        
+        let fullText = blocks
+            .compactMap { $0["text"] as? String }
+            .joined(separator: " ")
+        
+        // 1. 가격 정보
+        if let prices = extractMatches(
+            from: fullText,
+            pattern: "(\\d{1,3}(,\\d{3})*원|\\$\\d+(\\.\\d{2})?|€\\d+)",
+            limit: 3
+        ) {
+            insights.append(contentsOf: prices)
+        }
+        
+        // 2. 날짜 정보
+        let datePatterns = [
+            "\\d{4}[-\\/\\.]\\d{1,2}[-\\/\\.]\\d{1,2}",  // 2026-01-26
+            "\\d{1,2}월\\s*\\d{1,2}일",                   // 1월 26일
+        ]
+        
+        for pattern in datePatterns {
+            if let dates = extractMatches(from: fullText, pattern: pattern, limit: 2) {
+                insights.append(contentsOf: dates)
+            }
+        }
+        
+        // 3. 주문번호/모델번호
+        if let codes = extractMatches(
+            from: fullText,
+            pattern: "(주문번호|모델번호|상품번호|운송장)[\\s:：]*([A-Z0-9\\-]{5,})",
+            limit: 2
+        ) {
+            insights.append(contentsOf: codes)
+        }
+        
+        // 4. 배송 정보
+        if fullText.contains("배송") || fullText.contains("도착") {
+            if let delivery = extractMatches(
+                from: fullText,
+                pattern: ".{0,30}(배송|도착|예정).{0,30}",
+                limit: 1
+            ) {
+                insights.append(contentsOf: delivery)
+            }
+        }
+        
+        // 5. 콘텐츠 타입별 추가 정보
+        switch contentType {
+        case "shopping":
+            // 할인율
+            if let discount = extractMatches(
+                from: fullText,
+                pattern: "\\d+%\\s*(할인|OFF|DC)",
+                limit: 1
+            ) {
+                insights.append(contentsOf: discount)
+            }
+        case "travel":
+            // 시간 정보
+            if let time = extractMatches(
+                from: fullText,
+                pattern: "(체크인|체크아웃)[\\s:：]*\\d{1,2}:\\d{2}",
+                limit: 2
+            ) {
+                insights.append(contentsOf: time)
+            }
+        default:
+            break
+        }
+        
+        return Array(insights.prefix(5))
+    }
+
+    // Helper: 정규식 매칭 추출
+    private func extractMatches(
+        from text: String,
+        pattern: String,
+        limit: Int
+    ) -> [String]? {
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.caseInsensitive]
+        ) else {
+            return nil
+        }
+        
+        let matches = regex.matches(
+            in: text,
+            range: NSRange(text.startIndex..., in: text)
+        )
+        
+        var results: [String] = []
+        for match in matches.prefix(limit) {
+            if let range = Range(match.range, in: text) {
+                let matched = String(text[range])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !results.contains(matched) && matched.count > 1 {
+                    results.append(matched)
+                }
+            }
+        }
+        
+        return results.isEmpty ? nil : results
+    }
+
+    // MARK: - Generate Refined Text
+
+    private func generateRefinedText(from blocks: [[String: Any]]) -> String {
+        // Y 좌표로 정렬
+        let sorted = blocks.sorted { (b1, b2) -> Bool in
+            let y1 = b1["top"] as? Double ?? 0
+            let y2 = b2["top"] as? Double ?? 0
+            return y1 < y2
+        }
+        
+        var paragraphs: [String] = []
+        var currentParagraph: [String] = []
+        var lastY: Double = 0
+        
+        for block in sorted {
+            guard let text = block["text"] as? String,
+                  let y = block["top"] as? Double,
+                  let height = block["height"] as? Double else {
+                continue
+            }
+            
+            let gap = y - lastY
+            let threshold = height * 1.5
+            
+            // 간격이 크면 새 문단
+            if !currentParagraph.isEmpty && gap > threshold {
+                let paragraph = currentParagraph
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if !paragraph.isEmpty {
+                    paragraphs.append(paragraph)
+                }
+                currentParagraph = []
+            }
+            
+            currentParagraph.append(text)
+            lastY = y + height
+        }
+        
+        // 마지막 문단
+        if !currentParagraph.isEmpty {
+            let paragraph = currentParagraph
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            if !paragraph.isEmpty {
+                paragraphs.append(paragraph)
+            }
+        }
+        
+        return paragraphs.joined(separator: "\n\n")
     }
     
     // 불용어 확장 (URL 관련 단어 포함)
