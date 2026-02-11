@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/services/theme_service.dart';
+import 'package:stribe/services/openai_service.dart';
 import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/folder_management_view.dart';
 import 'package:stribe/services/database_helper.dart';
@@ -22,12 +23,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _totalItems = 0;
   double _storageSize = 0.0;
   bool _isLoadingStorage = true;
+  
+  // OpenAI 설정 상태
+  bool _openaiEnabled = true;
+  bool _openaiHasKey = false;
+  String _openaiModel = OpenAIService.defaultModel;
 
   @override
   void initState() {
     super.initState();
     _loadVersionInfo();
     _loadStorageInfo();
+    _loadOpenAISettings();
+  }
+  
+  Future<void> _loadOpenAISettings() async {
+    final enabled = await OpenAIService.isEnabled();
+    final hasKey = await OpenAIService.hasApiKey();
+    final model = await OpenAIService.getModel();
+    if (mounted) {
+      setState(() {
+        _openaiEnabled = enabled;
+        _openaiHasKey = hasKey;
+        _openaiModel = model;
+      });
+    }
   }
 
   Future<void> _loadVersionInfo() async {
@@ -228,6 +248,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   AppLocalizations.of(context)!.msgCacheClearDesc,
                   style: TextStyle(fontSize: 13, color: secondaryTextColor, height: 1.3),
+                ),
+              ),
+              
+              const SizedBox(height: 28),
+              
+              // ============================================
+              // OpenAI API 설정 섹션
+              // ============================================
+              _buildSectionHeader('AI ANALYSIS', secondaryTextColor),
+              Container(
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 헤더
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10A37F).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: Color(0xFF10A37F), size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('OpenAI GPT', style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text(
+                                _openaiHasKey ? '활성화됨 • $_openaiModel' : 'API Key를 설정하세요',
+                                style: TextStyle(fontSize: 12, color: _openaiHasKey ? const Color(0xFF10A37F) : secondaryTextColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // 활성화 토글
+                        Switch.adaptive(
+                          value: _openaiEnabled && _openaiHasKey,
+                          onChanged: _openaiHasKey ? (value) async {
+                            await OpenAIService.setEnabled(value);
+                            setState(() => _openaiEnabled = value);
+                          } : null,
+                          activeColor: const Color(0xFF10A37F),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    Divider(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5EA), height: 1),
+                    const SizedBox(height: 12),
+                    
+                    // API Key 설정 버튼
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showApiKeyDialog(textColor, cardColor, secondaryTextColor),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.key, color: secondaryTextColor, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text('API Key', style: TextStyle(fontSize: 15, color: textColor)),
+                            ),
+                            if (_openaiHasKey)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10A37F).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text('설정됨', style: TextStyle(fontSize: 12, color: Color(0xFF10A37F), fontWeight: FontWeight.w500)),
+                              )
+                            else
+                              Text('설정 필요', style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right, color: secondaryTextColor, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 4),
+                    
+                    // 모델 선택
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showModelSelectionDialog(textColor, cardColor, secondaryTextColor),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.smart_toy, color: secondaryTextColor, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text('모델', style: TextStyle(fontSize: 15, color: textColor)),
+                            ),
+                            Text(
+                              OpenAIService.availableModels.firstWhere(
+                                (m) => m['id'] == _openaiModel,
+                                orElse: () => {'name': _openaiModel},
+                              )['name'] ?? _openaiModel,
+                              style: TextStyle(fontSize: 13, color: secondaryTextColor),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right, color: secondaryTextColor, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. API Key는 기기에만 저장되며 외부로 전송되지 않습니다.',
+                  style: TextStyle(fontSize: 12, color: secondaryTextColor, height: 1.4),
                 ),
               ),
               
@@ -567,6 +714,223 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
+  }
+  
+  // ============================================
+  // OpenAI 설정 다이얼로그
+  // ============================================
+  
+  void _showApiKeyDialog(Color textColor, Color cardColor, Color secondaryTextColor) {
+    final controller = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        bool isTesting = false;
+        String? testResult;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.key, color: Color(0xFF10A37F), size: 24),
+                  const SizedBox(width: 8),
+                  Text('OpenAI API Key', style: TextStyle(color: textColor, fontSize: 18)),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'platform.openai.com에서 API Key를 발급받을 수 있습니다.',
+                      style: TextStyle(fontSize: 13, color: secondaryTextColor, height: 1.4),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      obscureText: true,
+                      style: TextStyle(color: textColor, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'sk-...',
+                        hintStyle: TextStyle(color: secondaryTextColor.withOpacity(0.5)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        prefixIcon: Icon(Icons.vpn_key_outlined, color: secondaryTextColor, size: 20),
+                      ),
+                    ),
+                    if (testResult != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(
+                            testResult == 'success' ? Icons.check_circle : Icons.error,
+                            color: testResult == 'success' ? const Color(0xFF10A37F) : Colors.red,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            testResult == 'success' ? '✅ 연결 성공!' : '❌ 연결 실패. Key를 확인하세요.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: testResult == 'success' ? const Color(0xFF10A37F) : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (_openaiHasKey) ...[
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () async {
+                          await OpenAIService.clearApiKey();
+                          Navigator.pop(dialogContext);
+                          _loadOpenAISettings();
+                          if (mounted) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(content: Text('🗑️ API Key가 삭제되었습니다'), backgroundColor: AppTheme.accentTeal),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        label: const Text('기존 Key 삭제', style: TextStyle(color: Colors.red, fontSize: 13)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('취소', style: TextStyle(color: secondaryTextColor)),
+                ),
+                // 테스트 버튼
+                TextButton(
+                  onPressed: isTesting ? null : () async {
+                    final key = controller.text.trim();
+                    if (key.isEmpty || !key.startsWith('sk-')) {
+                      setDialogState(() => testResult = 'fail');
+                      return;
+                    }
+                    setDialogState(() { isTesting = true; testResult = null; });
+                    final success = await OpenAIService.testApiKey(key);
+                    setDialogState(() {
+                      isTesting = false;
+                      testResult = success ? 'success' : 'fail';
+                    });
+                  },
+                  child: isTesting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10A37F)))
+                      : const Text('테스트', style: TextStyle(color: Color(0xFF10A37F))),
+                ),
+                // 저장 버튼
+                TextButton(
+                  onPressed: () async {
+                    final key = controller.text.trim();
+                    if (key.isEmpty || !key.startsWith('sk-')) {
+                      setDialogState(() => testResult = 'fail');
+                      return;
+                    }
+                    await OpenAIService.setApiKey(key);
+                    await OpenAIService.setEnabled(true);
+                    Navigator.pop(dialogContext);
+                    _loadOpenAISettings();
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('✅ API Key가 저장되었습니다'), backgroundColor: AppTheme.accentTeal),
+                      );
+                    }
+                  },
+                  child: const Text('저장', style: TextStyle(color: Color(0xFF10A37F), fontWeight: FontWeight.w600)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  void _showModelSelectionDialog(Color textColor, Color cardColor, Color secondaryTextColor) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.smart_toy, color: Color(0xFF10A37F), size: 24),
+              const SizedBox(width: 8),
+              Text('모델 선택', style: TextStyle(color: textColor, fontSize: 18)),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: OpenAIService.availableModels.map((model) {
+                final isSelected = model['id'] == _openaiModel;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    await OpenAIService.setModel(model['id']!);
+                    Navigator.pop(dialogContext);
+                    _loadOpenAISettings();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    margin: const EdgeInsets.only(bottom: 4),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF10A37F).withOpacity(0.1) : null,
+                      borderRadius: BorderRadius.circular(10),
+                      border: isSelected ? Border.all(color: const Color(0xFF10A37F), width: 1) : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                model['name']!,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: textColor,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                model['description']!,
+                                style: TextStyle(fontSize: 12, color: secondaryTextColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle, color: Color(0xFF10A37F), size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

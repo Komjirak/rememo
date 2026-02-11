@@ -366,6 +366,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         blocks: ocrBlocks,
         ocrText: ocrText,
         suggestedCategory: suggestedCategory,
+        sourceType: 'screenshot',
       );
 
       // UI 노이즈가 필터링된 OCR 텍스트 생성
@@ -973,6 +974,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           imageSize: analysisData['imageSize'],
           layoutRegions: analysisData['layoutRegions'],
           importantAreas: analysisData['importantAreas'],
+          sourceType: 'screenshot',
         );
         
         String title = analysis.title;
@@ -1311,6 +1313,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 blocks: ocrBlocks,
                 ocrText: ocrText,
                 suggestedCategory: suggestedCategory,
+                sourceType: 'photo',
              );
              
              // Create card with analyzed data

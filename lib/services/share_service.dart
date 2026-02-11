@@ -339,6 +339,9 @@ class ShareService {
                 blocks: null,
                 ocrText: currentText,
                 suggestedCategory: 'Web',
+                sourceType: 'url',
+                urlTitle: currentTitle,
+                urlDescription: currentSummary,
             );
 
             // 1. Title Strategy: Use AI title if current one is weak
@@ -404,6 +407,9 @@ class ShareService {
                     blocks: null,
                     ocrText: metadata!.text!,
                     suggestedCategory: 'Web',
+                    sourceType: 'url',
+                    urlTitle: title,
+                    urlDescription: summary,
                );
                
                if (analysis.summary.isNotEmpty) {

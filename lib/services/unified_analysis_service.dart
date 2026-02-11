@@ -1,17 +1,21 @@
 import 'dart:developer' as developer;
 import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/document_parser_service.dart';
+import 'package:stribe/services/openai_service.dart';
 
 /// 통합 분석 서비스
 /// 모든 입력 경로에서 일관된 분석 결과를 제공
 /// 
-/// 성능 최적화:
-/// - 중복 분석 방지
-/// - 결과 캐싱 (향후 구현)
-/// - 단계적 Fallback으로 빠른 실패 처리
+/// 분석 레벨:
+/// - Level 0: OpenAI GPT API (최고 품질, 인터넷 필요)
+/// - Level 1: EnhancedContentAnalyzer (Apple Intelligence)
+/// - Level 2: OnDeviceLLM (Gemma 2B Core ML)
+/// - Level 3: DocumentParserService (규칙 기반)
+/// - Level 4: MinimalAnalysis (최후 Fallback)
 class UnifiedAnalysisService {
   // 성능 모니터링을 위한 통계
   static final Map<String, int> _analysisStats = {
+    'level0_success': 0,
     'level1_success': 0,
     'level2_success': 0,
     'level3_success': 0,
@@ -34,6 +38,9 @@ class UnifiedAnalysisService {
   /// [imageSize]: 이미지 크기 (선택)
   /// [layoutRegions]: 레이아웃 영역 (선택)
   /// [importantAreas]: 중요 영역 (선택)
+  /// [sourceType]: 'screenshot', 'url', 'photo' 등 (OpenAI 프롬프트용)
+  /// [urlTitle]: URL 메타데이터 제목 (OpenAI 참고용)
+  /// [urlDescription]: URL 메타데이터 설명 (OpenAI 참고용)
   /// 
   /// Returns: ScreenshotAnalysis 결과
   static Future<ScreenshotAnalysis> analyze({
@@ -43,6 +50,9 @@ class UnifiedAnalysisService {
     Map<dynamic, dynamic>? imageSize,
     List<dynamic>? layoutRegions,
     List<dynamic>? importantAreas,
+    String sourceType = 'screenshot',
+    String? urlTitle,
+    String? urlDescription,
   }) async {
     final stopwatch = Stopwatch()..start();
     _analysisStats['total_analyses'] = (_analysisStats['total_analyses'] ?? 0) + 1;
@@ -55,7 +65,8 @@ class UnifiedAnalysisService {
     developer.log(
       '   - OCR 블록: ${blocks?.length ?? 0}개\n'
       '   - OCR 텍스트 길이: ${ocrText?.length ?? 0}\n'
-      '   - 제안 카테고리: $suggestedCategory',
+      '   - 제안 카테고리: $suggestedCategory\n'
+      '   - 소스 타입: $sourceType',
       name: 'UnifiedAnalysis',
     );
     
@@ -73,8 +84,54 @@ class UnifiedAnalysisService {
       blocks = _createBlocksFromText(ocrText);
     }
     
-    // 단계적 Fallback 전략
-    // Level 1: EnhancedContentAnalyzer (최고 품질)
+    // OCR 텍스트가 없으면 블록에서 생성
+    ocrText ??= _generateOcrTextFromBlocks(blocks);
+    
+    // ============================================
+    // Level 0: OpenAI GPT API (최고 품질)
+    // ============================================
+    try {
+      final openaiAvailable = await OpenAIService.isAvailable();
+      if (openaiAvailable && ocrText.isNotEmpty) {
+        print('🔍 [Level 0] OpenAI GPT 시도...');
+        
+        final openaiResult = await OpenAIService.analyze(
+          ocrText: ocrText,
+          sourceType: sourceType,
+          urlTitle: urlTitle,
+          urlDescription: urlDescription,
+        );
+        
+        if (openaiResult.isValid) {
+          stopwatch.stop();
+          _analysisStats['level0_success'] = (_analysisStats['level0_success'] ?? 0) + 1;
+          developer.log(
+            '✅ [Level 0] OpenAI 분석 성공: ${openaiResult.title} (${stopwatch.elapsedMilliseconds}ms)',
+            name: 'UnifiedAnalysis',
+          );
+          return ScreenshotAnalysis(
+            title: openaiResult.title,
+            summary: openaiResult.summary,
+            keyInsights: openaiResult.keyInsights.isNotEmpty 
+                ? openaiResult.keyInsights 
+                : openaiResult.tags,
+          );
+        } else {
+          developer.log('⚠️ [Level 0] OpenAI 결과가 유효하지 않음', name: 'UnifiedAnalysis');
+        }
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '⚠️ [Level 0] OpenAI 분석 실패: $e',
+        name: 'UnifiedAnalysis',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    
+    // ============================================
+    // Level 1: EnhancedContentAnalyzer (Apple Intelligence)
+    // ============================================
     try {
       print('🔍 [Level 1] EnhancedContentAnalyzer 시도...');
       
@@ -177,7 +234,8 @@ class UnifiedAnalysisService {
     
     final result = _generateMinimalAnalysis(blocks, ocrText);
     developer.log(
-      '📊 [통계] Level 1: ${_analysisStats['level1_success']}, '
+      '📊 [통계] Level 0 (OpenAI): ${_analysisStats['level0_success']}, '
+      'Level 1: ${_analysisStats['level1_success']}, '
       'Level 2: ${_analysisStats['level2_success']}, '
       'Level 3: ${_analysisStats['level3_success']}, '
       'Level 4: ${_analysisStats['level4_fallback']}',
