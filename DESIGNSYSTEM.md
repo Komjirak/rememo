@@ -42,11 +42,32 @@
 | **Typography (High)** | `#1A1A1A` | 주요 텍스트 (Deep Charcoal) |
 | **Typography (Low)** | `#636366` | 보조 텍스트 (Medium Gray) |
 
-### 2.3 컬러 사용 원칙
+### 2.3 Border & Shadow 토큰
+
+| 토큰명 | 다크 모드 | 라이트 모드 | 용도 |
+|--------|-----------|-------------|------|
+| **border-soft** | `rgba(255,255,255,0.08)` | `rgba(0,0,0,0.06)` | 카드 외곽선, 주요 구분선 |
+| **border-subtle** | `transparent` | `rgba(0,0,0,0.03)` | 썸네일/이미지 외곽선, 헤더 하단선 |
+| **shadow-soft** | 없음 | `0 4px 20px -2px rgba(0,0,0,0.04), 0 2px 8px -2px rgba(0,0,0,0.02)` | 카드 그림자 |
+| **shadow-fab** | `0 8px 24px -4px rgba(45,212,191,0.4)` | 동일 | FAB 버튼 그림자 |
+
+> ⚠️ **주의**: 라이트모드에서 border 색상은 반드시 위 토큰 값을 사용해야 합니다. `dividerColor` 등 테마 기본값 대신 명시적으로 opacity 값을 지정하세요.
+
+### 2.4 라이트모드 추가 토큰
+
+| 토큰명 | Hex / RGBA | 용도 |
+|--------|------------|------|
+| **thumbnail-bg** | `#F3F4F6` (gray-100) | 썸네일 영역 배경 |
+| **header-border** | `rgba(0,0,0,0.03)` | 헤더 하단 구분선 |
+| **card-bg** | `#FFFFFF` | 카드 배경 |
+| **pill-inactive-border** | `rgba(0,0,0,0.06)` | 비활성 필터 Pill 외곽선 |
+
+### 2.5 컬러 사용 원칙
 - **다크 모드 우선**: 기본 테마는 다크 모드
 - **티알 액센트**: 모든 주요 액션 버튼과 강조 요소에 `#4FD1C5` 사용
 - **대비 유지**: 텍스트와 배경 간 충분한 대비 확보 (WCAG AA 이상)
 - **일관성**: 동일한 요소는 항상 동일한 컬러 사용
+- **Border opacity 통일**: 라이트모드에서 카드 외곽 `0.06`, 썸네일/이미지 외곽 `0.03` 을 반드시 준수
 
 ---
 
@@ -123,11 +144,26 @@
 - **그림자**: 0px 4px 12px rgba(79, 209, 197, 0.3)
 
 #### 메모 카드 (Grid/List View)
+
+**다크 모드:**
 - **배경**: `#161616`
-- **모서리**: 12px border-radius
-- **패딩**: 12px
-- **그림자**: 0px 2px 8px rgba(0, 0, 0, 0.2)
+- **모서리**: 24px border-radius
+- **패딩**: 14px
+- **외곽선**: `rgba(255, 255, 255, 0.08)` (border-soft)
+- **그림자**: 없음
 - **호버**: 약간 밝아짐 (`#1C1C1C`)
+- **썸네일 배경**: `#1F2937`
+- **썸네일 외곽선**: transparent
+
+**라이트 모드:**
+- **배경**: `#FFFFFF` (Pure White)
+- **모서리**: 24px border-radius
+- **패딩**: 14px
+- **외곽선**: `rgba(0, 0, 0, 0.06)` (border-soft) ⚠️ 반드시 준수
+- **그림자**: `0 4px 20px -2px rgba(0,0,0,0.04), 0 2px 8px -2px rgba(0,0,0,0.02)` (shadow-soft)
+- **썸네일 배경**: `#F3F4F6` (gray-100)
+- **썸네일 외곽선**: `rgba(0, 0, 0, 0.03)` (border-subtle) ⚠️ 반드시 준수
+- **썸네일 모서리**: 16px border-radius
 
 ### 5.2 상세 페이지 (Detail Page)
 
@@ -345,6 +381,6 @@
 
 ---
 
-*Last Updated: 2026-01-24*  
-*Version: 1.0*  
+*Last Updated: 2026-02-12*  
+*Version: 1.1*  
 *Author: Komjirak.Studio*

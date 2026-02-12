@@ -245,7 +245,7 @@ class AppTheme {
         shadowColor: Colors.black.withOpacity(0.04), // soft shadow
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: Colors.black.withOpacity(0.04)),
+          side: BorderSide(color: Colors.black.withOpacity(0.06)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -262,7 +262,7 @@ class AppTheme {
         showUnselectedLabels: true,
       ),
       dividerTheme: DividerThemeData(
-        color: Colors.black.withOpacity(0.05),
+        color: Colors.black.withOpacity(0.06),
         thickness: 1,
       ),
       useMaterial3: true,

@@ -215,14 +215,21 @@ class _LibraryCardItem extends StatelessWidget {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isDark ? Colors.transparent : Theme.of(context).dividerColor,
+              color: isDark ? Colors.transparent : Colors.black.withOpacity(0.06),
             ),
             boxShadow: isDark ? null : [
                BoxShadow(
                 color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
+                blurRadius: 20,
+                spreadRadius: -2,
                 offset: const Offset(0, 4),
-               )
+               ),
+               BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                spreadRadius: -2,
+                offset: const Offset(0, 2),
+               ),
             ],
           ),
           child: Row(
@@ -232,10 +239,10 @@ class _LibraryCardItem extends StatelessWidget {
                 width: 80,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1F2937) : Theme.of(context).dividerColor,
+                  color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? Colors.transparent : Theme.of(context).dividerColor,
+                    color: isDark ? Colors.transparent : Colors.black.withOpacity(0.03),
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
