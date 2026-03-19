@@ -176,28 +176,35 @@ class DocumentParserService {
           case DocumentDomain.mapReservation:
               final mapInfo = _extractMapInfo(lines);
               title = mapInfo['place'] ?? title;
-              summary = "📍 장소/예약 정보\n";
-              if (mapInfo['place'] != null) summary += "장소: ${mapInfo['place']}\n";
+              final mapBody = _extractBodyText(lines, limit: 80);
+              summary = mapInfo['place'] != null
+                  ? "📍 ${mapInfo['place']}${mapInfo['date'] != null ? ' · ${mapInfo['date']}' : ''} — $mapBody"
+                  : "📍 장소/예약 정보\n$mapBody";
               if (mapInfo['date'] != null) keyInsights.add("일시: ${mapInfo['date']}");
               break;
 
           case DocumentDomain.sns:
               final author = _extractSNSAuthor(lines);
               if (author != null) title = "Post by $author";
-              summary = _extractBodyText(lines, limit: 100);
+              final snsBody = _extractBodyText(lines, limit: 120);
+              summary = author != null ? "$author 게시물 — $snsBody" : snsBody;
               keyInsights.add("SNS 게시물");
               break;
-              
+
           case DocumentDomain.workTool:
-               title = "Work Item / Task";
-               summary = _extractBodyText(lines, limit: 120);
-               keyInsights.add("업무 관련");
-               break;
+              summary = _extractBodyText(lines, limit: 150);
+              // 첫 번째 의미있는 줄을 제목으로 재시도
+              final workTitle = lines.firstWhere(
+                (l) => l.trim().length >= 5 && l.trim().length <= 60,
+                orElse: () => '',
+              ).trim();
+              if (workTitle.isNotEmpty) title = workTitle;
+              keyInsights.add("업무 관련");
+              break;
 
           default:
-              // Web Article or Generic
-              // Use sophisticated body extraction
-              summary = _extractBodyText(lines, limit: 150);
+              // Web Article or Generic: 문장 점수화 기반 요약
+              summary = _extractBodyText(lines, limit: 180);
       }
       
       if (summary.trim().isEmpty) summary = "Content detected.";
@@ -259,31 +266,128 @@ class DocumentParserService {
   }
 
   static String _extractTitleGeneric(List<String> lines, List<OCRBlock> originalBlocks) {
-      // Find the block with the largest height (biggest font) in the top 30%
-      if (originalBlocks.isEmpty) return (lines.isNotEmpty ? lines.first : "No Title");
-      
-      final topBlocks = originalBlocks.where((b) => b.boundingBox.top < 0.3).toList();
-      if (topBlocks.isNotEmpty) {
-          topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
-          final candidate = topBlocks.first.text;
-          if (candidate.length > 3) return candidate;
+    if (originalBlocks.isEmpty) return lines.isNotEmpty ? lines.first : "No Title";
+
+    // 텍스트 전용 모드 감지: height 분산이 작으면 합성 블록 → 줄 기반 전략
+    if (originalBlocks.length >= 3) {
+      final heights = originalBlocks.map((b) => b.boundingBox.height).toList();
+      final mean = heights.reduce((a, b) => a + b) / heights.length;
+      final variance = heights.map((h) => (h - mean) * (h - mean)).reduce((a, b) => a + b) / heights.length;
+
+      if (variance < 0.001) {
+        // 텍스트 전용: 첫 줄 중 짧고 문장 부호로 끝나지 않는 줄을 제목으로 선택
+        for (final line in lines) {
+          final t = line.trim();
+          if (t.length >= 4 && t.length <= 60 && !t.endsWith('.') && !t.startsWith('@')) {
+            return t;
+          }
+        }
+        return lines.isNotEmpty ? lines.first : "New Screenshot";
       }
-      
-      return lines.isNotEmpty ? lines.first : "New Screenshot";
+    }
+
+    // 일반 모드: 상단 30% + 큰 폰트 우선
+    final uiExcludePatterns = [
+      RegExp(r'^\d{1,2}:\d{2}'),     // 시간
+      RegExp(r'^\d{1,3}%$'),          // 배터리
+      RegExp(r'^(로그인|회원가입|검색|메뉴|홈|설정|닫기)$'),
+    ];
+
+    final topBlocks = originalBlocks
+        .where((b) => b.boundingBox.top < 0.3)
+        .where((b) {
+          final t = b.text.trim();
+          return t.length > 3 && !uiExcludePatterns.any((p) => p.hasMatch(t));
+        })
+        .toList();
+
+    if (topBlocks.isNotEmpty) {
+      topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
+      final candidate = topBlocks.first.text.trim();
+      if (candidate.length > 3) return candidate;
+    }
+
+    return lines.isNotEmpty ? lines.first : "New Screenshot";
   }
 
-  static String _extractBodyText(List<String> lines, {int limit = 100}) {
-     // Join lines that look like paragraphs
-     // Filter out very short lines (often UI noise)
-     List<String> meaningfulLines = lines.where((l) => l.length > 10).toList();
-     if (meaningfulLines.isEmpty) return lines.take(3).join(" ");
-     
-     String body = meaningfulLines.join(" ");
-     if (body.length > limit) return body.substring(0, limit) + "...";
-     return body;
+  /// 문장 중요도 점수화 (위치 가중치 + 길이 + 키워드 밀도)
+  static double _scoreSentence(String sentence, int lineIndex, int totalLines) {
+    double score = 0.0;
+    final t = sentence.trim();
+
+    // 1. 길이 점수 (20~120자 적합)
+    if (t.length >= 20 && t.length <= 120) {
+      score += 3.0;
+    } else if (t.length > 120) {
+      score += 1.0;
+    }
+
+    // 2. 위치 점수 (앞 1/3 영역 우선)
+    if (totalLines > 0) {
+      final relPos = lineIndex / totalLines;
+      if (relPos < 0.33) score += 2.0;
+      else if (relPos < 0.66) score += 1.0;
+    }
+
+    // 3. 완전한 문장 (종결 어미로 끝나면 가산)
+    if (t.endsWith('다') || t.endsWith('요') || t.endsWith('.') || t.endsWith('!')) {
+      score += 1.5;
+    }
+
+    // 4. 숫자/데이터 포함 (정보 밀도 높음)
+    if (RegExp(r'\d').hasMatch(t)) score += 1.0;
+
+    // 5. 핵심 키워드 포함
+    const importantKw = ['소개', '설명', '발표', '강조', '주장', '밝혔', '특징', '중요', '핵심', '요약'];
+    if (importantKw.any((k) => t.contains(k))) score += 0.8;
+
+    return score;
   }
-  
+
+  /// 문장 중요도 기반 요약 생성 (도메인별 길이 제한 조절 가능)
+  static String _extractBodyText(List<String> lines, {int limit = 150}) {
+    final meaningfulLines = lines.where((l) => l.trim().length > 10).toList();
+    if (meaningfulLines.isEmpty) return lines.take(3).join(' ');
+
+    // 문장 분리 + 점수화
+    final scored = <MapEntry<String, double>>[];
+    for (int i = 0; i < meaningfulLines.length; i++) {
+      final sentences = meaningfulLines[i]
+          .split(RegExp(r'[.!?。！？]\s*'))
+          .map((s) => s.trim())
+          .where((s) => s.length >= 10)
+          .toList();
+      for (final s in sentences) {
+        scored.add(MapEntry(s, _scoreSentence(s, i, meaningfulLines.length)));
+      }
+    }
+
+    if (scored.isEmpty) {
+      final raw = meaningfulLines.join(' ');
+      return raw.length > limit ? '${raw.substring(0, limit - 3)}...' : raw;
+    }
+
+    // 점수 내림차순 정렬 후 상위 선택 (limit 초과 시 중단)
+    scored.sort((a, b) => b.value.compareTo(a.value));
+
+    final selected = <String>[];
+    int totalLen = 0;
+    for (final entry in scored) {
+      if (totalLen + entry.key.length > limit) break;
+      selected.add(entry.key);
+      totalLen += entry.key.length;
+      if (selected.length >= 3) break;
+    }
+
+    final summary = selected.join(' ');
+    return summary.isEmpty
+        ? (meaningfulLines.first.length > limit
+            ? '${meaningfulLines.first.substring(0, limit - 3)}...'
+            : meaningfulLines.first)
+        : summary;
+  }
+
   static List<String> _extractGenericKeyPoints(List<String> lines) {
-      return lines.where((l) => l.length > 10 && l.length < 60).take(3).toList();
+    return lines.where((l) => l.length > 10 && l.length < 60).take(3).toList();
   }
 }

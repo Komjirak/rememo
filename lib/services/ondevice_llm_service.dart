@@ -507,88 +507,104 @@ class OnDeviceLLMService {
     );
   }
 
-  /// 제목 추정 (개선된 다중 전략 조합)
+  /// 텍스트 전용 모드 감지
+  /// bounding box height가 균일(분산 < 0.001)하면 _createBlocksFromText로 만든 합성 블록으로 판단
+  static bool _isTextOnlyMode(List<OCRBlock> blocks) {
+    if (blocks.length < 3) return false;
+    final heights = blocks.map((b) => b.boundingBox.height).toList();
+    final mean = heights.reduce((a, b) => a + b) / heights.length;
+    final variance = heights.map((h) => (h - mean) * (h - mean)).reduce((a, b) => a + b) / heights.length;
+    return variance < 0.001; // 높이 분산이 매우 작으면 합성 블록
+  }
+
+  /// 제목 추정 (다중 전략 + 텍스트 전용 모드 분기)
   static String? _estimateTitle(List<OCRBlock> blocks) {
     if (blocks.isEmpty) return null;
 
-    // 후보 수집 및 점수화
+    // ── 텍스트 전용 모드: bounding box가 균일한 합성 블록 ─────────────────
+    // height 기반 점수화가 무의미하므로 줄 순서·길이 휴리스틱으로 대체
+    if (_isTextOnlyMode(blocks)) {
+      print('📌 [제목 추정] 텍스트 전용 모드 감지 → 줄 기반 전략 사용');
+      for (final block in blocks) {
+        final text = block.text.trim();
+        if (text.length < 4 || text.length > 80) continue;
+        if (text.contains('http') || text.startsWith('@')) continue;
+        if (_isUIElement(text) || _isTimeOrDatePattern(text)) continue;
+        // 긴 문장(마침표로 끝나는)은 제목 아님
+        if (text.endsWith('.') && text.length > 40) continue;
+        print('📌 [제목 추정] 텍스트 전용 후보: "$text"');
+        return text;
+      }
+      // 후보 없으면 첫 번째 의미있는 줄
+      return blocks.firstWhere(
+        (b) => b.text.trim().length >= 4,
+        orElse: () => blocks.first,
+      ).text.trim();
+    }
+
+    // ── 일반 모드: 위치·크기·의미 다중 전략 점수화 ──────────────────────
     final candidates = <MapEntry<OCRBlock, double>>[];
+    final avgHeight = blocks.map((b) => b.boundingBox.height).reduce((a, b) => a + b) / blocks.length;
 
     for (final block in blocks) {
       final text = block.text.trim();
       final box = block.boundingBox;
-      
-      // 기본 필터링
+
       if (text.length < 5 || text.length > 80) continue;
       if (text.contains('http') || text.contains('www.')) continue;
       if (_isUIElement(text) || _isTimeOrDatePattern(text)) continue;
-      
+
       double score = 0.0;
-      
-      // 전략 1: 위치 점수 (상단에 있을수록 높음)
+
+      // 전략 1: 위치 점수
       if (box.top < 0.20) {
         score += 20.0;
-        if (box.top < 0.10) score += 10.0; // 더 상단이면 추가 점수
+        if (box.top < 0.10) score += 10.0;
       } else if (box.top < 0.30) {
         score += 10.0;
       } else {
-        score -= 5.0; // 하단이면 감점
+        score -= 5.0;
       }
-      
-      // 전략 2: 크기 점수 (큰 폰트 = 제목)
-      final avgHeight = blocks.map((b) => b.boundingBox.height).reduce((a, b) => a + b) / blocks.length;
+
+      // 전략 2: 크기 점수 (실제 이미지 블록에서만 의미있음)
       if (box.height > avgHeight * 1.5) {
-        score += 15.0; // 평균보다 1.5배 크면 높은 점수
+        score += 15.0;
       } else if (box.height > avgHeight) {
         score += 5.0;
       }
-      
-      // 전략 3: 의미 분석 점수
-      // 명사 비율 (간단한 휴리스틱)
+
+      // 전략 3: 의미있는 단어 비율
       final words = text.split(RegExp(r'\s+'));
-      final meaningfulWords = words.where((w) => 
-        w.length >= 3 && 
+      final meaningfulWords = words.where((w) =>
+        w.length >= 3 &&
         !RegExp(r'^(the|a|an|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|were|been|be|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|need|this|that|these|those|it|its|you|your|we|our|they|their|he|his|she|her|i|my|me|이|그|저|것|수|등|및|또는|그리고|하지만)$', caseSensitive: false).hasMatch(w.toLowerCase())
       ).length;
-      
-      if (words.isNotEmpty) {
-        final meaningfulRatio = meaningfulWords / words.length;
-        score += meaningfulRatio * 10.0;
-      }
-      
-      // 전략 4: 길이 점수 (적절한 길이: 10-50자)
+      if (words.isNotEmpty) score += (meaningfulWords / words.length) * 10.0;
+
+      // 전략 4: 길이 점수
       if (text.length >= 10 && text.length <= 50) {
         score += 10.0;
       } else if (text.length >= 5 && text.length < 10) {
         score += 5.0;
       } else if (text.length > 50) {
-        score -= 5.0; // 너무 길면 감점
+        score -= 5.0;
       }
-      
-      // 전략 5: 중앙 정렬 점수 (제목은 보통 중앙에 위치)
-      final centerX = box.centerX;
-      if (centerX > 0.3 && centerX < 0.7) {
-        score += 5.0;
-      }
-      
-      // 전략 6: UI 요소 제외 강화
-      if (_isAppBrandPattern(text)) {
-        score -= 20.0;
-      }
-      
+
+      // 전략 5: 중앙 정렬
+      if (box.centerX > 0.3 && box.centerX < 0.7) score += 5.0;
+
+      // 전략 6: 앱 브랜드 패턴 감점
+      if (_isAppBrandPattern(text)) score -= 20.0;
+
       candidates.add(MapEntry(block, score));
     }
-    
+
     if (candidates.isEmpty) return null;
-    
-    // 점수 순으로 정렬
     candidates.sort((a, b) => b.value.compareTo(a.value));
-    
-    // 최고 점수 후보 반환
-    final topCandidate = candidates.first;
-    print('📌 제목 추정: "${topCandidate.key.text}" (점수: ${topCandidate.value.toStringAsFixed(1)})');
-    
-    return topCandidate.key.text.trim();
+
+    final top = candidates.first;
+    print('📌 [제목 추정] "${top.key.text}" (점수: ${top.value.toStringAsFixed(1)})');
+    return top.key.text.trim();
   }
 
   /// UI 요소인지 확인
