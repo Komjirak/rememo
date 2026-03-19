@@ -3,33 +3,70 @@ import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/document_parser_service.dart';
 import 'package:stribe/services/openai_service.dart';
 
+/// OpenAI 오류 유형 분류
+/// - permanent: 재시도해도 성공 불가 (잘못된 키, 비활성화 등) → 세션 내 Level 0 완전 스킵
+/// - transient: 일시적 오류 (타임아웃, 네트워크) → 다음 분석 시 재시도 허용
+enum _OpenAIErrorKind { permanent, transient }
+
+_OpenAIErrorKind _classifyOpenAIError(Object error) {
+  final msg = error.toString().toLowerCase();
+  // 401 Unauthorized / 403 Forbidden / 'invalid_api_key' → 영구 오류
+  if (msg.contains('401') ||
+      msg.contains('403') ||
+      msg.contains('invalid_api_key') ||
+      msg.contains('invalid api key') ||
+      msg.contains('api key가 설정되지 않았습니다') ||
+      msg.contains('incorrect api key')) {
+    return _OpenAIErrorKind.permanent;
+  }
+  // 429 Rate Limit도 세션 내 재시도 차단 (과금 방지)
+  if (msg.contains('429') || msg.contains('rate limit')) {
+    return _OpenAIErrorKind.permanent;
+  }
+  return _OpenAIErrorKind.transient;
+}
+
 /// 통합 분석 서비스
 /// 모든 입력 경로에서 일관된 분석 결과를 제공
-/// 
+///
 /// 분석 레벨:
 /// - Level 0: OpenAI GPT API (최고 품질, 인터넷 필요)
-/// - Level 1: EnhancedContentAnalyzer (Apple Intelligence)
-/// - Level 2: OnDeviceLLM (Gemma 2B Core ML)
+/// - Level 1: EnhancedContentAnalyzer (Apple Intelligence / Foundation Models)
+/// - Level 2: OnDeviceLLM (NLP 휴리스틱)
 /// - Level 3: DocumentParserService (규칙 기반)
 /// - Level 4: MinimalAnalysis (최후 Fallback)
 class UnifiedAnalysisService {
-  // 성능 모니터링을 위한 통계
-  static final Map<String, int> _analysisStats = {
+  // 성능 모니터링을 위한 통계 (Map 전체를 교체해 원자성 보장)
+  static Map<String, int> _analysisStats = {
     'level0_success': 0,
     'level1_success': 0,
     'level2_success': 0,
     'level3_success': 0,
     'level4_fallback': 0,
     'total_analyses': 0,
+    'level0_perm_error': 0,
   };
-  
-  /// 분석 통계 조회
+
+  /// Level 0 영구 오류 발생 여부 (세션 내 재시도 차단용)
+  static bool _openAIPermanentErrorOccurred = false;
+
+  /// 분석 통계 조회 (스냅샷 반환)
   static Map<String, int> getAnalysisStats() => Map<String, int>.from(_analysisStats);
-  
+
   /// 통계 초기화
   static void resetStats() {
-    _analysisStats.updateAll((key, value) => 0);
+    _analysisStats = {for (final k in _analysisStats.keys) k: 0};
+    _openAIPermanentErrorOccurred = false;
   }
+
+  /// Level 0 영구 오류 상태 초기화 (설정에서 새 API 키 저장 시 호출)
+  static void resetOpenAIError() {
+    _openAIPermanentErrorOccurred = false;
+    developer.log('🔄 [UnifiedAnalysis] OpenAI 영구오류 상태 초기화', name: 'UnifiedAnalysis');
+  }
+
+  /// 현재 Level 0 사용 가능 여부 (영구 오류 미발생 + API Key 존재)
+  static bool get isOpenAIBlocked => _openAIPermanentErrorOccurred;
   /// 통합 분석 메인 API
   /// 
   /// [blocks]: OCR 블록 리스트 (필수)
@@ -55,7 +92,7 @@ class UnifiedAnalysisService {
     String? urlDescription,
   }) async {
     final stopwatch = Stopwatch()..start();
-    _analysisStats['total_analyses'] = (_analysisStats['total_analyses'] ?? 0) + 1;
+    _analysisStats = {..._analysisStats, 'total_analyses': (_analysisStats['total_analyses'] ?? 0) + 1};
     
     developer.log(
       '🚀 [UnifiedAnalysis] 분석 시작',
@@ -90,43 +127,65 @@ class UnifiedAnalysisService {
     // ============================================
     // Level 0: OpenAI GPT API (최고 품질)
     // ============================================
-    try {
-      final openaiAvailable = await OpenAIService.isAvailable();
-      if (openaiAvailable && ocrText.isNotEmpty) {
-        print('🔍 [Level 0] OpenAI GPT 시도...');
-        
-        final openaiResult = await OpenAIService.analyze(
-          ocrText: ocrText,
-          sourceType: sourceType,
-          urlTitle: urlTitle,
-          urlDescription: urlDescription,
-        );
-        
-        if (openaiResult.isValid) {
-          stopwatch.stop();
-          _analysisStats['level0_success'] = (_analysisStats['level0_success'] ?? 0) + 1;
-          developer.log(
-            '✅ [Level 0] OpenAI 분석 성공: ${openaiResult.title} (${stopwatch.elapsedMilliseconds}ms)',
-            name: 'UnifiedAnalysis',
+    if (_openAIPermanentErrorOccurred) {
+      developer.log(
+        '⏭️ [Level 0] 영구오류 발생 이력으로 스킵 (키 재설정 필요)',
+        name: 'UnifiedAnalysis',
+      );
+    } else {
+      try {
+        final openaiAvailable = await OpenAIService.isAvailable();
+        if (openaiAvailable && ocrText.isNotEmpty) {
+          developer.log('🔍 [Level 0] OpenAI GPT 시도...', name: 'UnifiedAnalysis');
+
+          final openaiResult = await OpenAIService.analyze(
+            ocrText: ocrText,
+            sourceType: sourceType,
+            urlTitle: urlTitle,
+            urlDescription: urlDescription,
           );
-          return ScreenshotAnalysis(
-            title: openaiResult.title,
-            summary: openaiResult.summary,
-            keyInsights: openaiResult.keyInsights.isNotEmpty 
-                ? openaiResult.keyInsights 
-                : openaiResult.tags,
+
+          if (openaiResult.isValid) {
+            stopwatch.stop();
+            _analysisStats = {..._analysisStats,
+              'level0_success': (_analysisStats['level0_success'] ?? 0) + 1,
+            };
+            developer.log(
+              '✅ [Level 0] OpenAI 분석 성공: ${openaiResult.title} (${stopwatch.elapsedMilliseconds}ms)',
+              name: 'UnifiedAnalysis',
+            );
+            return ScreenshotAnalysis(
+              title: openaiResult.title,
+              summary: openaiResult.summary,
+              keyInsights: openaiResult.keyInsights.isNotEmpty
+                  ? openaiResult.keyInsights
+                  : openaiResult.tags,
+            );
+          } else {
+            developer.log('⚠️ [Level 0] OpenAI 결과가 유효하지 않음', name: 'UnifiedAnalysis');
+          }
+        }
+      } catch (e, stackTrace) {
+        final kind = _classifyOpenAIError(e);
+        if (kind == _OpenAIErrorKind.permanent) {
+          _openAIPermanentErrorOccurred = true;
+          _analysisStats = {..._analysisStats,
+            'level0_perm_error': (_analysisStats['level0_perm_error'] ?? 0) + 1,
+          };
+          developer.log(
+            '🚫 [Level 0] 영구오류 — 세션 내 Level 0 비활성화: $e',
+            name: 'UnifiedAnalysis',
+            error: e,
           );
         } else {
-          developer.log('⚠️ [Level 0] OpenAI 결과가 유효하지 않음', name: 'UnifiedAnalysis');
+          developer.log(
+            '⚠️ [Level 0] 일시오류 (다음 분석 시 재시도): $e',
+            name: 'UnifiedAnalysis',
+            error: e,
+            stackTrace: stackTrace,
+          );
         }
       }
-    } catch (e, stackTrace) {
-      developer.log(
-        '⚠️ [Level 0] OpenAI 분석 실패: $e',
-        name: 'UnifiedAnalysis',
-        error: e,
-        stackTrace: stackTrace,
-      );
     }
     
     // ============================================
@@ -144,7 +203,7 @@ class UnifiedAnalysisService {
       
       if (_isValidResult(enhancedResult)) {
         stopwatch.stop();
-        _analysisStats['level1_success'] = (_analysisStats['level1_success'] ?? 0) + 1;
+        _analysisStats = {..._analysisStats, 'level1_success': (_analysisStats['level1_success'] ?? 0) + 1};
         developer.log(
           '✅ [Level 1] Enhanced 분석 성공: ${enhancedResult['title']} (${stopwatch.elapsedMilliseconds}ms)',
           name: 'UnifiedAnalysis',
@@ -177,7 +236,7 @@ class UnifiedAnalysisService {
       
       if (_isValidAnalysis(analysis)) {
         stopwatch.stop();
-        _analysisStats['level2_success'] = (_analysisStats['level2_success'] ?? 0) + 1;
+        _analysisStats = {..._analysisStats, 'level2_success': (_analysisStats['level2_success'] ?? 0) + 1};
         developer.log(
           '✅ [Level 2] OnDeviceLLM 분석 성공: ${analysis.title} (${stopwatch.elapsedMilliseconds}ms)',
           name: 'UnifiedAnalysis',
@@ -206,7 +265,7 @@ class UnifiedAnalysisService {
       
       if (_isValidAnalysis(parsed)) {
         stopwatch.stop();
-        _analysisStats['level3_success'] = (_analysisStats['level3_success'] ?? 0) + 1;
+        _analysisStats = {..._analysisStats, 'level3_success': (_analysisStats['level3_success'] ?? 0) + 1};
         developer.log(
           '✅ [Level 3] DocumentParser 분석 성공: ${parsed.title} (${stopwatch.elapsedMilliseconds}ms)',
           name: 'UnifiedAnalysis',
@@ -226,7 +285,7 @@ class UnifiedAnalysisService {
     
     // Level 4: 최소한의 Fallback (최후의 수단)
     stopwatch.stop();
-    _analysisStats['level4_fallback'] = (_analysisStats['level4_fallback'] ?? 0) + 1;
+    _analysisStats = {..._analysisStats, 'level4_fallback': (_analysisStats['level4_fallback'] ?? 0) + 1};
     developer.log(
       '🔍 [Level 4] 최소한의 Fallback 생성 (${stopwatch.elapsedMilliseconds}ms)',
       name: 'UnifiedAnalysis',

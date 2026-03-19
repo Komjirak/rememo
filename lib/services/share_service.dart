@@ -344,48 +344,54 @@ class ShareService {
                 urlDescription: currentSummary,
             );
 
-            // 1. Title Strategy: Use AI title if current one is weak
-            // Weak conditions: Empty, Security page, or looks like raw domain
-            final bool isWeakTitle = currentTitle.isEmpty || 
-                                   _isSecurityPageTitle(currentTitle) || 
-                                   currentTitle == _prettifyHost(item.url ?? '');
-            
-            if (isWeakTitle && analysis.title.isNotEmpty && analysis.title != 'New Memory') {
-                print('✨ [ShareService] Replacing weak title "$currentTitle" with AI title: "${analysis.title}"');
+            // 1. 제목 전략: 메타 제목 우선, AI 제목은 약한 경우에만 사용
+            //    약한 조건: 빈값 / 보안 페이지 / 도메인 단독 / 너무 짧음(5자 미만)
+            final bool isWeakTitle = currentTitle.isEmpty ||
+                                   _isSecurityPageTitle(currentTitle) ||
+                                   currentTitle == _prettifyHost(item.url ?? '') ||
+                                   currentTitle.length < 5;
+
+            if (isWeakTitle &&
+                analysis.title.isNotEmpty &&
+                analysis.title != 'New Memory' &&
+                analysis.title != 'Screen Capture') {
+                print('✨ [ShareService] 약한 제목 교체: "$currentTitle" → "${analysis.title}"');
                 currentTitle = analysis.title;
             }
 
-            // 2. Summary Strategy: Merge or Prefer AI
-            // If metadata description is short, prefer AI summary
+            // 2. 요약 전략:
+            //    - 메타 요약 없음 또는 50자 미만 → AI 요약 사용
+            //    - 메타 요약이 충분하면 유지 (메타 설명이 편집된 텍스트일 가능성 높음)
+            //    - AI 요약이 메타 요약의 2배 이상 길면 AI 요약이 더 상세한 것으로 판단해 교체
             if (analysis.summary.isNotEmpty) {
                 if (currentSummary.isEmpty || currentSummary.length < 50) {
                     currentSummary = analysis.summary;
-                } else {
-                    // Both exist: Maybe append or keep metadata?
-                    // For now, if AI summary provides more detail, we might want to use it
-                    // But metadata description is usually human-written and good.
-                    // Let's stick to: Metadata Primary, AI Backup, unless Metadata is very short.
-                    // If AI summary is significantly longer/richer, maybe use it?
-                    if (analysis.summary.length > currentSummary.length * 2) {
-                         currentSummary = analysis.summary;
-                    }
+                } else if (analysis.summary.length > currentSummary.length * 2) {
+                    currentSummary = analysis.summary;
                 }
             }
-            
-            // 3. Tags
+
+            // 3. 태그: AI 분석 결과의 keyInsights를 태그로 활용
             if (analysis.keyInsights.isNotEmpty) {
-                // Merge tags? For now, let UnifiedService handle tags if we want
+                final aiTags = analysis.keyInsights
+                    .where((t) => t.isNotEmpty && t.length <= 20)
+                    .toList();
+                final baseTags = _extractTagsFromText('$currentTitle $currentSummary');
+                // 중복 제거 후 최대 5개
+                final merged = {...baseTags, ...aiTags}.take(5).toList();
+                processedItem = processedItem.copyWith(tags: merged);
             }
         }
 
+        // tags는 위 AI 분석 블록에서 이미 설정됐을 수 있으므로 null 전달 시 기존 값 유지
         processedItem = processedItem.copyWith(
             status: 'ready',
             suggestedTitle: currentTitle.isNotEmpty ? currentTitle : _prettifyHost(item.url ?? ''),
             summary: currentSummary,
             imageUrl: currentImageUrl,
             category: 'Web',
-            tags: _extractTagsFromText(currentTitle + ' ' + currentSummary),
-            ocrText: currentText, 
+            tags: processedItem.tags ?? _extractTagsFromText('$currentTitle $currentSummary'),
+            ocrText: currentText,
         );
         
       } else if (item.type == 'text') {
