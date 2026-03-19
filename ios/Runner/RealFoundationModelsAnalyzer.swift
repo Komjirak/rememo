@@ -13,11 +13,7 @@
 
 import Foundation
 import NaturalLanguage
-
-// MARK: - iOS 26 이상에서만 컴파일
-
-@available(iOS 26.0, *)
-private import FoundationModels
+import FoundationModels
 
 // MARK: - Structured Output Schema
 
@@ -25,7 +21,7 @@ private import FoundationModels
 /// 프롬프트 응답을 타입 안전하게 파싱
 @available(iOS 26.0, *)
 @Generable
-private struct ContentAnalysisSchema {
+struct ContentAnalysisSchema {
     @Guide(description: "콘텐츠를 대표하는 제목. 30자 이내. UI 요소(시간, 배터리, 탭바 텍스트)는 제외.")
     var title: String
 
