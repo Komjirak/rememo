@@ -9,18 +9,32 @@ import WebKit
 @objc class AppDelegate: FlutterAppDelegate, PHPhotoLibraryChangeObserver, WKNavigationDelegate {
   private var eventSink: FlutterEventSink?
   private var sharedDataEventSink: FlutterEventSink?
-  private var lastProcessedAssetId: String?
-  private var isMonitoring = false
   private let appGroupId = "group.com.rememo.komjirak"
   private var webView: WKWebView?
   private var currentResultCallback: FlutterResult?
+
+  // Photos 관련 프로퍼티: 백그라운드·메인 큐 혼용 접근을 직렬 큐로 보호
+  private let photoStateQueue = DispatchQueue(label: "com.rememo.photoState", qos: .utility)
+  private var _lastProcessedAssetId: String?
+  private var _isMonitoring = false
+
+  private var lastProcessedAssetId: String? {
+    get { photoStateQueue.sync { _lastProcessedAssetId } }
+    set { photoStateQueue.async { self._lastProcessedAssetId = newValue } }
+  }
+  private var isMonitoring: Bool {
+    get { photoStateQueue.sync { _isMonitoring } }
+    set { photoStateQueue.async { self._isMonitoring = newValue } }
+  }
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
 
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    }
 
     // Method Channel for direct calls
     let channel = FlutterMethodChannel(name: "com.rememo.komjirak/vision",
@@ -80,7 +94,8 @@ import WebKit
     let llmChannel = FlutterMethodChannel(name: "com.rememo.komjirak/llm",
                                           binaryMessenger: controller.binaryMessenger)
     
-    llmChannel.setMethodCallHandler({ (call: FlutterMethodCall, result: @escaping FlutterResult) in
+    llmChannel.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard self != nil else { result(FlutterError(code: "DEALLOCATED", message: "AppDelegate was released", details: nil)); return }
       if call.method == "analyzeSummary" {
         guard let args = call.arguments as? [String: Any],
               let textBlocks = args["textBlocks"] as? [[String: Any]],
@@ -156,8 +171,11 @@ import WebKit
       }
     })
 
-    channel.setMethodCallHandler({
-      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
+    channel.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
+      guard let self = self else {
+        result(FlutterError(code: "DEALLOCATED", message: "AppDelegate was released", details: nil))
+        return
+      }
       if call.method == "getLastScreenshotAnalysis" {
           self.analyzeLastScreenshot(result: result)
       } else if call.method == "analyzeImage" {
@@ -170,7 +188,6 @@ import WebKit
       } else if call.method == "analyzeImageWithBoxes" {
           if let args = call.arguments as? [String: Any],
              let path = args["path"] as? String {
-              // Enhanced Analysis 호출
               self.analyzeImageFileWithEnhanced(path: path, result: result)
           } else {
               result(FlutterError(code: "INVALID_ARGS", message: "Path argument missing", details: nil))
@@ -595,11 +612,6 @@ import WebKit
         }
     }
     
-    // Legacy method - kept if needed but not used by handler
-    private func analyzeImageFileWithBoxes(path: String, result: @escaping FlutterResult) {
-        analyzeImageFileWithEnhanced(path: path, result: result)
-    }
-
     // ... saveToTemp and recognizeText remain same ...
 
 
@@ -907,48 +919,51 @@ extension AppDelegate {
       return
     }
 
-    // Cancel previous if any
-    if let callback = self.currentResultCallback {
-        callback(FlutterError(code: "CANCELLED", message: "New request started", details: nil))
-    }
-    self.currentResultCallback = result
-
     DispatchQueue.main.async {
+        // 이전 요청이 있으면 정리
+        if let callback = self.currentResultCallback {
+            self.webView?.navigationDelegate = nil
+            self.webView?.stopLoading()
+            self.webView = nil
+            callback(FlutterError(code: "CANCELLED", message: "New request started", details: nil))
+        }
+        self.currentResultCallback = result
+
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
-        
-        self.webView = WKWebView(frame: .zero, configuration: config)
-        self.webView?.navigationDelegate = self
-        self.webView?.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
-        
+
+        let newWebView = WKWebView(frame: .zero, configuration: config)
+        newWebView.navigationDelegate = self
+        newWebView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1"
+        self.webView = newWebView
+
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 15.0)
-        self.webView?.load(request)
-        
-        // Timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) { [weak self] in
-            guard let self = self, self.webView?.isLoading == true else { return }
-            self.webView?.stopLoading()
-            self.finalizeMetadataExtraction(url: url)
+        newWebView.load(request)
+
+        // Timeout: 생성 시점의 webView 인스턴스를 캡처해 비교
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) { [weak self, weak newWebView] in
+            guard let self = self, let timedOutWebView = newWebView else { return }
+            // 아직 이 webView가 현재 활성 요청인지 확인
+            guard self.webView === timedOutWebView, timedOutWebView.isLoading else { return }
+            timedOutWebView.stopLoading()
+            self.finalizeMetadataExtraction(from: timedOutWebView, pageURL: url)
         }
     }
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-      // Small delay to let JS render
-      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-          self.finalizeMetadataExtraction(url: webView.url)
+      // JS가 렌더링할 시간을 주기 위해 짧게 대기 후 현재 webView 인스턴스를 직접 전달
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, weak webView] in
+          guard let self = self, let finishedWebView = webView else { return }
+          // 이 콜백이 현재 활성 요청의 webView에서 온 것인지 확인
+          guard self.webView === finishedWebView else { return }
+          self.finalizeMetadataExtraction(from: finishedWebView, pageURL: finishedWebView.url)
       }
   }
-  
-  // No explicit property declaration here as it is declared at top level of class in previous step? 
-  // Wait, I declared `private var currentResultCallback: FlutterResult?` at line 603 in previous output, 
-  // but I must ensure it's in the class scope. The previous replace inserted it into method body?
-  // No, previous replace inserted it before finalizeMetadataExtraction.
-  // Let's assume it is there.
-  
-  private func finalizeMetadataExtraction(url: URL?) {
-    guard let callback = self.currentResultCallback, let webView = self.webView else { return }
-    self.currentResultCallback = nil // callback only once
+
+  private func finalizeMetadataExtraction(from webView: WKWebView, pageURL url: URL?) {
+    guard let callback = self.currentResultCallback else { return }
+    self.currentResultCallback = nil // 중복 호출 방지
     
     let js = """
         function getMeta(prop) {
@@ -969,32 +984,32 @@ extension AppDelegate {
         })
     """
     
-    webView.evaluateJavaScript(js) { [weak self] (jsResult, error) in
-        guard let self = self else { 
+    webView.evaluateJavaScript(js) { [weak self, weak webView] (jsResult, error) in
+        guard let self = self else {
             callback(FlutterError(code: "ERROR", message: "Self released", details: nil))
-            return 
+            return
         }
-        
+
         var title = self.prettifyHost(url?.host) ?? "Link"
         var description = ""
         var imageUrl = ""
         var text = ""
-        
+
         if let dict = jsResult as? [String: Any] {
             let extractedTitle = dict["title"] as? String
             description = dict["description"] as? String ?? ""
             imageUrl = dict["image"] as? String ?? ""
             text = dict["text"] as? String ?? ""
-            
+
             if let t = extractedTitle {
                 let lowerT = t.lowercased()
-                 let securityKeywords = ["security checkpoint", "just a moment", "attention required", "cloudflare", "vercel", "secruity"]
-                 if !securityKeywords.contains(where: { lowerT.contains($0) }) {
-                     title = t
-                 }
+                let securityKeywords = ["security checkpoint", "just a moment", "attention required", "cloudflare", "vercel", "secruity"]
+                if !securityKeywords.contains(where: { lowerT.contains($0) }) {
+                    title = t
+                }
             }
         }
-        
+
         callback([
             "url": url?.absoluteString ?? "",
             "title": self.decodeHTMLEntities(title),
@@ -1002,8 +1017,12 @@ extension AppDelegate {
             "imageUrl": imageUrl,
             "text": text
         ])
-        
-        self.webView = nil
+
+        // 사용한 webView 인스턴스를 정리 (self.webView가 이미 새 요청으로 교체됐을 수 있으므로 비교 후 nil화)
+        if self.webView === webView {
+            self.webView = nil
+        }
+        webView?.navigationDelegate = nil
     }
   }
 
