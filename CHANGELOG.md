@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Documentation
+- Rewrote `README.md` based on `PRD.md` and recent `CHANGELOG.md` entries.
+- Updated product messaging to **Rememo** and aligned feature/roadmap/privacy sections with current implementation.
+
 ## [1.0.0+27] - 2026-02-02
 
 ### Fixed
