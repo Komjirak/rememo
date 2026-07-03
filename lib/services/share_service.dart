@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:stribe/services/unified_analysis_service.dart';
-import 'package:stribe/services/ondevice_llm_service.dart';
+import 'package:stribe/utils/app_logger.dart';
+import 'package:stribe/utils/text_heuristics.dart';
 
 /// Model for shared content received from Share Extension
 class SharedItem {
@@ -21,6 +22,8 @@ class SharedItem {
   final List<String>? tags;
   final String? category;
   final String? suggestedTitle;
+  final List<String>? keyInsights;
+  final String? contentType;
 
   SharedItem({
     required this.type,
@@ -37,6 +40,8 @@ class SharedItem {
     this.tags,
     this.category,
     this.suggestedTitle,
+    this.keyInsights,
+    this.contentType,
   });
 
   factory SharedItem.fromMap(Map<String, dynamic> map) {
@@ -115,6 +120,8 @@ class SharedItem {
     List<String>? tags,
     String? category,
     String? suggestedTitle,
+    List<String>? keyInsights,
+    String? contentType,
   }) {
     return SharedItem(
       type: type,
@@ -131,6 +138,8 @@ class SharedItem {
       tags: tags ?? this.tags,
       category: category ?? this.category,
       suggestedTitle: suggestedTitle ?? this.suggestedTitle,
+      keyInsights: keyInsights ?? this.keyInsights,
+      contentType: contentType ?? this.contentType,
     );
   }
 }
@@ -185,7 +194,7 @@ class ShareService {
           .map((item) => SharedItem.fromMap(Map<String, dynamic>.from(item)))
           .toList();
     } on PlatformException catch (e) {
-      print("Failed to get pending shared items: '${e.message}'");
+      logWarn("Failed to get pending shared items: '${e.message}'", name: 'ShareService');
       return [];
     }
   }
@@ -196,7 +205,7 @@ class ShareService {
       await _channel.invokeMethod('clearPendingSharedItems');
       return true;
     } on PlatformException catch (e) {
-      print("Failed to clear pending shared items: '${e.message}'");
+      logWarn("Failed to clear pending shared items: '${e.message}'", name: 'ShareService');
       return false;
     }
   }
@@ -209,7 +218,7 @@ class ShareService {
       });
       return true;
     } on PlatformException catch (e) {
-      print("Failed to remove pending shared item: '${e.message}'");
+      logWarn("Failed to remove pending shared item: '${e.message}'", name: 'ShareService');
       return false;
     }
   }
@@ -225,7 +234,7 @@ class ShareService {
       }
       return null;
     } on PlatformException catch (e) {
-      print("Failed to analyze shared image: '${e.message}'");
+      logWarn("Failed to analyze shared image: '${e.message}'", name: 'ShareService');
       return null;
     }
   }
@@ -241,7 +250,7 @@ class ShareService {
       }
       return null;
     } on PlatformException catch (e) {
-      print("Failed to fetch URL metadata: '${e.message}'");
+      logWarn("Failed to fetch URL metadata: '${e.message}'", name: 'ShareService');
       return null;
     }
   }
@@ -317,7 +326,7 @@ class ShareService {
            }
         } else if (item.url != null && (currentSummary.isEmpty || currentImageUrl == null)) {
            // 🔹 Title exists but Summary/Image missing? Fetch metadata anyway to enrich!
-           print('Title exists ($currentTitle) but missing details. Fetching metadata for ${item.url}...');
+           logInfo('Title exists ($currentTitle) but missing details. Fetching metadata for ${item.url}...', name: 'ShareService');
            final metadata = await fetchURLMetadata(item.url!);
            if (metadata != null) {
                // Use longer/better content if available
@@ -333,8 +342,11 @@ class ShareService {
         }
         
         // AI Analysis using UnifiedAnalysisService (replaces manual _generateAISummary)
+        String finalCategory = 'Web';
+        String? finalContentType;
+        List<String>? finalInsights;
         if (currentText.isNotEmpty) {
-            print('🧠 [ShareService] Requesting Unified Analysis for URL content...');
+            logInfo('🧠 Requesting Unified Analysis for URL content...', name: 'ShareService');
             final analysis = await UnifiedAnalysisService.analyze(
                 blocks: null,
                 ocrText: currentText,
@@ -355,7 +367,7 @@ class ShareService {
                 analysis.title.isNotEmpty &&
                 analysis.title != 'New Memory' &&
                 analysis.title != 'Screen Capture') {
-                print('✨ [ShareService] 약한 제목 교체: "$currentTitle" → "${analysis.title}"');
+                logInfo('✨ 약한 제목 교체: "$currentTitle" → "${analysis.title}"', name: 'ShareService');
                 currentTitle = analysis.title;
             }
 
@@ -371,15 +383,17 @@ class ShareService {
                 }
             }
 
-            // 3. 태그: AI 분석 결과의 keyInsights를 태그로 활용
+            // 3. 태그/카테고리/인사이트: AI 분석 결과를 그대로 활용
+            //    (keyInsights는 문장이므로 태그에 섞지 않음)
+            if (analysis.tags.isNotEmpty) {
+                processedItem = processedItem.copyWith(tags: analysis.tags.take(5).toList());
+            }
+            if (analysis.category != null && analysis.category!.isNotEmpty) {
+                finalCategory = analysis.category!;
+            }
+            finalContentType = analysis.contentType;
             if (analysis.keyInsights.isNotEmpty) {
-                final aiTags = analysis.keyInsights
-                    .where((t) => t.isNotEmpty && t.length <= 20)
-                    .toList();
-                final baseTags = _extractTagsFromText('$currentTitle $currentSummary');
-                // 중복 제거 후 최대 5개
-                final merged = {...baseTags, ...aiTags}.take(5).toList();
-                processedItem = processedItem.copyWith(tags: merged);
+                finalInsights = analysis.keyInsights;
             }
         }
 
@@ -389,9 +403,12 @@ class ShareService {
             suggestedTitle: currentTitle.isNotEmpty ? currentTitle : _prettifyHost(item.url ?? ''),
             summary: currentSummary,
             imageUrl: currentImageUrl,
-            category: 'Web',
-            tags: processedItem.tags ?? _extractTagsFromText('$currentTitle $currentSummary'),
+            category: finalCategory,
+            tags: processedItem.tags ??
+                TextHeuristics.extractTags('$currentTitle $currentSummary', max: 5),
             ocrText: currentText,
+            keyInsights: finalInsights,
+            contentType: finalContentType,
         );
         
       } else if (item.type == 'text') {
@@ -408,24 +425,35 @@ class ShareService {
           String title = hasValidMetadata ? metadata.title : _prettifyHost(extractedUrl);
           
           // Try AI Summary for URL content if available from metadata
+          String category = 'Web';
+          List<String>? aiTags;
+          List<String>? aiInsights;
+          String? contentType;
           if (metadata?.text != null && metadata!.text!.isNotEmpty) {
                final analysis = await UnifiedAnalysisService.analyze(
                     blocks: null,
-                    ocrText: metadata!.text!,
+                    ocrText: metadata.text!,
                     suggestedCategory: 'Web',
                     sourceType: 'url',
                     urlTitle: title,
                     urlDescription: summary,
                );
-               
+
                if (analysis.summary.isNotEmpty) {
                    summary = analysis.summary;
                }
-               
+
                // Also upgrade title if weak
                if ((title.isEmpty || title == _prettifyHost(extractedUrl)) && analysis.title.isNotEmpty) {
                    title = analysis.title;
                }
+
+               if (analysis.category != null && analysis.category!.isNotEmpty) {
+                   category = analysis.category!;
+               }
+               if (analysis.tags.isNotEmpty) aiTags = analysis.tags.take(5).toList();
+               if (analysis.keyInsights.isNotEmpty) aiInsights = analysis.keyInsights;
+               contentType = analysis.contentType;
           }
 
           processedItem = SharedItem(
@@ -440,15 +468,17 @@ class ShareService {
             status: 'ready',
             ocrText: item.ocrText,
             summary: summary.isNotEmpty ? summary : null,
-            tags: _extractTagsFromText(text),
-            category: 'Web',
+            tags: aiTags ?? TextHeuristics.extractTags(text, max: 5),
+            category: category,
             suggestedTitle: title,
+            keyInsights: aiInsights,
+            contentType: contentType,
           );
         } else {
           processedItem = processedItem.copyWith(
             status: 'ready',
-            tags: _extractTagsFromText(text),
-            category: _detectCategory(text),
+            tags: TextHeuristics.extractTags(text, max: 5),
+            category: TextHeuristics.detectCategory(text),
             suggestedTitle: _generateTitleFromText(text),
           );
         }
@@ -456,7 +486,7 @@ class ShareService {
 
       return processedItem;
     } catch (e) {
-      print("Error processing shared item: $e");
+      logError("Error processing shared item: $e", name: 'ShareService', error: e);
       return item.copyWith(status: 'error');
     }
   }
@@ -504,17 +534,6 @@ class ShareService {
     return match?.group(0);
   }
 
-  /// Extract tags from text (simple keyword extraction)
-  List<String> _extractTagsFromText(String text) {
-    final words = text
-        .split(RegExp(r'[\s,.!?;:]+'))
-        .where((w) => w.length > 2 && w.length < 20)
-        .where((w) => !_stopWords.contains(w.toLowerCase()))
-        .take(5)
-        .toList();
-    return words;
-  }
-
   /// Generate title from text
   String _generateTitleFromText(String text) {
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
@@ -525,36 +544,4 @@ class ShareService {
     return '${firstLine.substring(0, 27)}...';
   }
 
-  /// Detect category from text
-  String _detectCategory(String text) {
-    final lower = text.toLowerCase();
-
-    if (lower.contains('원') || lower.contains('결제') || lower.contains('price') || lower.contains('payment')) {
-      return 'Shopping';
-    }
-    if (lower.contains('레시피') || lower.contains('요리') || lower.contains('recipe') || lower.contains('cook')) {
-      return 'Food';
-    }
-    if (lower.contains('http') || lower.contains('.com') || lower.contains('www')) {
-      return 'Web';
-    }
-    if (lower.contains('회의') || lower.contains('미팅') || lower.contains('meeting') || lower.contains('work')) {
-      return 'Work';
-    }
-    if (lower.contains('design') || lower.contains('디자인') || lower.contains('ui')) {
-      return 'Design';
-    }
-
-    return 'Inbox';
-  }
-
-  static const _stopWords = {
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-    'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
-    'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-    'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need',
-    'this', 'that', 'these', 'those', 'it', 'its', 'you', 'your', 'we',
-    'our', 'they', 'their', 'he', 'his', 'she', 'her', 'i', 'my', 'me',
-    '이', '그', '저', '것', '수', '등', '및', '또는', '그리고', '하지만',
-  };
 }

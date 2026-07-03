@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:stribe/utils/app_logger.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 
@@ -26,10 +27,10 @@ class TranslationService {
 
     try {
       final language = await _languageIdentifier.identifyLanguage(text);
-      print('[TranslationService] Detected language: $language');
+      logInfo('[TranslationService] Detected language: $language', name: 'Translation');
       return language == 'und' ? null : language;
     } catch (e) {
-      print('[TranslationService] Language detection error: $e');
+      logInfo('[TranslationService] Language detection error: $e', name: 'Translation');
       return null;
     }
   }
@@ -42,7 +43,7 @@ class TranslationService {
     final systemLang = getSystemLanguage();
     final needs = detectedLang != systemLang;
 
-    print('[TranslationService] Needs translation: $needs (detected: $detectedLang, system: $systemLang)');
+    logInfo('[TranslationService] Needs translation: $needs (detected: $detectedLang, system: $systemLang)', name: 'Translation');
     return needs;
   }
 
@@ -97,7 +98,7 @@ class TranslationService {
     final targetLanguage = _getTranslateLanguage(targetLang);
 
     if (sourceLanguage == null || targetLanguage == null) {
-      print('[TranslationService] Unsupported language pair: $sourceLang -> $targetLang');
+      logInfo('[TranslationService] Unsupported language pair: $sourceLang -> $targetLang', name: 'Translation');
       return false;
     }
 
@@ -108,7 +109,7 @@ class TranslationService {
     _cachedSourceLang = sourceLang;
     _cachedTargetLang = targetLang;
 
-    print('[TranslationService] Translator initialized: $sourceLang -> $targetLang');
+    logInfo('[TranslationService] Translator initialized: $sourceLang -> $targetLang', name: 'Translation');
     return true;
   }
 
@@ -122,16 +123,16 @@ class TranslationService {
     try {
       final isDownloaded = await modelManager.isModelDownloaded(language.bcpCode);
       if (isDownloaded) {
-        print('[TranslationService] Model already downloaded: $langCode');
+        logInfo('[TranslationService] Model already downloaded: $langCode', name: 'Translation');
         return true;
       }
 
-      print('[TranslationService] Downloading model: $langCode...');
+      logInfo('[TranslationService] Downloading model: $langCode...', name: 'Translation');
       final success = await modelManager.downloadModel(language.bcpCode);
-      print('[TranslationService] Model download ${success ? "complete" : "failed"}: $langCode');
+      logInfo('[TranslationService] Model download ${success ? "complete" : "failed"}: $langCode', name: 'Translation');
       return success;
     } catch (e) {
-      print('[TranslationService] Model download error: $e');
+      logInfo('[TranslationService] Model download error: $e', name: 'Translation');
       return false;
     }
   }
@@ -150,7 +151,7 @@ class TranslationService {
       // 언어 감지
       final detectedLang = await detectLanguage(text);
       if (detectedLang == null) {
-        print('[TranslationService] Could not detect language');
+        logInfo('[TranslationService] Could not detect language', name: 'Translation');
         return TranslationResult(
           originalText: text,
           translatedText: text,
@@ -162,7 +163,7 @@ class TranslationService {
 
       // 같은 언어면 번역 불필요
       if (detectedLang == systemLang) {
-        print('[TranslationService] Same language, no translation needed');
+        logInfo('[TranslationService] Same language, no translation needed', name: 'Translation');
         return TranslationResult(
           originalText: text,
           translatedText: text,
@@ -176,7 +177,7 @@ class TranslationService {
       final targetReady = await ensureModelDownloaded(systemLang);
 
       if (!sourceReady || !targetReady) {
-        print('[TranslationService] Model not ready, returning original');
+        logInfo('[TranslationService] Model not ready, returning original', name: 'Translation');
         return TranslationResult(
           originalText: text,
           translatedText: text,
@@ -199,12 +200,12 @@ class TranslationService {
       }
 
       // 번역 실행
-      print('[TranslationService] Translating from $detectedLang to $systemLang...');
+      logInfo('[TranslationService] Translating from $detectedLang to $systemLang...', name: 'Translation');
       final translated = await _translator!.translateText(text);
 
-      print('[TranslationService] Translation complete');
-      print('[TranslationService] Original: ${text.substring(0, text.length > 50 ? 50 : text.length)}...');
-      print('[TranslationService] Translated: ${translated.substring(0, translated.length > 50 ? 50 : translated.length)}...');
+      logInfo('[TranslationService] Translation complete', name: 'Translation');
+      logInfo('[TranslationService] Original: ${text.substring(0, text.length > 50 ? 50 : text.length)}...', name: 'Translation');
+      logInfo('[TranslationService] Translated: ${translated.substring(0, translated.length > 50 ? 50 : translated.length)}...', name: 'Translation');
 
       return TranslationResult(
         originalText: text,
@@ -214,7 +215,7 @@ class TranslationService {
         targetLanguage: systemLang,
       );
     } catch (e) {
-      print('[TranslationService] Translation error: $e');
+      logInfo('[TranslationService] Translation error: $e', name: 'Translation');
       return TranslationResult(
         originalText: text,
         translatedText: text,

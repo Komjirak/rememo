@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:stribe/utils/app_logger.dart';
 import 'package:flutter/services.dart';
 
 /// Callback type for when a new screenshot is detected
@@ -24,7 +25,7 @@ class NativeService {
       }
       return null;
     } on PlatformException catch (e) {
-      print("Failed to get last screenshot: '${e.message}'.");
+      logInfo("Failed to get last screenshot: '${e.message}'.", name: 'Native');
       return null;
     }
   }
@@ -37,7 +38,7 @@ class NativeService {
       }
       return null;
     } on PlatformException catch (e) {
-      print("Failed to analyze image: '${e.message}'.");
+      logInfo("Failed to analyze image: '${e.message}'.", name: 'Native');
       return null;
     }
   }
@@ -52,7 +53,7 @@ class NativeService {
       }
       return null;
     } on PlatformException catch (e) {
-      print("Failed to analyze image with boxes: '${e.message}'.");
+      logInfo("Failed to analyze image with boxes: '${e.message}'.", name: 'Native');
       return null;
     }
   }
@@ -83,7 +84,7 @@ class NativeService {
         'imageSize': data['imageSize'],          // NEW
       };
     } catch (e) {
-      print('Enhanced analysis failed: $e');
+      logInfo('Enhanced analysis failed: $e', name: 'Native');
       // 폴백: 기존 방식 (이미 위에서 호출했음)
       final fallback = await getLastScreenshotAnalysis();
       return fallback ?? {}; 
@@ -109,7 +110,7 @@ class NativeService {
     required ScreenshotDetectedCallback onScreenshotDetected,
   }) async {
     if (_isMonitoring) {
-      print("Screenshot monitoring already active");
+      logInfo("Screenshot monitoring already active", name: 'Native');
       _onScreenshotDetected = onScreenshotDetected;
       return true;
     }
@@ -118,7 +119,7 @@ class NativeService {
       // Start native monitoring
       final result = await _channel.invokeMethod('startScreenshotMonitoring');
       if (result != true) {
-        print("Failed to start native screenshot monitoring");
+        logInfo("Failed to start native screenshot monitoring", name: 'Native');
         return false;
       }
 
@@ -128,24 +129,24 @@ class NativeService {
         (dynamic event) {
           if (event is Map) {
             final data = Map<String, dynamic>.from(event);
-            print("Screenshot detected: ${data['imagePath']}");
+            logInfo("Screenshot detected: ${data['imagePath']}", name: 'Native');
             _onScreenshotDetected?.call(data);
           }
         },
         onError: (error) {
-          print("Screenshot detection error: $error");
+          logInfo("Screenshot detection error: $error", name: 'Native');
         },
         onDone: () {
-          print("Screenshot detection stream closed");
+          logInfo("Screenshot detection stream closed", name: 'Native');
           _isMonitoring = false;
         },
       );
 
       _isMonitoring = true;
-      print("Screenshot monitoring started successfully");
+      logInfo("Screenshot monitoring started successfully", name: 'Native');
       return true;
     } on PlatformException catch (e) {
-      print("Failed to start screenshot monitoring: '${e.message}'.");
+      logInfo("Failed to start screenshot monitoring: '${e.message}'.", name: 'Native');
       return false;
     }
   }
@@ -166,10 +167,10 @@ class NativeService {
       await _channel.invokeMethod('stopScreenshotMonitoring');
 
       _isMonitoring = false;
-      print("Screenshot monitoring stopped");
+      logInfo("Screenshot monitoring stopped", name: 'Native');
       return true;
     } on PlatformException catch (e) {
-      print("Failed to stop screenshot monitoring: '${e.message}'.");
+      logInfo("Failed to stop screenshot monitoring: '${e.message}'.", name: 'Native');
       return false;
     }
   }

@@ -1,4 +1,5 @@
 import 'package:stribe/services/ondevice_llm_service.dart'; // Using OCRBlock and ScreenshotAnalysis
+import 'package:stribe/utils/app_logger.dart';
 
 enum DocumentDomain {
   webArticle,
@@ -41,11 +42,11 @@ class DocumentParserService {
              // Fallback to internal heuristic if native mapped to generic
              domain = _identifyDomain(visualLines);
         } else {
-             print('📊 Using Native Category: $externalCategory -> $domain');
+             logInfo('📊 Using Native Category: $externalCategory -> $domain', name: 'DocParser');
         }
     } else {
         domain = _identifyDomain(visualLines);
-        print('📊 Detected Domain (Rule-based): $domain');
+        logInfo('📊 Detected Domain (Rule-based): $domain', name: 'DocParser');
     }
 
     // 4. Domain-Specific Extraction

@@ -1,3 +1,4 @@
+import 'dart:convert';
 
 class MemoCard {
   final String id;
@@ -177,15 +178,20 @@ class MemoCard {
   }
   
   static List<String> _parseList(dynamic val) {
-      if (val == null) return [];
-      if (val is String) {
-          // If stored as comma separated string or json string, handle here if needed.
-          // But for now assuming List or null.
-          // Actually, if DB helper stores as JSON string, we might need to decode.
-          // Let's assume List<dynamic> for now as per `tags` implementation.
-          return [];
+    if (val == null) return [];
+    if (val is List) return val.map((e) => e.toString()).toList();
+    if (val is String) {
+      if (val.isEmpty) return [];
+      if (val.startsWith('[')) {
+        try {
+          return List<String>.from(jsonDecode(val) as List);
+        } catch (_) {
+          // JSON 파싱 실패 시 레거시(쉼표 구분)로 처리
+        }
       }
-      return List<String>.from(val ?? []);
+      return val.split(',').where((e) => e.trim().isNotEmpty).toList();
+    }
+    return [];
   }
 
   @override

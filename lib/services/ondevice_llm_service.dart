@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:stribe/utils/app_logger.dart';
 import 'package:stribe/services/translation_service.dart';
 
 /// 온디바이스 LLM 서비스 (Core ML + Gemma 2B 사용)
@@ -38,7 +39,7 @@ class OnDeviceLLMService {
 
       if (result == null) {
         // 폴백: 기존 로직
-        print("⚠️ Native Enhanced Analysis returned null, falling back.");
+        logInfo("⚠️ Native Enhanced Analysis returned null, falling back.", name: 'OnDeviceLLM');
         final legacy = await analyzeScreenshotLegacy(ocrText: "", ocrBlocks: blocks);
         return {
           'title': legacy.title,
@@ -58,11 +59,11 @@ class OnDeviceLLMService {
 
       // 자동 번역 적용
       if (enableTranslation && summary.isNotEmpty) {
-        print('🌐 [OnDeviceLLM] Checking translation need...');
+        logInfo('🌐 [OnDeviceLLM] Checking translation need...', name: 'OnDeviceLLM');
         final translationResult = await _translationService.translateToSystemLanguage(summary);
 
         if (translationResult.wasTranslated) {
-          print('🌐 [OnDeviceLLM] Translation applied');
+          logInfo('🌐 [OnDeviceLLM] Translation applied', name: 'OnDeviceLLM');
           originalSummary = summary;
           summary = translationResult.translatedText;
           wasTranslated = true;
@@ -89,7 +90,7 @@ class OnDeviceLLMService {
       };
 
     } catch (e) {
-      print('Enhanced LLM analysis failed: $e');
+      logInfo('Enhanced LLM analysis failed: $e', name: 'OnDeviceLLM');
       // 폴백
       final legacy = await analyzeScreenshotLegacy(ocrText: "", ocrBlocks: blocks);
       return {
@@ -107,29 +108,29 @@ class OnDeviceLLMService {
     required String ocrText,
     required List<OCRBlock> ocrBlocks, // bounding box 포함
   }) async {
-    print('🔄 스크린샷 분석 파이프라인 (Legacy) 시작...');
-    print('   - 입력 블록 수: ${ocrBlocks.length}');
+    logInfo('🔄 스크린샷 분석 파이프라인 (Legacy) 시작...', name: 'OnDeviceLLM');
+    logInfo('   - 입력 블록 수: ${ocrBlocks.length}', name: 'OnDeviceLLM');
 
     // Step 1: UI 노이즈 제거
     final cleanedBlocks = _filterUINoiseBlocks(ocrBlocks);
-    print('   - UI 노이즈 제거 후: ${cleanedBlocks.length}개 블록');
+    logInfo('   - UI 노이즈 제거 후: ${cleanedBlocks.length}개 블록', name: 'OnDeviceLLM');
 
     // Step 2: 문단 및 제목 추정
     final structuredContent = _estimateDocumentStructure(cleanedBlocks);
-    print('   - 제목: ${structuredContent.title}');
-    print('   - 문단 수: ${structuredContent.paragraphs.length}');
-    print('   - 핵심 포인트: ${structuredContent.keyPoints.length}개');
+    logInfo('   - 제목: ${structuredContent.title}', name: 'OnDeviceLLM');
+    logInfo('   - 문단 수: ${structuredContent.paragraphs.length}', name: 'OnDeviceLLM');
+    logInfo('   - 핵심 포인트: ${structuredContent.keyPoints.length}개', name: 'OnDeviceLLM');
 
     // Step 3: 온디바이스 LLM으로 요약 생성
     final summary = await _generateSummaryOnDevice(structuredContent);
-    print('✅ 스크린샷 분석 완료: ${summary.title}');
+    logInfo('✅ 스크린샷 분석 완료: ${summary.title}', name: 'OnDeviceLLM');
 
     return summary;
   }
   
   // 테스트용 메서드
   static Future<void> testEnhancedAnalysis() async {
-    print('=== Enhanced Analysis Test ===');
+    logInfo('=== Enhanced Analysis Test ===', name: 'OnDeviceLLM');
     
     final testBlocks = [
       OCRBlock(
@@ -154,11 +155,11 @@ class OnDeviceLLMService {
       imageSize: {'width': 1170.0, 'height': 2532.0},
     );
     
-    print('Title: ${result['title']}');
-    print('Summary: ${result['summary']}');
-    print('Tags: ${result['tags']}');
-    print('Type: ${result['contentType']}');
-    print('=== Test Complete ===');
+    logInfo('Title: ${result['title']}', name: 'OnDeviceLLM');
+    logInfo('Summary: ${result['summary']}', name: 'OnDeviceLLM');
+    logInfo('Tags: ${result['tags']}', name: 'OnDeviceLLM');
+    logInfo('Type: ${result['contentType']}', name: 'OnDeviceLLM');
+    logInfo('=== Test Complete ===', name: 'OnDeviceLLM');
   }
 
   // ============================================
@@ -171,7 +172,7 @@ class OnDeviceLLMService {
   }
 
   static List<OCRBlock> _filterUINoiseBlocks(List<OCRBlock> blocks) {
-    print('🔍 [UI 노이즈 필터링] 입력 블록: ${blocks.length}개');
+    logInfo('🔍 [UI 노이즈 필터링] 입력 블록: ${blocks.length}개', name: 'OnDeviceLLM');
     
     final filtered = blocks.where((block) {
       final text = block.text.trim();
@@ -179,19 +180,16 @@ class OnDeviceLLMService {
 
       // 1. 빈 텍스트 제거
       if (text.isEmpty) {
-        print('   ❌ 필터링: 빈 텍스트');
         return false;
       }
 
       // 2. 신뢰도 필터 (0.5 이하 제거) - Swift와 통일
       if (block.confidence < 0.5) {
-        print('   ❌ 필터링: 낮은 신뢰도 (${block.confidence})');
         return false;
       }
 
       // 3. 너무 짧은 텍스트 (2자 이하)
       if (text.length <= 2) {
-        print('   ❌ 필터링: 너무 짧음 (${text.length}자)');
         return false;
       }
 
@@ -200,39 +198,32 @@ class OnDeviceLLMService {
         // 상단 영역: 상태바 요소만 제거
         // 시간 패턴 (다양한 형식)
         if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(text)) {
-          print('   ❌ 필터링: 시간 패턴 (상단)');
           return false;
         }
         if (RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|오전|오후)?$', caseSensitive: false).hasMatch(text)) {
-          print('   ❌ 필터링: 시간 패턴 (상단)');
           return false;
         }
         // 배터리/신호
         if (RegExp(r'^\d{1,3}%$').hasMatch(text)) {
-          print('   ❌ 필터링: 배터리/신호 (상단)');
           return false;
         }
         // 통신사, 와이파이 등
         if (RegExp(r'^(LTE|5G|4G|3G|Wi-Fi|WiFi)$', caseSensitive: false).hasMatch(text)) {
-          print('   ❌ 필터링: 통신사/와이파이 (상단)');
           return false;
         }
         // 짧은 상태바 텍스트
         if (text.length <= 6 && box.height < 0.03) {
-          print('   ❌ 필터링: 짧은 상태바 텍스트 (상단)');
           return false;
         }
       }
 
       // 5. 하단 네비게이션 영역 제거 (하단 8%)
       if (box.top > 0.92) {
-        print('   ❌ 필터링: 하단 네비게이션 영역');
         return false;
       }
 
       // 6. 시간/날짜 패턴 (전체 영역에서)
       if (_isTimeOrDatePattern(text)) {
-        print('   ❌ 필터링: 시간/날짜 패턴');
         return false;
       }
 
@@ -246,14 +237,12 @@ class OnDeviceLLMService {
       
       for (final pattern in urlPatterns) {
         if (pattern.hasMatch(text)) {
-          print('   ❌ 필터링: URL 패턴');
           return false;
         }
       }
       
       // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
       if (RegExp(r'^[a-z]+-[a-z]+.*\.[a-z]+', caseSensitive: false).hasMatch(text)) {
-        print('   ❌ 필터링: 케밥케이스 URL');
         return false;
       }
       
@@ -269,14 +258,12 @@ class OnDeviceLLMService {
         final isDateRangePattern = RegExp(r'\d{4}-\d{2}-\d{2}.*\d{4}-\d{2}-\d{2}').hasMatch(text);
         
         if (!isDatePattern && !isPhonePattern && !isDateRangePattern) {
-          print('   ❌ 필터링: 다중 하이픈 (URL 가능성)');
           return false;
         }
       }
       
       // 숫자로만 구성된 텍스트 (섹션 번호)
       if (RegExp(r'^[0-9]+\.$').hasMatch(text)) {
-        print('   ❌ 필터링: 섹션 번호');
         return false;
       }
 
@@ -313,11 +300,9 @@ class OnDeviceLLMService {
 
       final lowerText = text.toLowerCase();
       if (englishUIKeywords.contains(lowerText)) {
-        print('   ❌ 필터링: 영어 UI 키워드');
         return false;
       }
       if (koreanUIKeywords.contains(text)) {
-        print('   ❌ 필터링: 한국어 UI 키워드');
         return false;
       }
 
@@ -325,21 +310,18 @@ class OnDeviceLLMService {
       if (box.width < 0.20 && box.height < 0.05 && text.length < 12) {
         // 의미있는 내용이 아니면 제거
         if (!_containsMeaningfulContent(text)) {
-          print('   ❌ 필터링: 짧은 버튼 텍스트 (의미 없음)');
           return false;
         }
       }
 
       // 11. 아이콘/이모지만 있는 경우
       if (RegExp(r'^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$', unicode: true).hasMatch(text)) {
-        print('   ❌ 필터링: 이모지만');
         return false;
       }
 
       // 12. 네비게이션 바 요소 (좌우 끝에 있는 짧은 텍스트)
       if ((box.left < 0.15 || box.right > 0.85) && box.top < 0.12 && text.length < 15) {
         if (!_containsMeaningfulContent(text)) {
-          print('   ❌ 필터링: 네비게이션 바 요소');
           return false;
         }
       }
@@ -351,42 +333,36 @@ class OnDeviceLLMService {
           '피드', 'feed', '탐색', 'explore', '트렌드', 'trending',
           '팔로잉', 'following', '추천', 'for you', 'foryou'];
         if (buttonLikeKeywords.contains(lowerText)) {
-          print('   ❌ 필터링: 탭바 키워드');
           return false;
         }
       }
 
       // 14. 광고/프로모션 패턴
       if (_isAdvertisementPattern(text)) {
-        print('   ❌ 필터링: 광고 패턴');
         return false;
       }
 
       // 15. 앱 이름/브랜드 패턴 (상단에 있는 경우)
       if (box.top < 0.15 && text.length < 20) {
         if (_isAppBrandPattern(text)) {
-          print('   ❌ 필터링: 앱 브랜드 패턴');
           return false;
         }
       }
 
       // 16. 숫자만 있는 경우 (조회수, 좋아요 수 등)
       if (RegExp(r'^[\d,\.]+[KMB]?$', caseSensitive: false).hasMatch(text)) {
-        print('   ❌ 필터링: 숫자만');
         return false;
       }
 
       // 17. 매우 작은 영역의 텍스트 (UI 요소일 가능성 높음)
       if (box.area < 0.002 && text.length < 15) {
-        print('   ❌ 필터링: 매우 작은 영역');
         return false;
       }
 
-      print('   ✅ 유지: "$text"');
       return true;
     }).toList();
     
-    print('🔍 [UI 노이즈 필터링] 출력 블록: ${filtered.length}개 (${blocks.length - filtered.length}개 제거됨)');
+    logInfo('🔍 [UI 노이즈 필터링] 출력 블록: ${filtered.length}개 (${blocks.length - filtered.length}개 제거됨)', name: 'OnDeviceLLM');
     return filtered;
   }
 
@@ -524,7 +500,7 @@ class OnDeviceLLMService {
     // ── 텍스트 전용 모드: bounding box가 균일한 합성 블록 ─────────────────
     // height 기반 점수화가 무의미하므로 줄 순서·길이 휴리스틱으로 대체
     if (_isTextOnlyMode(blocks)) {
-      print('📌 [제목 추정] 텍스트 전용 모드 감지 → 줄 기반 전략 사용');
+      logInfo('📌 [제목 추정] 텍스트 전용 모드 감지 → 줄 기반 전략 사용', name: 'OnDeviceLLM');
       for (final block in blocks) {
         final text = block.text.trim();
         if (text.length < 4 || text.length > 80) continue;
@@ -532,7 +508,7 @@ class OnDeviceLLMService {
         if (_isUIElement(text) || _isTimeOrDatePattern(text)) continue;
         // 긴 문장(마침표로 끝나는)은 제목 아님
         if (text.endsWith('.') && text.length > 40) continue;
-        print('📌 [제목 추정] 텍스트 전용 후보: "$text"');
+        logInfo('📌 [제목 추정] 텍스트 전용 후보: "$text"', name: 'OnDeviceLLM');
         return text;
       }
       // 후보 없으면 첫 번째 의미있는 줄
@@ -603,7 +579,7 @@ class OnDeviceLLMService {
     candidates.sort((a, b) => b.value.compareTo(a.value));
 
     final top = candidates.first;
-    print('📌 [제목 추정] "${top.key.text}" (점수: ${top.value.toStringAsFixed(1)})');
+    logInfo('📌 [제목 추정] "${top.key.text}" (점수: ${top.value.toStringAsFixed(1)})', name: 'OnDeviceLLM');
     return top.key.text.trim();
   }
 
@@ -695,7 +671,7 @@ class OnDeviceLLMService {
     DocumentStructure structure
   ) async {
     try {
-      print('🤖 온디바이스 LLM (Gemma 2B) 호출 중...');
+      logInfo('🤖 온디바이스 LLM (Gemma 2B) 호출 중...', name: 'OnDeviceLLM');
 
       // iOS Native에서 Core ML + Gemma 2B 실행
       final result = await platform.invokeMethod('analyzeSummary', {
@@ -709,7 +685,7 @@ class OnDeviceLLMService {
         final summary = result['summary'] as String? ?? _generateFallbackSummary(structure);
         final keyInsights = result['keyInsights'] as List?;
 
-        print('✅ LLM 분석 완료: $title');
+        logInfo('✅ LLM 분석 완료: $title', name: 'OnDeviceLLM');
 
         return ScreenshotAnalysis(
           title: title,
@@ -722,7 +698,7 @@ class OnDeviceLLMService {
 
       throw Exception('Invalid result format');
     } catch (e) {
-      print('⚠️ 온디바이스 LLM 실패, Fallback 사용: $e');
+      logInfo('⚠️ 온디바이스 LLM 실패, Fallback 사용: $e', name: 'OnDeviceLLM');
       // Fallback: 규칙 기반 요약
       return ScreenshotAnalysis(
         title: structure.title,
@@ -923,9 +899,25 @@ class ScreenshotAnalysis {
   final String summary;
   final List<String> keyInsights;
 
+  /// 검색 필터용 짧은 키워드 태그 (keyInsights와 구분됨)
+  final List<String> tags;
+
+  /// 표준 카테고리 (TextHeuristics.validCategories 중 하나), null이면 미분류
+  final String? category;
+
+  /// 'news', 'blog', 'restaurant' 등 콘텐츠 유형
+  final String contentType;
+
+  /// 이 결과를 생성한 분석 레벨 (0=OpenAI, 1=Enhanced, 2=OnDeviceLLM, 3=Parser, 4=Fallback)
+  final int analysisLevel;
+
   ScreenshotAnalysis({
     required this.title,
     required this.summary,
     required this.keyInsights,
+    this.tags = const [],
+    this.category,
+    this.contentType = 'general',
+    this.analysisLevel = 4,
   });
 }

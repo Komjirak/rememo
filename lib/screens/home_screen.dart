@@ -8,16 +8,19 @@ import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/library_list_view.dart';
 import 'package:stribe/widgets/detail_view_screen.dart';
 import 'package:stribe/widgets/empty_state_view.dart';
-import 'package:stribe/services/database_helper.dart';
+import 'package:stribe/repositories/memo_repository.dart';
 import 'package:stribe/services/native_service.dart';
 import 'package:stribe/services/ondevice_llm_service.dart';
 import 'package:stribe/services/share_service.dart';
 import 'package:stribe/services/unified_analysis_service.dart';
 import 'package:stribe/screens/settings_screen.dart';
+import 'package:stribe/utils/app_logger.dart';
+import 'package:stribe/utils/text_heuristics.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 // Google ML Kit removed - using native Vision Framework (iOS) instead
+import 'dart:async';
 import 'dart:io';
 import 'package:intl/intl.dart';
 
@@ -31,6 +34,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final ImagePicker _picker = ImagePicker();
   final ShareService _shareService = ShareService();
+  final MemoRepository _repository = MemoRepository.instance;
   bool _isAnalyzing = false;
   List<MemoCard> _cards = [];
   List<Folder> _folders = [];
@@ -38,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // DB 전문 검색(FTS) 상태: 검색어 입력 시 디바운스 후 DB에서 조회
+  List<MemoCard>? _searchResults;
+  Timer? _searchDebounce;
 
   // Filter state
   bool _showFavoriteOnly = false;
@@ -61,8 +69,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
+    _searchDebounce?.cancel();
     _stopScreenshotMonitoring(); // 스크린샷 모니터링 중지
     super.dispose();
+  }
+
+  /// 검색어 변경 처리: 300ms 디바운스 후 DB 전문 검색(FTS5) 실행.
+  /// 메모리 내 필터와 달리 수천 장 규모에서도 인덱스 기반으로 동작한다.
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+
+    if (value.trim().isEmpty) {
+      setState(() => _searchResults = null);
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final results = await _repository.search(value);
+      if (mounted && _searchQuery == value) {
+        setState(() => _searchResults = results);
+      }
+    });
   }
 
   @override
@@ -78,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final items = await _shareService.getPendingSharedItems();
       if (items.isNotEmpty) {
-        print('📥 ${items.length}개의 공유된 항목 발견');
+        logInfo('📥 ${items.length}개의 공유된 항목 발견', name: 'Home');
         setState(() {
           _pendingSharedItems = items;
           _hasNewSharedItems = true;
@@ -88,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _processSharedItems();
       }
     } catch (e) {
-      print('❌ 공유된 항목 확인 실패: $e');
+      logInfo('❌ 공유된 항목 확인 실패: $e', name: 'Home');
     }
   }
 
@@ -125,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final item = _pendingSharedItems[i];
         final tempCardId = processingCards[i].id;
 
-        print('📦 처리 중: ${item.type} - ${item.displayTitle}');
+        logInfo('📦 처리 중: ${item.type} - ${item.displayTitle}', name: 'Home');
 
         // AI 분석 수행
         final processedItem = await _shareService.processSharedItem(item);
@@ -175,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _hasNewSharedItems = false;
       });
     } catch (e) {
-      print('❌ 공유된 항목 처리 실패: $e');
+      logInfo('❌ 공유된 항목 처리 실패: $e', name: 'Home');
       // On error, remove temp cards
       setState(() {
          _cards.removeWhere((c) => c.id.startsWith('temp_'));
@@ -210,24 +238,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // 이미지가 없는 경우 플레이스홀더 이미지 경로 사용
     final finalImagePath = imagePath ?? item.imageUrl ?? '';
 
-    // 🚀 Advanced Analysis using DocumentParserService logic
-    // Even for web links, we can use the parser to extract better summary & insights
+    // ShareService.processSharedItem이 이미 AI 분석을 수행했으면 그 결과를 그대로 사용.
+    // 분석이 안 된 경우(인사이트/요약 없음)에만 추가 분석해 중복 API 호출을 막는다.
     String finalTitle = item.displayTitle;
     String finalSummary = item.summary ?? '';
-    List<String> finalInsights = [];
+    List<String> finalInsights = item.keyInsights ?? [];
     String finalCategory = item.category ?? 'Inbox';
+    String finalContentType = item.contentType ?? 'general';
     List<String> finalTags = item.tags ?? ['Shared'];
     String finalOcrText = item.ocrText ?? item.text ?? '';
 
-    if (finalOcrText.isNotEmpty) {
+    final bool alreadyAnalyzed = finalSummary.isNotEmpty && finalInsights.isNotEmpty;
+
+    if (finalOcrText.isNotEmpty && !alreadyAnalyzed) {
         try {
-            print("🔍 Analyzing shared content via DocumentParserService...");
+            logInfo("🔍 Analyzing shared content...", name: 'Home');
             // Reuse the screenshot analysis logic which handles text->blocks conversion and structural parsing
             final analysis = await _analyzeScreenshotOnDevice(
                 finalOcrText,
                 suggestedCategory: finalCategory == 'Web' ? 'Web' : finalCategory
             );
-            
+
             // Merge results
             if (analysis.summary.length > finalSummary.length) {
                 // If parser generated a more comprehensive summary (or if original was empty)
@@ -237,16 +268,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 finalTitle = analysis.title;
             }
             finalInsights = analysis.keyInsights;
-            
-            // Add detailed insights to tags if tags are sparse
-            if (finalTags.length < 3) {
-                 finalTags.addAll(finalInsights.take(2));
-                 finalTags = finalTags.toSet().toList(); // Dedup
-            }
+            if (analysis.category != null) finalCategory = analysis.category!;
+            finalContentType = analysis.contentType;
+            if (analysis.tags.isNotEmpty) finalTags = analysis.tags;
 
-            print("✅ Web content analyzed: ${analysis.title}");
+            logInfo("✅ Web content analyzed: ${analysis.title}", name: 'Home');
         } catch (e) {
-            print("⚠️ Shared content analysis passed (using defaults): $e");
+            logWarn("Shared content analysis passed (using defaults): $e", name: 'Home');
         }
     }
 
@@ -266,6 +294,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       title: finalTitle.length > 50 ? "${finalTitle.substring(0, 47)}..." : finalTitle,
       summary: finalSummary,
       category: finalCategory,
+      contentType: finalContentType,
       tags: finalTags,
       captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
       imageUrl: finalImagePath,
@@ -274,11 +303,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       personalNote: item.selectedText,
       folderId: _selectedFolder?.id,
       keyInsights: finalInsights, // Now we have insights!
+      sourceType: item.hasUrl ? 'url' : (item.type == 'image' ? 'photo' : item.type),
     );
-     
+
     if (saveToDb) {
-        await DatabaseHelper.instance.create(newCard);
-        print('✅ 공유된 항목 저장됨: ${newCard.title}');
+        await _repository.create(newCard);
+        logInfo('✅ 공유된 항목 저장됨: ${newCard.title}', name: 'Home');
     }
 
     return newCard;
@@ -290,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (Platform.isIOS) {
       final status = await Permission.photos.status;
       if (!status.isGranted && !status.isLimited) {
-        print('📸 Photo permission not granted, skipping screenshot monitoring');
+        logInfo('📸 Photo permission not granted, skipping screenshot monitoring', name: 'Home');
         return;
       }
     }
@@ -300,21 +330,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
 
     if (success) {
-      print('✅ Screenshot monitoring started successfully');
+      logInfo('✅ Screenshot monitoring started successfully', name: 'Home');
     } else {
-      print('❌ Failed to start screenshot monitoring');
+      logInfo('❌ Failed to start screenshot monitoring', name: 'Home');
     }
   }
 
   /// 스크린샷 모니터링 중지
   Future<void> _stopScreenshotMonitoring() async {
     await NativeService.stopScreenshotMonitoring();
-    print('⏹️ Screenshot monitoring stopped');
+    logInfo('⏹️ Screenshot monitoring stopped', name: 'Home');
   }
 
   /// 새 스크린샷이 감지되었을 때 자동으로 호출되는 핸들러
   Future<void> _handleNewScreenshot(Map<String, dynamic> data) async {
-    print('📸 New screenshot detected: ${data['imagePath']}');
+    logInfo('📸 New screenshot detected: ${data['imagePath']}', name: 'Home');
 
     final imagePath = data['imagePath'] as String;
     
@@ -356,17 +386,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }).toList();
 
-      print('   - OCR 블록 수: ${ocrBlocks.length}');
+      logInfo('   - OCR 블록 수: ${ocrBlocks.length}', name: 'Home');
 
       // 이미지를 앱의 영구 저장소에 복사
       final permanentPath = await _saveToDocuments(File(imagePath));
 
       // 🎯 통합 분석 서비스 사용 (일관된 결과 보장)
+      // imagePath 전달: OpenAI Vision 활성 시 저해상도 이미지를 함께 분석해
+      // OCR이 놓친 시각적 맥락(레이아웃, 이미지)까지 반영한다.
       final analysis = await UnifiedAnalysisService.analyze(
         blocks: ocrBlocks,
         ocrText: ocrText,
         suggestedCategory: suggestedCategory,
         sourceType: 'screenshot',
+        imagePath: permanentPath,
       );
 
       // UI 노이즈가 필터링된 OCR 텍스트 생성
@@ -385,25 +418,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final urlRegExp = RegExp(r"(https?:\/\/[^\s]+[\w\/])|(www\.[^\s]+[\w\/])|([a-zA-Z0-9-]+\.com\/[^\s]*)");
       final String? foundUrl = urlRegExp.firstMatch(finalOcrText)?.group(0);
 
-      // Summary는 간결하게 유지 (블릿 포인트 제거)
-      String summary = analysis.summary;
+      // 태그/카테고리: 분석 결과 우선, 없으면 네이티브 제안 → 휴리스틱 순
+      final List<String> finalTags = analysis.tags.isNotEmpty
+          ? analysis.tags
+          : (suggestedTags.isNotEmpty
+              ? suggestedTags
+              : TextHeuristics.extractTags(finalOcrText));
 
-      // 태그 및 카테고리
-      List<String> finalTags = suggestedTags.isEmpty
-          ? _extractTagsFromText(finalOcrText)
-          : suggestedTags;
-
-      String finalCategory = suggestedCategory != 'Inbox'
-          ? suggestedCategory
-          : _detectCategory(finalOcrText);
+      final String finalCategory = analysis.category ??
+          (suggestedCategory != 'Inbox'
+              ? suggestedCategory
+              : TextHeuristics.detectCategory(finalOcrText));
 
       // 새 카드 생성 (Real Card)
       final newCard = MemoCard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: analysis.title.length > 40 ? "${analysis.title.substring(0, 40)}..." : analysis.title,
-        summary: summary,
-        category: analysis.title == 'Shopping Item' ? 'Shopping' : finalCategory, // Simple override check
+        summary: analysis.summary,
+        category: finalCategory,
+        contentType: analysis.contentType,
         tags: finalTags,
+        keyInsights: analysis.keyInsights,
         captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: permanentPath,
         ocrText: finalOcrText,
@@ -414,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
 
       // 데이터베이스에 저장
-      await DatabaseHelper.instance.create(newCard);
+      await _repository.create(newCard);
 
       // 임시 카드 교체 및 목록 새로고침
       if (mounted) {
@@ -443,9 +478,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
 
-      print('✅ Screenshot automatically processed and saved!');
+      logInfo('✅ Screenshot automatically processed and saved!', name: 'Home');
     } catch (e) {
-      print('❌ Error processing new screenshot: $e');
+      logInfo('❌ Error processing new screenshot: $e', name: 'Home');
       if (mounted) {
           // Remove temp card on error
           setState(() {
@@ -465,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadFolders() async {
-    final folders = await DatabaseHelper.instance.readAllFolders();
+    final folders = await _repository.getAllFolders();
     setState(() {
       _folders = folders;
     });
@@ -475,9 +510,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() => _isAnalyzing = true);
     List<MemoCard> cards;
     if (_selectedFolder != null) {
-      cards = await DatabaseHelper.instance.readMemoCardsByFolder(_selectedFolder!.id);
+      cards = await _repository.getByFolder(_selectedFolder!.id);
     } else {
-      cards = await DatabaseHelper.instance.readAllMemoCards();
+      cards = await _repository.getAll();
     }
     setState(() {
       _cards = cards;
@@ -493,7 +528,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   List<MemoCard> get _filteredCards {
-    List<MemoCard> filtered = _cards;
+    // 검색 중이면 DB 전문 검색(FTS) 결과를 기준으로 필터링.
+    // 검색 결과가 아직 도착하지 않았으면(디바운스 대기) 기존 목록으로 임시 필터.
+    List<MemoCard> filtered;
+    if (_searchQuery.isNotEmpty && _searchResults != null) {
+      filtered = _searchResults!;
+    } else if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = _cards.where((card) {
+        return card.title.toLowerCase().contains(query) ||
+               card.summary.toLowerCase().contains(query) ||
+               (card.ocrText?.toLowerCase().contains(query) ?? false) ||
+               card.tags.any((tag) => tag.toLowerCase().contains(query));
+      }).toList();
+    } else {
+      filtered = _cards;
+    }
 
     // 1. Filter by Folder
     if (_selectedFolder != null) {
@@ -510,25 +560,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       filtered = filtered.where((card) => card.sourceType == _selectedType).toList();
     }
 
-    // 4. Filter by Search Query
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((card) {
-        return card.title.toLowerCase().contains(query) ||
-               card.summary.toLowerCase().contains(query) ||
-               (card.ocrText?.toLowerCase().contains(query) ?? false) ||
-               card.tags.any((tag) => tag.toLowerCase().contains(query));
-      }).toList();
-    }
-
-    // 5. Sort by createdAt (latest first)
-    filtered.sort((a, b) => b.captureDate.compareTo(a.captureDate));
+    // 4. Sort by captureDate (latest first)
+    filtered = List<MemoCard>.from(filtered)
+      ..sort((a, b) => b.captureDate.compareTo(a.captureDate));
 
     return filtered;
   }
 
   Future<void> _handleCapture() async {
-    print('🔵 _handleCapture called');
+    logInfo('🔵 _handleCapture called', name: 'Home');
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -560,7 +600,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetImportScreenshot,
               subtitle: Platform.isMacOS ? "라이브러리에서 이미지 추가" : "가장 최신 캡처 분석",
               onTap: () {
-                print('🟢 Import Image button tapped');
+                logInfo('🟢 Import Image button tapped', name: 'Home');
                 Navigator.pop(ctx);
                 _importLastScreenshot();
               },
@@ -571,7 +611,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetTakePhoto,
               subtitle: Platform.isMacOS ? "파일에서 선택" : "새로운 사진 촬영",
               onTap: () {
-                print('🟡 Choose Image button tapped');
+                logInfo('🟡 Choose Image button tapped', name: 'Home');
                 Navigator.pop(ctx);
                 _pickImage();
               },
@@ -582,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               title: AppLocalizations.of(context)!.sheetPasteUrl,
               subtitle: "클립보드 링크 저장",
               onTap: () {
-                print('🔵 Paste URL button tapped');
+                logInfo('🔵 Paste URL button tapped', name: 'Home');
                 Navigator.pop(ctx);
                 _handlePasteUrl();
               },
@@ -656,20 +696,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _pickImageFromGallery() async {
-    print('🟣 _pickImageFromGallery started');
+    logInfo('🟣 _pickImageFromGallery started', name: 'Home');
     try {
-      print('🟣 Opening image picker...');
+      logInfo('🟣 Opening image picker...', name: 'Home');
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      print('🟣 Image picker returned: ${image?.path ?? "null"}');
+      logInfo('🟣 Image picker returned: ${image?.path ?? "null"}', name: 'Home');
       
       if (image == null) {
-        print('🟣 No image selected');
+        logInfo('🟣 No image selected', name: 'Home');
         setState(() => _isAnalyzing = false);
         return;
       }
 
       final permanentPath = await _saveToDocuments(File(image.path));
-      print('🟣 Image saved to: $permanentPath');
+      logInfo('🟣 Image saved to: $permanentPath', name: 'Home');
     
       // macOS에서는 네이티브 서비스 사용 불가, fallback 사용
       String ocrText = _generateMacOSFallback(permanentPath);
@@ -684,7 +724,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         sourceType: 'photo',
       );
     } catch (e) {
-      print('🔴 Error in _pickImageFromGallery: $e');
+      logInfo('🔴 Error in _pickImageFromGallery: $e', name: 'Home');
       setState(() => _isAnalyzing = false);
     }
   }
@@ -742,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
     } catch (e) {
-      print('URL Paste Error: $e');
+      logInfo('URL Paste Error: $e', name: 'Home');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
            SnackBar(content: Text('URL 처리 중 오류가 발생했습니다: $e')),
@@ -755,7 +795,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // macOS용 Fallback (iOS/Android는 네이티브 서비스 사용)
   String _generateMacOSFallback(String imagePath) {
-    print('ℹ️ macOS detected - Using fallback content');
+    logInfo('ℹ️ macOS detected - Using fallback content', name: 'Home');
     final fileName = imagePath.split('/').last;
     final now = DateTime.now();
     
@@ -812,137 +852,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return paragraphs.join('\n\n');
   }
 
-  List<String> _extractTagsFromText(String text) {
-    final tags = <String>[];
-    final lowerText = text.toLowerCase();
-    
-    // 다국어 키워드 기반 태그 추출
-    final keywords = {
-      // English
-      'design': 'Design',
-      'ui': 'Design',
-      'ux': 'Design',
-      'code': 'Tech',
-      'programming': 'Tech',
-      'tech': 'Tech',
-      'development': 'Tech',
-      'food': 'Food',
-      'recipe': 'Food',
-      'cooking': 'Food',
-      'restaurant': 'Food',
-      'work': 'Work',
-      'meeting': 'Work',
-      'office': 'Work',
-      'project': 'Work',
-      'buy': 'Shopping',
-      'shopping': 'Shopping',
-      'purchase': 'Shopping',
-      'inspiration': 'Inspiration',
-      'idea': 'Inspiration',
-      'creative': 'Inspiration',
-      
-      // Korean
-      '디자인': 'Design',
-      '개발': 'Tech',
-      '코드': 'Tech',
-      '프로그래밍': 'Tech',
-      '음식': 'Food',
-      '요리': 'Food',
-      '레시피': 'Food',
-      '맛집': 'Food',
-      '식당': 'Food',
-      '회의': 'Work',
-      '업무': 'Work',
-      '작업': 'Work',
-      '프로젝트': 'Work',
-      '쇼핑': 'Shopping',
-      '구매': 'Shopping',
-      '영감': 'Inspiration',
-      '아이디어': 'Inspiration',
-    };
-    
-    for (final entry in keywords.entries) {
-      if (lowerText.contains(entry.key.toLowerCase()) && !tags.contains(entry.value)) {
-        tags.add(entry.value);
-      }
-    }
-    
-    if (tags.isEmpty) {
-      tags.add('Screenshot');
-      tags.add('Imported');
-    }
-    
-    return tags.take(3).toList();
-  }
-
-  String _detectCategory(String text) {
-    final lowerText = text.toLowerCase();
-    
-    // Design - English & Korean
-    if (lowerText.contains('design') || 
-        lowerText.contains('ui') || 
-        lowerText.contains('ux') ||
-        lowerText.contains('디자인')) {
-      return 'Design';
-    } 
-    
-    // Tech - English & Korean
-    else if (lowerText.contains('code') || 
-             lowerText.contains('programming') || 
-             lowerText.contains('tech') ||
-             lowerText.contains('development') ||
-             lowerText.contains('코드') ||
-             lowerText.contains('개발') ||
-             lowerText.contains('프로그래밍')) {
-      return 'Tech';
-    } 
-    
-    // Food - English & Korean
-    else if (lowerText.contains('food') || 
-             lowerText.contains('recipe') ||
-             lowerText.contains('cooking') ||
-             lowerText.contains('restaurant') ||
-             lowerText.contains('음식') ||
-             lowerText.contains('요리') ||
-             lowerText.contains('레시피') ||
-             lowerText.contains('맛집') ||
-             lowerText.contains('식당')) {
-      return 'Food';
-    } 
-    
-    // Work - English & Korean
-    else if (lowerText.contains('work') || 
-             lowerText.contains('meeting') ||
-             lowerText.contains('office') ||
-             lowerText.contains('project') ||
-             lowerText.contains('업무') ||
-             lowerText.contains('회의') ||
-             lowerText.contains('작업') ||
-             lowerText.contains('프로젝트')) {
-      return 'Work';
-    } 
-    
-    // Shopping - English & Korean
-    else if (lowerText.contains('buy') || 
-             lowerText.contains('shopping') ||
-             lowerText.contains('purchase') ||
-             lowerText.contains('쇼핑') ||
-             lowerText.contains('구매')) {
-      return 'Shopping';
-    } 
-    
-    // Inspiration - English & Korean
-    else if (lowerText.contains('inspiration') || 
-             lowerText.contains('idea') ||
-             lowerText.contains('creative') ||
-             lowerText.contains('영감') ||
-             lowerText.contains('아이디어')) {
-      return 'Inspiration';
-    }
-    
-    return 'Inbox';
-  }
-
   /// 가장 최근 스크린샷 불러오기 (Photos Library) - Enhanced
   Future<void> _importLastScreenshot() async {
     setState(() => _isAnalyzing = true);
@@ -966,6 +875,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           throw Exception('No text detected');
         }
         
+        // Image Path Handling (분석 전에 복사해 Vision 분석에 사용)
+        final imagePath = analysisData['imagePath'];
+        final permanentPath = await _saveToDocuments(File(imagePath));
+
         // 3. 통합 분석 서비스 사용
         final analysis = await UnifiedAnalysisService.analyze(
           blocks: ocrBlocks,
@@ -975,40 +888,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           layoutRegions: analysisData['layoutRegions'],
           importantAreas: analysisData['importantAreas'],
           sourceType: 'screenshot',
+          imagePath: permanentPath,
         );
-        
-        String title = analysis.title;
-        String summary = analysis.summary;
-        List<String> tags = analysis.keyInsights;
-        String category = 'Inbox'; // 카테고리는 향후 분석 결과에서 추출 가능
-        bool wasTranslated = false; // 향후 통합 분석 서비스에서 반환
-        String? originalSummary;
-        String? originalTitle;
-        
-        // Image Path Handling
-        final imagePath = analysisData['imagePath'];
-        final permanentPath = await _saveToDocuments(File(imagePath));
 
-        // 4. MemoCard 생성
+        // 4. MemoCard 생성 — 분석 결과의 카테고리/태그/인사이트를 그대로 반영
         final card = MemoCard(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: title,
-          summary: summary,
-          category: category,
-          tags: tags,
+          title: analysis.title,
+          summary: analysis.summary,
+          category: analysis.category ?? 'Inbox',
+          contentType: analysis.contentType,
+          tags: analysis.tags,
+          keyInsights: analysis.keyInsights,
           captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
           imageUrl: permanentPath,
           ocrText: analysisData['ocrText'] ?? '',
           sourceUrl: '',
           folderId: _selectedFolder?.id,
           sourceType: 'screenshot', // Explicitly set sourceType
-          wasTranslated: wasTranslated,
-          originalSummary: originalSummary,
-          originalTitle: originalTitle,
         );
-        
+
         // 5. DB 저장
-        await DatabaseHelper.instance.create(card);
+        await _repository.create(card);
         
         // 6. UI 업데이트
         setState(() {
@@ -1026,7 +927,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
         
       } catch (e) {
-        print('Import failed: $e');
+        logInfo('Import failed: $e', name: 'Home');
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('분석 실패: $e')),
@@ -1063,9 +964,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Otherwise, analyze now.
           // Note: If ocrBlocks is null, it falls back to line-based estimation.
           analysis = await _analyzeScreenshotOnDevice(
-              ocrText, 
-              ocrBlocks: ocrBlocks, 
-              suggestedCategory: suggestedCategory
+              ocrText,
+              ocrBlocks: ocrBlocks,
+              suggestedCategory: suggestedCategory,
+              imagePath: imagePath,
           );
       }
 
@@ -1075,12 +977,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if ((title == "New Memory" || title.isEmpty) && suggestedTitle != null && suggestedTitle.isNotEmpty) {
            title = suggestedTitle;
       }
-      
-      // Force Shopping category if determined by parser
-      String category = suggestedCategory;
-      if (analysis.title == "Shopping Item" || (analysis.keyInsights.any((k) => k.contains("가격")))) {
-           category = "Shopping";
-      }
+
+      // 카테고리/태그: 분석 결과 우선, 없으면 호출부 제안값 사용
+      final String category = analysis.category ?? suggestedCategory;
+      final List<String> tags = analysis.tags.isNotEmpty ? analysis.tags : suggestedTags;
 
       // 3. Create Card Object
       final newCard = MemoCard(
@@ -1088,7 +988,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: title.length > 50 ? "${title.substring(0, 47)}..." : title,
         summary: analysis.summary,
         category: category,
-        tags: suggestedTags, // Can merge with analysis.keyInsights if desired
+        contentType: analysis.contentType,
+        tags: tags,
         captureDate: DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now()),
         imageUrl: imagePath,
         ocrText: ocrText,
@@ -1098,7 +999,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
 
       // 4. Save to DB
-      await DatabaseHelper.instance.create(newCard);
+      await _repository.create(newCard);
 
       // 5. Refresh UI
       if (mounted) {
@@ -1115,7 +1016,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       
     } catch (e) {
-      print("Error creating card: $e");
+      logInfo("Error creating card: $e", name: 'Home');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error creating card: ${e.toString()}")),
@@ -1131,6 +1032,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String ocrText, {
     List<OCRBlock>? ocrBlocks,
     String? suggestedCategory,
+    String? imagePath,
   }) async {
     if (ocrText.trim().isEmpty) {
       return ScreenshotAnalysis(
@@ -1144,7 +1046,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     List<OCRBlock> blocks;
     if (ocrBlocks != null && ocrBlocks.isNotEmpty) {
       blocks = ocrBlocks;
-      print('   ✅ Bounding Box 정보 사용: ${blocks.length}개 블록');
+      logInfo('   ✅ Bounding Box 정보 사용: ${blocks.length}개 블록', name: 'Home');
     } else {
       // Fallback: 줄 단위로 OCR 블록 생성 (Bounding Box 없음)
       final lines = ocrText.split('\n')
@@ -1179,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         );
       }).toList();
-      print('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록');
+      logInfo('   ⚠️ Bounding Box 없음, 줄 기반 추정 사용: ${blocks.length}개 블록', name: 'Home');
     }
 
     // 🚀 통합 분석 서비스 사용 (단계적 Fallback 포함)
@@ -1187,94 +1089,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       blocks: blocks,
       ocrText: ocrText,
       suggestedCategory: suggestedCategory,
-    );
-  }
-
-  /// 최소한의 Fallback 분석 생성 (레거시 호환성, UnifiedAnalysisService로 이동됨)
-  @Deprecated('Use UnifiedAnalysisService.analyze instead')
-  ScreenshotAnalysis _generateMinimalAnalysis(String ocrText, List<OCRBlock> blocks) {
-    // 필터링된 블록에서 의미있는 텍스트 추출
-    final cleanedBlocks = OnDeviceLLMService.filterUINoiseBlocksPublic(blocks);
-    
-    String title = 'Screen Capture';
-    String summary = '';
-    List<String> keyInsights = [];
-    
-    if (cleanedBlocks.isNotEmpty) {
-      // 제목: 상단 블록 중 가장 큰 텍스트
-      final topBlocks = cleanedBlocks.where((b) => b.boundingBox.top < 0.3).toList();
-      if (topBlocks.isNotEmpty) {
-        topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
-        final candidate = topBlocks.first.text.trim();
-        if (candidate.length >= 5 && candidate.length <= 80) {
-          title = candidate;
-        }
-      }
-      
-      // 요약: 처음 2-3개 문단을 의미있게 조합
-      final paragraphs = <String>[];
-      String currentPara = '';
-      double lastBottom = 0;
-      
-      for (final block in cleanedBlocks) {
-        final gap = block.boundingBox.top - lastBottom;
-        if (lastBottom > 0 && gap > 0.04 && currentPara.isNotEmpty) {
-          paragraphs.add(currentPara);
-          currentPara = '';
-        }
-        currentPara += '${block.text.trim()} ';
-        lastBottom = block.boundingBox.bottom;
-      }
-      if (currentPara.isNotEmpty) paragraphs.add(currentPara);
-      
-      // 상위 3개 문단 선택
-      final selected = paragraphs.take(3).join(' ').trim();
-      summary = selected.length > 150 
-        ? '${selected.substring(0, 147)}...' 
-        : selected;
-      
-      // 키 인사이트: 적절한 길이의 문단
-      keyInsights = paragraphs
-        .where((p) => p.length >= 10 && p.length <= 100)
-        .take(3)
-        .toList();
-    } else if (ocrText.isNotEmpty) {
-      // OCR 텍스트가 있으면 사용
-      summary = ocrText.length > 150 
-        ? '${ocrText.substring(0, 147)}...' 
-        : ocrText;
-      
-      // 첫 줄을 제목으로
-      final lines = ocrText.split('\n').where((l) => l.trim().isNotEmpty).toList();
-      if (lines.isNotEmpty) {
-        final firstLine = lines.first.trim();
-        if (firstLine.length >= 5 && firstLine.length <= 80) {
-          title = firstLine;
-        }
-      }
-    } else {
-      summary = '텍스트 내용이 감지되었습니다.';
-    }
-    
-    print('✅ [Level 4] 최소한의 분석 생성: $title');
-    return ScreenshotAnalysis(
-      title: title,
-      summary: summary,
-      keyInsights: keyInsights,
+      imagePath: imagePath,
     );
   }
 
   Future<void> _pickImage() async {
-    print('🟠 _pickImage started');
+    logInfo('🟠 _pickImage started', name: 'Home');
     try {
-      print('🟠 Opening image picker (${Platform.isMacOS ? "gallery" : "camera"})...');
+      logInfo('🟠 Opening image picker (${Platform.isMacOS ? "gallery" : "camera"})...', name: 'Home');
       final XFile? image = await _picker.pickImage(
         source: Platform.isMacOS ? ImageSource.gallery : ImageSource.camera,
       );
-      print('🟠 Image picker returned: ${image?.path ?? "null"}');
+      logInfo('🟠 Image picker returned: ${image?.path ?? "null"}', name: 'Home');
       
       if (image == null) {
-        print('🟠 No image selected');
+        logInfo('🟠 No image selected', name: 'Home');
         return;
       }
 
@@ -1284,7 +1113,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (Platform.isIOS) {
         // iOS: Native Vision Framework Analysis
-        print('🟠 Running native analysis on iOS...');
+        logInfo('🟠 Running native analysis on iOS...', name: 'Home');
         final result = await NativeService.analyzeImageWithBoxes(permanentPath);
         
         if (result != null) {
@@ -1308,26 +1137,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   }).toList();
              }
 
-             // 통합 분석 서비스 사용
+             // 통합 분석 서비스 사용 (Vision 활성 시 이미지 포함)
              final analysis = await UnifiedAnalysisService.analyze(
                 blocks: ocrBlocks,
                 ocrText: ocrText,
                 suggestedCategory: suggestedCategory,
                 sourceType: 'photo',
+                imagePath: permanentPath,
              );
-             
+
              // Create card with analyzed data
+             // preAnalysis 전달로 중복 분석(이중 API 호출) 방지
              await _createCardFromAnalysis(
-                permanentPath, 
-                ocrText, 
-                analysis.keyInsights.isNotEmpty ? suggestedTags : suggestedTags, // Can refine tags
+                permanentPath,
+                ocrText,
+                suggestedTags,
                 suggestedCategory,
                 suggestedTitle: analysis.title,
+                preAnalysis: analysis,
                 sourceType: 'photo', // Explicitly set sourceType
              );
         } else {
              // Fallback if native analysis fails
-             print('🔴 Native analysis returned null');
+             logInfo('🔴 Native analysis returned null', name: 'Home');
              await _createCardFromAnalysis(
                 permanentPath, 
                 "", 
@@ -1353,7 +1185,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     } catch (e) {
-      print('🔴 Error in _pickImage: $e');
+      logInfo('🔴 Error in _pickImage: $e', name: 'Home');
       setState(() => _isAnalyzing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1466,6 +1298,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   if (!_showSearch) {
                     _searchQuery = '';
                     _searchController.clear();
+                    _searchResults = null;
+                    _searchDebounce?.cancel();
                   }
                 }),
               ),
@@ -1525,7 +1359,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: TextField(
         controller: _searchController,
         autofocus: true,
-        onChanged: (value) => setState(() => _searchQuery = value),
+        onChanged: _onSearchChanged,
         style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context)!.searchHint,
@@ -1865,7 +1699,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _updateCardTitle(MemoCard card, String newTitle) async {
     final updatedCard = card.copyWith(title: newTitle);
-    await DatabaseHelper.instance.update(updatedCard);
+    await _repository.update(updatedCard);
     
     if (mounted) {
        setState(() {
@@ -1879,12 +1713,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _deleteCard(MemoCard card) async {
-    await DatabaseHelper.instance.delete(card.id);
+    await _repository.delete(card.id);
     if (!card.imageUrl.startsWith('http')) {
       try {
         final file = File(card.imageUrl);
         if (await file.exists()) await file.delete();
-      } catch (e) { print(e); }
+      } catch (e) { logWarn('이미지 파일 삭제 실패: $e', name: 'Home'); }
     }
     setState(() {
       _cards.removeWhere((c) => c.id == card.id);
@@ -1900,7 +1734,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           folders: _folders,
           onDelete: () async { await _deleteCard(card); },
           onUpdate: (updatedCard) async {
-            await DatabaseHelper.instance.update(updatedCard);
+            await _repository.update(updatedCard);
             setState(() {
               final index = _cards.indexWhere((c) => c.id == updatedCard.id);
               if (index != -1) _cards[index] = updatedCard;

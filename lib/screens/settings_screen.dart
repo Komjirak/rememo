@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:stribe/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/services/theme_service.dart';
@@ -6,9 +7,10 @@ import 'package:stribe/services/openai_service.dart';
 import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/folder_management_view.dart';
 import 'package:stribe/services/database_helper.dart';
+import 'package:stribe/services/unified_analysis_service.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,8 +27,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoadingStorage = true;
   
   // OpenAI 설정 상태
-  bool _openaiEnabled = true;
+  bool _openaiEnabled = false; // 프라이버시 보호: 기본 꺼짐 (opt-in)
   bool _openaiHasKey = false;
+  bool _openaiVisionEnabled = true;
   String _openaiModel = OpenAIService.defaultModel;
 
   @override
@@ -41,11 +44,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final enabled = await OpenAIService.isEnabled();
     final hasKey = await OpenAIService.hasApiKey();
     final model = await OpenAIService.getModel();
+    final visionEnabled = await OpenAIService.isVisionEnabled();
     if (mounted) {
       setState(() {
         _openaiEnabled = enabled;
         _openaiHasKey = hasKey;
         _openaiModel = model;
+        _openaiVisionEnabled = visionEnabled;
       });
     }
   }
@@ -78,10 +83,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
 
-      // Add database size
-      final appDir = await getApplicationDocumentsDirectory();
-      final dbPath = '${appDir.path}/rememo.db';
-      final dbFile = File(dbPath);
+      // Add database size (실제 DB 파일명은 folio.db)
+      final dbDir = await getDatabasesPath();
+      final dbFile = File('$dbDir/folio.db');
       if (await dbFile.exists()) {
         totalSize += await dbFile.length();
       }
@@ -91,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLoadingStorage = false;
       });
     } catch (e) {
-      print('Error loading storage info: $e');
+      logWarn('Error loading storage info: $e', name: 'Settings');
       setState(() {
         _isLoadingStorage = false;
       });
@@ -367,13 +371,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 4),
+
+                    // Vision(이미지 분석) 토글
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.image_search, color: secondaryTextColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('이미지 분석 (Vision)', style: TextStyle(fontSize: 15, color: textColor)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '스크린샷 이미지를 저해상도로 함께 전송해 분석 품질 향상',
+                                  style: TextStyle(fontSize: 11, color: secondaryTextColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: _openaiVisionEnabled,
+                            onChanged: _openaiHasKey ? (value) async {
+                              await OpenAIService.setVisionEnabled(value);
+                              setState(() => _openaiVisionEnabled = value);
+                            } : null,
+                            activeColor: const Color(0xFF10A37F),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
-                  'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. API Key는 기기에만 저장되며 외부로 전송되지 않습니다.',
+                  'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. '
+                  'API Key는 기기의 보안 저장소(Keychain)에만 저장됩니다.\n\n'
+                  '⚠️ 프라이버시 안내: 이 기능을 켜면 캡처한 텍스트(및 Vision 활성 시 이미지)가 '
+                  '분석을 위해 OpenAI 서버로 전송됩니다. 기능을 끄면 모든 분석은 기기 안에서만 수행됩니다. '
+                  '기본값은 꺼짐입니다.',
                   style: TextStyle(fontSize: 12, color: secondaryTextColor, height: 1.4),
                 ),
               ),
@@ -844,6 +886,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                     await OpenAIService.setApiKey(key);
                     await OpenAIService.setEnabled(true);
+                    // 이전 키의 영구 오류/쿨다운 상태 해제 (Level 0 재활성화)
+                    UnifiedAnalysisService.resetOpenAIError();
                     Navigator.pop(dialogContext);
                     _loadOpenAISettings();
                     if (mounted) {
