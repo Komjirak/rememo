@@ -291,6 +291,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
     }
 
+    final newSourceType = item.hasUrl ? 'url' : (item.type == 'image' ? 'photo' : item.type);
+
+    // 같은 기사/페이지를 방금 스크린샷으로 이미 저장했다면 중복 저장을 건너뛴다
+    // (스크린샷 감지와 공유 확장은 서로 독립적으로 동작하므로 순서가 반대일 수 있음).
+    if (newSourceType == 'url' &&
+        _isDuplicateOfRecentCapture(finalTitle, otherSourceTypes: {'screenshot'})) {
+      logInfo('⏭️ 최근 스크린샷 카드와 제목이 겹쳐 공유 항목 저장을 건너뜀: $finalTitle', name: 'Home');
+      return null;
+    }
+
     final newCard = MemoCard(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: finalTitle.length > 50 ? "${finalTitle.substring(0, 47)}..." : finalTitle,
@@ -305,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       personalNote: item.selectedText,
       folderId: _selectedFolder?.id,
       keyInsights: finalInsights, // Now we have insights!
-      sourceType: item.hasUrl ? 'url' : (item.type == 'image' ? 'photo' : item.type),
+      sourceType: newSourceType,
     );
 
     if (saveToDb) {
@@ -314,6 +324,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     return newCard;
+  }
+
+  /// 최근(기본 3분 이내)에 저장된 카드 중 제목이 사실상 같은 것이 있는지 확인.
+  ///
+  /// 사용자가 기사를 스크린샷으로 캡처한 직후 같은 기사를 URL로도 공유하는 경우
+  /// (또는 그 반대 순서) OS 스크린샷 감지와 Share Extension이 각각 독립적으로
+  /// 카드를 생성해 같은 내용이 "URL"/"스크린샷" 두 장으로 중복 저장된다.
+  /// 두 캡처 경로는 서로의 존재를 모르므로, 저장 직전에 최근 카드 목록에서
+  /// 제목이 겹치는 [otherSourceTypes] 카드가 있는지 확인해 중복 생성을 막는다.
+  bool _isDuplicateOfRecentCapture(
+    String candidateTitle, {
+    required Set<String> otherSourceTypes,
+  }) {
+    final candidate = candidateTitle.trim().toLowerCase();
+    if (candidate.length < 5) return false;
+
+    final now = DateTime.now();
+    for (final card in _cards) {
+      if (!otherSourceTypes.contains(card.sourceType)) continue;
+
+      final captured = DateTime.tryParse(card.captureDate.replaceFirst(' ', 'T'));
+      if (captured == null) continue;
+      if (now.difference(captured).inSeconds.abs() > 180) continue;
+
+      final existing = card.title.trim().toLowerCase();
+      if (existing.length < 5) continue;
+
+      // 말줄임표(...) 제거 후 짧은 쪽이 긴 쪽에 포함되면 사실상 동일 제목으로 간주
+      final a = candidate.replaceAll(RegExp(r'\.{2,}$'), '').trim();
+      final b = existing.replaceAll(RegExp(r'\.{2,}$'), '').trim();
+      if (a.isEmpty || b.isEmpty) continue;
+      final shorter = a.length <= b.length ? a : b;
+      final longer = a.length <= b.length ? b : a;
+      if (shorter.length >= 8 && longer.contains(shorter)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// 스크린샷 자동 모니터링 시작
@@ -403,6 +451,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         sourceType: 'screenshot',
         imagePath: permanentPath,
       );
+
+      // 최근에 URL 공유로 이미 저장된 같은 기사/페이지라면 스크린샷 중복 저장을 건너뛴다.
+      if (_isDuplicateOfRecentCapture(analysis.title, otherSourceTypes: {'url'})) {
+        logInfo('⏭️ 최근 URL 카드와 제목이 겹쳐 스크린샷 저장을 건너뜀: ${analysis.title}', name: 'Home');
+        if (mounted) {
+          setState(() {
+            _cards.removeWhere((c) => c.id == tempId);
+          });
+        }
+        return;
+      }
 
       // UI 노이즈가 필터링된 OCR 텍스트 생성
       String finalOcrText = _generateCleanOcrText(ocrBlocks);

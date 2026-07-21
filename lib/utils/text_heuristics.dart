@@ -118,6 +118,16 @@ class TextHeuristics {
     return _lowQualityTitlePatterns.any((p) => p.hasMatch(t));
   }
 
+  /// "핵심 포인트"(keyInsights)에 짧은 앱 이름·UI 라벨이 섞이지 않도록 정제.
+  /// 인사이트는 최소한 하나의 사실을 담은 문장/구여야 하므로, 태그성 단어(예: "앱",
+  /// "네이버앱", "사용법")보다 훨씬 긴 최소 길이를 요구한다.
+  static List<String> filterInsights(List<String> insights) {
+    return insights
+        .map((i) => i.trim())
+        .where((i) => i.length >= 6 && !isLowQualityTitle(i))
+        .toList();
+  }
+
   /// 문장 중요도 기반 추출 요약.
   /// "앞부분 자르기" 대신 위치·길이·정보 밀도·완결성을 점수화해
   /// 상위 문장을 원문 순서대로 조합한다. (규칙 기반 fallback 전용)

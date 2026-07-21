@@ -83,15 +83,29 @@ class RealFoundationModelsAnalyzer {
         print("[RealFoundationModels] 📝 분석 대상 텍스트 길이: \(truncatedText.count)자")
 
         // 3. Foundation Models 세션 생성 및 분석
+        // 온디바이스 생성 모델은 기기/콘텐츠에 따라 드물게 응답이 오래 걸릴 수 있는데,
+        // 이 체인 전체(Dart 포함)에 타임아웃이 없으면 캡처 플로우가 무한정 멈춰서
+        // 항상 빠르게 성공하는 Level 2~4 폴백으로 넘어가지 못한다. 12초 안에 끝나지
+        // 않으면 즉시 실패시켜 다음 레벨로 넘어가게 한다.
         let session = LanguageModelSession()
         let prompt = buildPrompt(for: truncatedText)
 
-        let response = try await session.respond(
-            to: prompt,
-            generating: ContentAnalysisSchema.self
-        )
-
-        let schema = response.content
+        let schema = try await withThrowingTaskGroup(of: ContentAnalysisSchema.self) { group in
+            group.addTask {
+                let response = try await session.respond(
+                    to: prompt,
+                    generating: ContentAnalysisSchema.self
+                )
+                return response.content
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 12_000_000_000)
+                throw RealFoundationModelsError.timeout
+            }
+            let first = try await group.next()!
+            group.cancelAll()
+            return first
+        }
 
         // 4. 검증 및 AnalysisResult 변환
         let title = sanitizeTitle(schema.title, fallbackBlocks: filteredBlocks)
@@ -247,6 +261,7 @@ enum RealFoundationModelsError: Error, LocalizedError {
     case emptyText
     case modelUnavailable
     case parseError(String)
+    case timeout
 
     var errorDescription: String? {
         switch self {
@@ -256,6 +271,8 @@ enum RealFoundationModelsError: Error, LocalizedError {
             return "Foundation Models를 사용할 수 없는 기기입니다."
         case .parseError(let detail):
             return "응답 파싱 오류: \(detail)"
+        case .timeout:
+            return "응답 시간이 초과되었습니다."
         }
     }
 }

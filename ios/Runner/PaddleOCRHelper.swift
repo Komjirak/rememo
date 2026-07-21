@@ -310,10 +310,16 @@ class PaddleOCRHelper {
     }
     /// Vision Framework를 사용한 고급 텍스트 및 레이아웃 분석
     func recognizeTextWithEnhancedAnalysis(image: UIImage) async throws -> [String: Any] {
+        // 다른 OCR 경로(recognizeText/recognizeTextWithBoxes)와 달리 이 경로만
+        // 원본 최대 해상도 이미지를 그대로 사용하고 있었다. 텍스트 인식 정확도는
+        // 거의 그대로 유지하면서 3개의 Vision 요청(텍스트/사각형/세일리언시) 처리
+        // 시간을 크게 줄이기 위해 동일하게 2048px로 축소한다.
+        let image = preprocessImage(image) ?? image
+
         guard let cgImage = image.cgImage else {
             throw NSError(domain: "PaddleOCRHelper", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid image"])
         }
-        
+
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         
         // 1. 텍스트 인식

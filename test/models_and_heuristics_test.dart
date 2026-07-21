@@ -98,5 +98,16 @@ void main() {
       expect(TextHeuristics.summarizeByImportance(''), isEmpty);
       expect(TextHeuristics.summarizeByImportance('   \n  '), isEmpty);
     });
+
+    test('핵심 포인트 필터 — 짧은 앱 이름/UI 라벨 제거', () {
+      final filtered = TextHeuristics.filterInsights(
+        ['네이버앱', '앱', '사용법', '런치 세트 15,000원 (11:30-14:00)', '할인 마감 2월 28일'],
+      );
+      expect(filtered, ['런치 세트 15,000원 (11:30-14:00)', '할인 마감 2월 28일']);
+    });
+
+    test('핵심 포인트 필터 — 빈 리스트는 그대로 빈 리스트', () {
+      expect(TextHeuristics.filterInsights([]), isEmpty);
+    });
   });
 }

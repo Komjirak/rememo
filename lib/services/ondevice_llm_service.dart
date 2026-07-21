@@ -2,11 +2,118 @@ import 'package:flutter/services.dart';
 import 'package:stribe/utils/app_logger.dart';
 import 'package:stribe/services/translation_service.dart';
 
-/// 온디바이스 LLM 서비스 (Core ML + Gemma 2B 사용)
-/// 파이프라인: Screenshot → PaddleOCR → UI노이즈 제거 → 문단/제목 추정 → LLM 요약 → 번역 → Memo Card
+/// 온디바이스 분석 서비스.
+/// Enhanced 분석은 네이티브의 ContentAnalyzerAdapter(iOS 26+ Foundation Models →
+/// NLP 휴리스틱 → 규칙 기반 순으로 자동 라우팅)를 호출하고, Legacy 경로는 순수
+/// Dart 규칙 기반 폴백이다(과거 "Gemma 2B" 연동 계획은 실제로 구현되지 않았다).
+/// 파이프라인: Screenshot → PaddleOCR → UI노이즈 제거 → 문단/제목 추정 → 요약 → 번역 → Memo Card
 class OnDeviceLLMService {
   static const platform = MethodChannel('com.rememo.komjirak/llm');
   static final TranslationService _translationService = TranslationService();
+
+  // ============================================
+  // 사전 컴파일된 정규식/키워드 세트
+  // ============================================
+  // 아래는 모두 노이즈 필터링 헬퍼(_filterUINoiseBlocks 등)에서 사용된다.
+  // 이 헬퍼들은 스크린샷 한 장당 OCR 블록 수(수십~수백 개)만큼 반복 호출되므로,
+  // 정규식/리스트를 매 호출마다 새로 만들면 그만큼 불필요한 컴파일·할당이
+  // 누적된다. static final로 한 번만 만들어 재사용한다(동작은 기존과 동일).
+  static final RegExp _timePattern = RegExp(r'^\d{1,2}:\d{2}$');
+  static final RegExp _timeAmPmPattern =
+      RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|오전|오후)?$', caseSensitive: false);
+  static final RegExp _batteryPattern = RegExp(r'^\d{1,3}%$');
+  static final RegExp _carrierPattern =
+      RegExp(r'^(LTE|5G|4G|3G|Wi-Fi|WiFi)$', caseSensitive: false);
+  static final List<RegExp> _urlPatterns = [
+    RegExp(r'^https?://', caseSensitive: false),
+    RegExp(r'^www\.', caseSensitive: false),
+    RegExp(r'\.[a-z]{2,4}(/|$|\?)', caseSensitive: false),
+    RegExp(r'^[a-z0-9-]+\.[a-z]{2,4}$', caseSensitive: false),
+  ];
+  static final RegExp _kebabUrlPattern =
+      RegExp(r'^[a-z]+-[a-z]+.*\.[a-z]+', caseSensitive: false);
+  static final RegExp _datePattern = RegExp(r'^\d{2,4}-\d{1,2}-\d{1,2}$');
+  static final RegExp _phonePattern = RegExp(r'^\d{2,4}-\d{3,4}-\d{4}$');
+  static final RegExp _dateRangePattern =
+      RegExp(r'\d{4}-\d{2}-\d{2}.*\d{4}-\d{2}-\d{2}');
+  static final RegExp _sectionNumberPattern = RegExp(r'^[0-9]+\.$');
+  static final RegExp _emojiOnlyPattern = RegExp(
+      r'^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$',
+      unicode: true);
+  static final RegExp _numericStatPattern =
+      RegExp(r'^[\d,\.]+[KMB]?$', caseSensitive: false);
+
+  static final Set<String> _englishUIKeywords = {
+    'back', 'next', 'done', 'cancel', 'ok', 'yes', 'no', 'close',
+    'search', 'menu', 'home', 'settings', 'edit', 'delete', 'share',
+    'save', 'send', 'reply', 'forward', 'more', 'options', 'help',
+    'login', 'logout', 'sign in', 'sign up', 'submit', 'continue',
+    'skip', 'refresh', 'loading', 'retry', 'accept', 'decline',
+    'follow', 'like', 'comment', 'repost', 'bookmark', 'copy', 'report',
+    'block', 'mute', 'pin', 'unpin', 'archive', 'download', 'upload',
+    'play', 'pause', 'stop', 'prev', 'shuffle', 'repeat',
+    'tap', 'swipe', 'scroll', 'drag', 'drop', 'click', 'press',
+    'see more', 'show more', 'view all', 'load more', 'read more',
+    'ad', 'ads', 'sponsored', 'promoted', 'advertisement',
+  };
+  static final Set<String> _koreanUIKeywords = {
+    '뒤로', '다음', '완료', '취소', '확인', '설정', '닫기',
+    '검색', '메뉴', '홈', '편집', '삭제', '공유', '저장',
+    '보내기', '답장', '전달', '더보기', '옵션', '도움말',
+    '로그인', '로그아웃', '가입', '제출', '계속', '건너뛰기',
+    '새로고침', '로딩', '재시도', '수락', '거절', '이전',
+    '팔로우', '팔로잉', '좋아요', '댓글', '리포스트', '북마크',
+    '복사', '신고', '차단', '뮤트', '고정', '보관', '다운로드',
+    '재생', '일시정지', '정지', '이전곡', '다음곡', '셔플', '반복',
+    '더 보기', '전체 보기', '모두 보기', '펼치기', '접기',
+    '광고', '스폰서', '홍보', '프로모션',
+    '알림', '알람', '푸시', '업데이트', '버전',
+    '개인정보', '이용약관', '고객센터', '문의',
+  };
+  static final Set<String> _tabBarKeywords = {
+    'all', 'recent', 'popular', 'new', 'hot',
+    '전체', '최신', '인기', '추천', '즐겨찾기', 'favorites',
+    '피드', 'feed', '탐색', 'explore', '트렌드', 'trending',
+    '팔로잉', 'following', 'for you', 'foryou',
+  };
+
+  static final List<RegExp> _timeOrDatePatterns = [
+    RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$'),
+    RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|am|pm|오전|오후)$'),
+    RegExp(r'^\d{1,2}(월|일|시|분|초)$'),
+    RegExp(r'^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2}$'),
+    RegExp(r'^\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4}$'),
+    RegExp(r'^(오늘|어제|그저께|내일|모레)$'),
+    RegExp(r'^(today|yesterday|tomorrow)$', caseSensitive: false),
+    RegExp(r'^\d+\s*(초|분|시간|일|주|달|년)\s*전$'),
+    RegExp(r'^\d+\s*(sec|min|hour|day|week|month|year)s?\s*ago$', caseSensitive: false),
+    RegExp(r'^just now$', caseSensitive: false),
+    RegExp(r'^방금$'),
+  ];
+
+  static const List<String> _adPatterns = [
+    'sponsored', 'promoted', 'advertisement', 'ad ', ' ad',
+    '광고', '스폰서', '홍보', '프로모션', 'promo',
+    'install now', 'download now', 'get it now', 'try free',
+    '지금 설치', '무료 체험', '다운로드',
+    'shop now', 'buy now', 'order now', '지금 구매', '바로 구매',
+    'learn more', '자세히 보기', '더 알아보기',
+  ];
+
+  static final List<RegExp> _brandPatterns = [
+    RegExp(r'^(Instagram|Twitter|Facebook|TikTok|YouTube|LinkedIn)$', caseSensitive: false),
+    RegExp(r'^(카카오톡|카카오|네이버|라인|당근|배민|쿠팡)$'),
+    RegExp(r'^(Safari|Chrome|Firefox|Edge)$', caseSensitive: false),
+    RegExp(r'^@\w+$'),
+  ];
+
+  static final RegExp _onlyNumbersSymbolsPattern =
+      RegExp(r'^[\d\s\-\+\(\)\*\#\.\,\:\/]+$');
+  static final RegExp _repeatedCharPattern = RegExp(r'^(.)\1{2,}$');
+  static final RegExp _emailPattern = RegExp(r'\S+@\S+\.\S+');
+  static final RegExp _phoneLikePattern = RegExp(r'^[\d\-\+\(\)\s]{8,}$');
+  static final RegExp _koreanWordPattern = RegExp(r'[가-힣]{3,}');
+  static final RegExp _englishWordPattern = RegExp(r'[a-zA-Z]{4,}');
 
   /// 🆕 Enhanced Summary Analysis (calls Native EnhancedContentAnalyzer)
   /// enableTranslation: true면 OS 언어와 다른 경우 자동 번역
@@ -29,13 +136,17 @@ class OnDeviceLLMService {
       }).toList();
 
       // 네이티브 LLM 채널 호출
+      // 네이티브 쪽(Foundation Models)에도 자체 타임아웃이 있지만, 채널 자체가
+      // 멈추는 등 예기치 못한 상황까지 대비해 Dart 쪽에도 최후 방어선을 둔다.
+      // 이게 없으면 Level 2~4가 항상 빠르게 성공하도록 설계돼 있어도 Level 1이
+      // 걸려있는 동안 전체 캡처 플로우가 "분석 중..."에서 멈춰버린다.
       final result = await platform.invokeMethod('analyzeSummary', {
         'textBlocks': textBlocks,
         'layoutRegions': layoutRegions ?? [],
         'importantAreas': importantAreas ?? [],
         'imageSize': imageSize ?? {'width': 0.0, 'height': 0.0},
         'enableTranslation': false, // Native 번역은 비활성화 (Flutter에서 처리)
-      });
+      }).timeout(const Duration(seconds: 15));
 
       if (result == null) {
         // 폴백: 기존 로직
@@ -44,7 +155,8 @@ class OnDeviceLLMService {
         return {
           'title': legacy.title,
           'summary': legacy.summary,
-          'tags': legacy.keyInsights,
+          'tags': legacy.tags,
+          'insights': legacy.keyInsights,
           'contentType': 'general',
           'wasTranslated': false,
         };
@@ -83,6 +195,9 @@ class OnDeviceLLMService {
         'title': title,
         'summary': summary,
         'tags': List<String>.from(resultMap['tags'] ?? []),
+        // 네이티브(EnhancedContentAnalyzer/FoundationModelsAnalyzer)는 "insights" 키로
+        // 문장형 핵심 포인트를 반환한다. 짧은 검색용 tags와 혼동하지 않도록 별도 전달.
+        'insights': List<String>.from(resultMap['insights'] ?? resultMap['keyInsights'] ?? []),
         'contentType': resultMap['contentType'] ?? 'general',
         'wasTranslated': wasTranslated,
         'originalSummary': originalSummary,
@@ -96,7 +211,8 @@ class OnDeviceLLMService {
       return {
         'title': legacy.title,
         'summary': legacy.summary,
-        'tags': legacy.keyInsights,
+        'tags': legacy.tags,
+        'insights': legacy.keyInsights,
         'contentType': 'general',
         'wasTranslated': false,
       };
@@ -197,18 +313,18 @@ class OnDeviceLLMService {
       if (box.top < 0.05) {
         // 상단 영역: 상태바 요소만 제거
         // 시간 패턴 (다양한 형식)
-        if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(text)) {
+        if (_timePattern.hasMatch(text)) {
           return false;
         }
-        if (RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|오전|오후)?$', caseSensitive: false).hasMatch(text)) {
+        if (_timeAmPmPattern.hasMatch(text)) {
           return false;
         }
         // 배터리/신호
-        if (RegExp(r'^\d{1,3}%$').hasMatch(text)) {
+        if (_batteryPattern.hasMatch(text)) {
           return false;
         }
         // 통신사, 와이파이 등
-        if (RegExp(r'^(LTE|5G|4G|3G|Wi-Fi|WiFi)$', caseSensitive: false).hasMatch(text)) {
+        if (_carrierPattern.hasMatch(text)) {
           return false;
         }
         // 짧은 상태바 텍스트
@@ -228,81 +344,44 @@ class OnDeviceLLMService {
       }
 
       // 7. URL 패턴 필터링 (Swift 로직과 통일)
-      final urlPatterns = [
-        RegExp(r'^https?://', caseSensitive: false),  // URL 프로토콜로 시작
-        RegExp(r'^www\.', caseSensitive: false),      // www로 시작
-        RegExp(r'\.[a-z]{2,4}(/|$|\?)', caseSensitive: false),  // .com/, .io 등
-        RegExp(r'^[a-z0-9-]+\.[a-z]{2,4}$', caseSensitive: false),  // 단순 도메인
-      ];
-      
-      for (final pattern in urlPatterns) {
+      for (final pattern in _urlPatterns) {
         if (pattern.hasMatch(text)) {
           return false;
         }
       }
-      
+
       // 케밥케이스 URL 패턴 (a-b-c.xxx 형태)
-      if (RegExp(r'^[a-z]+-[a-z]+.*\.[a-z]+', caseSensitive: false).hasMatch(text)) {
+      if (_kebabUrlPattern.hasMatch(text)) {
         return false;
       }
-      
+
       // 하이픈이 2개 이상 포함된 텍스트 (URL일 가능성 높음)
       // 단, 날짜 및 전화번호 패턴은 예외 처리
       final hyphenCount = text.split('-').length - 1;
       if (hyphenCount >= 2 && text.length > 10) {
         // 날짜 패턴: YYYY-MM-DD 또는 YY-MM-DD
-        final isDatePattern = RegExp(r'^\d{2,4}-\d{1,2}-\d{1,2}$').hasMatch(text);
+        final isDatePattern = _datePattern.hasMatch(text);
         // 전화번호 패턴: 010-1234-5678, 02-123-4567 등
-        final isPhonePattern = RegExp(r'^\d{2,4}-\d{3,4}-\d{4}$').hasMatch(text);
+        final isPhonePattern = _phonePattern.hasMatch(text);
         // 날짜 범위 패턴: 2024-01-01 ~ 2024-12-31
-        final isDateRangePattern = RegExp(r'\d{4}-\d{2}-\d{2}.*\d{4}-\d{2}-\d{2}').hasMatch(text);
-        
+        final isDateRangePattern = _dateRangePattern.hasMatch(text);
+
         if (!isDatePattern && !isPhonePattern && !isDateRangePattern) {
           return false;
         }
       }
-      
+
       // 숫자로만 구성된 텍스트 (섹션 번호)
-      if (RegExp(r'^[0-9]+\.$').hasMatch(text)) {
+      if (_sectionNumberPattern.hasMatch(text)) {
         return false;
       }
 
-      // 8. UI 버튼/메뉴 키워드 필터링 (영어) - 확장
-      final englishUIKeywords = [
-        'back', 'next', 'done', 'cancel', 'ok', 'yes', 'no', 'close',
-        'search', 'menu', 'home', 'settings', 'edit', 'delete', 'share',
-        'save', 'send', 'reply', 'forward', 'more', 'options', 'help',
-        'login', 'logout', 'sign in', 'sign up', 'submit', 'continue',
-        'skip', 'refresh', 'loading', 'retry', 'accept', 'decline',
-        'follow', 'like', 'comment', 'repost', 'bookmark', 'copy', 'report',
-        'block', 'mute', 'pin', 'unpin', 'archive', 'download', 'upload',
-        'play', 'pause', 'stop', 'prev', 'next', 'shuffle', 'repeat',
-        'tap', 'swipe', 'scroll', 'drag', 'drop', 'click', 'press',
-        'see more', 'show more', 'view all', 'load more', 'read more',
-        'ad', 'ads', 'sponsored', 'promoted', 'advertisement',
-      ];
-
-      // 9. UI 버튼/메뉴 키워드 필터링 (한국어) - 확장
-      final koreanUIKeywords = [
-        '뒤로', '다음', '완료', '취소', '확인', '설정', '닫기',
-        '검색', '메뉴', '홈', '편집', '삭제', '공유', '저장',
-        '보내기', '답장', '전달', '더보기', '옵션', '도움말',
-        '로그인', '로그아웃', '가입', '제출', '계속', '건너뛰기',
-        '새로고침', '로딩', '재시도', '수락', '거절', '이전',
-        '팔로우', '팔로잉', '좋아요', '댓글', '리포스트', '북마크',
-        '복사', '신고', '차단', '뮤트', '고정', '보관', '다운로드',
-        '재생', '일시정지', '정지', '이전곡', '다음곡', '셔플', '반복',
-        '더 보기', '전체 보기', '모두 보기', '펼치기', '접기',
-        '광고', '스폰서', '홍보', '프로모션',
-        '알림', '알람', '푸시', '업데이트', '버전',
-        '개인정보', '이용약관', '고객센터', '문의',
-      ];
-
+      // 8~9. UI 버튼/메뉴 키워드 필터링 (영어/한국어)
       final lowerText = text.toLowerCase();
-      if (englishUIKeywords.contains(lowerText)) {
+      if (_englishUIKeywords.contains(lowerText)) {
         return false;
       }
-      if (koreanUIKeywords.contains(text)) {
+      if (_koreanUIKeywords.contains(text)) {
         return false;
       }
 
@@ -315,7 +394,7 @@ class OnDeviceLLMService {
       }
 
       // 11. 아이콘/이모지만 있는 경우
-      if (RegExp(r'^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$', unicode: true).hasMatch(text)) {
+      if (_emojiOnlyPattern.hasMatch(text)) {
         return false;
       }
 
@@ -328,11 +407,7 @@ class OnDeviceLLMService {
 
       // 13. 탭바/세그먼트 컨트롤 (가로로 배열된 짧은 텍스트들)
       if (box.height < 0.05 && text.length < 15) {
-        final buttonLikeKeywords = ['all', 'recent', 'popular', 'new', 'hot',
-          '전체', '최신', '인기', '추천', '즐겨찾기', 'favorites',
-          '피드', 'feed', '탐색', 'explore', '트렌드', 'trending',
-          '팔로잉', 'following', '추천', 'for you', 'foryou'];
-        if (buttonLikeKeywords.contains(lowerText)) {
+        if (_tabBarKeywords.contains(lowerText)) {
           return false;
         }
       }
@@ -350,7 +425,7 @@ class OnDeviceLLMService {
       }
 
       // 16. 숫자만 있는 경우 (조회수, 좋아요 수 등)
-      if (RegExp(r'^[\d,\.]+[KMB]?$', caseSensitive: false).hasMatch(text)) {
+      if (_numericStatPattern.hasMatch(text)) {
         return false;
       }
 
@@ -368,57 +443,27 @@ class OnDeviceLLMService {
 
   /// 시간/날짜 패턴 확인
   static bool _isTimeOrDatePattern(String text) {
-    final patterns = [
-      RegExp(r'^\d{1,2}:\d{2}(:\d{2})?$'), // 12:34, 12:34:56
-      RegExp(r'^\d{1,2}:\d{2}\s*(AM|PM|am|pm|오전|오후)$'), // 12:34 PM
-      RegExp(r'^\d{1,2}(월|일|시|분|초)$'), // 12월, 5일
-      RegExp(r'^\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2}$'), // 2024-01-15
-      RegExp(r'^\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4}$'), // 01/15/24
-      RegExp(r'^(오늘|어제|그저께|내일|모레)$'),
-      RegExp(r'^(today|yesterday|tomorrow)$', caseSensitive: false),
-      RegExp(r'^\d+\s*(초|분|시간|일|주|달|년)\s*전$'), // 5분 전
-      RegExp(r'^\d+\s*(sec|min|hour|day|week|month|year)s?\s*ago$', caseSensitive: false),
-      RegExp(r'^just now$', caseSensitive: false),
-      RegExp(r'^방금$'),
-    ];
-
-    return patterns.any((p) => p.hasMatch(text.trim()));
+    return _timeOrDatePatterns.any((p) => p.hasMatch(text.trim()));
   }
 
   /// 광고/프로모션 패턴 확인
   static bool _isAdvertisementPattern(String text) {
     final lower = text.toLowerCase();
-    final adPatterns = [
-      'sponsored', 'promoted', 'advertisement', 'ad ', ' ad',
-      '광고', '스폰서', '홍보', '프로모션', 'promo',
-      'install now', 'download now', 'get it now', 'try free',
-      '지금 설치', '무료 체험', '다운로드',
-      'shop now', 'buy now', 'order now', '지금 구매', '바로 구매',
-      'learn more', '자세히 보기', '더 알아보기',
-    ];
-
-    return adPatterns.any((p) => lower.contains(p));
+    return _adPatterns.any((p) => lower.contains(p));
   }
 
   /// 앱 브랜드 패턴 확인
   static bool _isAppBrandPattern(String text) {
-    final brandPatterns = [
-      RegExp(r'^(Instagram|Twitter|Facebook|TikTok|YouTube|LinkedIn)$', caseSensitive: false),
-      RegExp(r'^(카카오톡|카카오|네이버|라인|당근|배민|쿠팡)$'),
-      RegExp(r'^(Safari|Chrome|Firefox|Edge)$', caseSensitive: false),
-      RegExp(r'^@\w+$'), // @username
-    ];
-
-    return brandPatterns.any((p) => p.hasMatch(text.trim()));
+    return _brandPatterns.any((p) => p.hasMatch(text.trim()));
   }
 
   /// 의미있는 콘텐츠인지 확인 (강화)
   static bool _containsMeaningfulContent(String text) {
     // 숫자나 특수문자만 있는 경우
-    if (RegExp(r'^[\d\s\-\+\(\)\*\#\.\,\:\/]+$').hasMatch(text)) return false;
+    if (_onlyNumbersSymbolsPattern.hasMatch(text)) return false;
 
     // 단일 문자 반복 (예: "...", "---", "===")
-    if (RegExp(r'^(.)\1{2,}$').hasMatch(text)) return false;
+    if (_repeatedCharPattern.hasMatch(text)) return false;
 
     // URL 패턴
     if (text.contains('http://') || text.contains('https://') || text.contains('www.')) {
@@ -426,14 +471,14 @@ class OnDeviceLLMService {
     }
 
     // 이메일 패턴
-    if (RegExp(r'\S+@\S+\.\S+').hasMatch(text)) return false;
+    if (_emailPattern.hasMatch(text)) return false;
 
     // 전화번호 패턴
-    if (RegExp(r'^[\d\-\+\(\)\s]{8,}$').hasMatch(text)) return false;
+    if (_phoneLikePattern.hasMatch(text)) return false;
 
     // 한글 3자 이상 또는 영문 4자 이상 단어가 포함된 경우 의미있음
-    if (RegExp(r'[가-힣]{3,}').hasMatch(text)) return true;
-    if (RegExp(r'[a-zA-Z]{4,}').hasMatch(text)) return true;
+    if (_koreanWordPattern.hasMatch(text)) return true;
+    if (_englishWordPattern.hasMatch(text)) return true;
 
     // 문장 형태 (주어+동사 등)인 경우
     if (text.length > 15 && (text.contains(' ') || text.contains('.'))) {
@@ -665,47 +710,23 @@ class OnDeviceLLMService {
   }
 
   // ============================================
-  // Step 3: 온디바이스 LLM으로 요약 생성 (Gemma 2B)
+  // Step 3: 규칙 기반 요약 생성 (Level 2 폴백)
   // ============================================
+  //
+  // 과거엔 여기서 native 'analyzeSummary' 채널을 title/paragraphs/keyPoints
+  // 형태로 호출했지만, 네이티브 핸들러(AppDelegate.swift)는 textBlocks/imageSize를
+  // 요구하기 때문에 이 파라미터 형태로는 항상 INVALID_ARGS로 실패해 매번 아래의
+  // 규칙 기반 폴백만 사용되고 있었다(실제 "Gemma 2B" 모델도 프로젝트에 존재하지
+  // 않음 — 이름만 남은 문서/주석). 성공할 수 없는 MethodChannel 왕복을 스크린샷마다
+  // 반복하는 낭비를 없애기 위해 폴백 로직으로 바로 진입한다.
   static Future<ScreenshotAnalysis> _generateSummaryOnDevice(
     DocumentStructure structure
   ) async {
-    try {
-      logInfo('🤖 온디바이스 LLM (Gemma 2B) 호출 중...', name: 'OnDeviceLLM');
-
-      // iOS Native에서 Core ML + Gemma 2B 실행
-      final result = await platform.invokeMethod('analyzeSummary', {
-        'title': structure.title,
-        'paragraphs': structure.paragraphs,
-        'keyPoints': structure.keyPoints,
-      });
-
-      if (result is Map) {
-        final title = result['title'] as String? ?? structure.title;
-        final summary = result['summary'] as String? ?? _generateFallbackSummary(structure);
-        final keyInsights = result['keyInsights'] as List?;
-
-        logInfo('✅ LLM 분석 완료: $title', name: 'OnDeviceLLM');
-
-        return ScreenshotAnalysis(
-          title: title,
-          summary: summary,
-          keyInsights: keyInsights != null
-              ? List<String>.from(keyInsights)
-              : structure.keyPoints,
-        );
-      }
-
-      throw Exception('Invalid result format');
-    } catch (e) {
-      logInfo('⚠️ 온디바이스 LLM 실패, Fallback 사용: $e', name: 'OnDeviceLLM');
-      // Fallback: 규칙 기반 요약
-      return ScreenshotAnalysis(
-        title: structure.title,
-        summary: _generateFallbackSummary(structure),
-        keyInsights: structure.keyPoints,
-      );
-    }
+    return ScreenshotAnalysis(
+      title: structure.title,
+      summary: _generateFallbackSummary(structure),
+      keyInsights: structure.keyPoints,
+    );
   }
 
   /// Fallback: 규칙 기반 제목 생성

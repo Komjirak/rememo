@@ -148,10 +148,16 @@ class UnifiedAnalysisService {
           name: 'UnifiedAnalysis',
         );
         final tags = List<String>.from(enhancedResult['tags'] ?? []);
+        // 네이티브가 "insights"(문장형 핵심 포인트)를 별도로 반환한다.
+        // 과거엔 이 필드가 전달되지 않아 짧은 tags를 keyInsights로 잘못 재사용했었다
+        // (예: "네이버앱", "앱" 같은 UI 라벨이 핵심 포인트로 표시되는 버그).
+        final insights = TextHeuristics.filterInsights(
+          List<String>.from(enhancedResult['insights'] ?? enhancedResult['keyInsights'] ?? []),
+        );
         return ScreenshotAnalysis(
           title: enhancedResult['title'] ?? 'New Memory',
           summary: enhancedResult['summary'] ?? '',
-          keyInsights: tags,
+          keyInsights: insights,
           tags: _shortTags(tags, fallbackText: ocrText),
           category: _resolveCategory(suggestedCategory, ocrText),
           contentType: enhancedResult['contentType'] ?? 'general',
@@ -281,7 +287,7 @@ class UnifiedAnalysisService {
         return ScreenshotAnalysis(
           title: openaiResult.title,
           summary: openaiResult.summary,
-          keyInsights: openaiResult.keyInsights,
+          keyInsights: TextHeuristics.filterInsights(openaiResult.keyInsights),
           tags: openaiResult.tags,
           category: openaiResult.category,
           contentType: openaiResult.contentType,
@@ -323,7 +329,7 @@ class UnifiedAnalysisService {
     return ScreenshotAnalysis(
       title: analysis.title,
       summary: analysis.summary,
-      keyInsights: analysis.keyInsights,
+      keyInsights: TextHeuristics.filterInsights(analysis.keyInsights),
       tags: analysis.tags.isNotEmpty
           ? analysis.tags
           : _shortTags(analysis.keyInsights, fallbackText: ocrText),
@@ -511,7 +517,7 @@ class UnifiedAnalysisService {
     return ScreenshotAnalysis(
       title: title,
       summary: summary,
-      keyInsights: keyInsights,
+      keyInsights: TextHeuristics.filterInsights(keyInsights),
       tags: TextHeuristics.extractTags(text.isNotEmpty ? text : summary),
       category: _resolveCategory(suggestedCategory, text.isNotEmpty ? text : summary),
       analysisLevel: 4,

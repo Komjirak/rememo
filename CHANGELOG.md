@@ -1,5 +1,15 @@
 ## [Unreleased]
 
+### Performance (로컬 분석 파이프라인)
+- **Level 2("온디바이스 LLM") 무의미한 IPC 왕복 제거**: Dart가 native `analyzeSummary` 채널에 `title/paragraphs/keyPoints` 형태로 호출했지만 native 핸들러는 `textBlocks/imageSize`를 요구해 항상 `INVALID_ARGS`로 실패하고 있었음(실제 "Gemma 2B" 모델도 프로젝트에 존재하지 않음). 성공할 수 없는 MethodChannel 왕복을 없애고 규칙 기반 폴백으로 바로 진입하도록 변경.
+- **Vision 분석 이미지 다운스케일 누락 수정**: `recognizeTextWithEnhancedAnalysis`(PaddleOCRHelper.swift)가 원본 최대 해상도 이미지에 OCR+레이아웃+세일리언시 3개 Vision 요청을 그대로 실행하고 있었음. 다른 OCR 경로처럼 2048px로 축소 후 처리하도록 통일해 스크린샷마다 분석 시간을 단축.
+- **온디바이스 분석 체인에 타임아웃 추가**: Apple Foundation Models(Level 1) 응답에 12초 타임아웃(Swift), MethodChannel 호출에 15초 타임아웃(Dart) 추가. 기존엔 타임아웃이 전혀 없어 온디바이스 LLM 응답이 지연되면 항상 빠르게 성공하도록 설계된 Level 2~4로 넘어가지 못하고 "분석 중..." 상태로 멈출 수 있었음.
+- **UI 노이즈 필터링 정규식/키워드 사전 컴파일**: `ondevice_llm_service.dart`의 노이즈 필터링 헬퍼들이 OCR 블록(스크린샷 1장당 수십~수백 개)마다 정규식과 키워드 리스트를 매번 새로 생성하고 있었음. 전부 static final로 한 번만 컴파일해 재사용하도록 리팩터링(동작 동일, 불필요한 할당만 제거). 키워드 목록도 List→Set으로 바꿔 조회를 O(n)에서 O(1)로 개선.
+
+### Fixed (중복 저장 · 핵심 포인트)
+- **URL 공유 + 스크린샷 중복 저장 수정**: 같은 기사를 스크린샷으로 캡처하고 동시에 URL로 공유하면(또는 반대 순서), OS 스크린샷 감지와 Share Extension이 서로의 존재를 모른 채 각각 카드를 만들어 동일 콘텐츠가 2장으로 저장되던 문제 수정. 저장 직전 최근 3분 이내 카드 중 제목이 사실상 같은 것이 있으면 건너뛰도록 양방향 검사 추가(`_isDuplicateOfRecentCapture`).
+- **"핵심 포인트"에 UI 라벨이 섞이는 버그 수정**: Level 1(Apple Intelligence/EnhancedContentAnalyzer) 분석 결과를 Flutter로 전달하는 과정에서 네이티브가 반환하는 문장형 `insights` 필드가 중간에 누락되어, 검색용 짧은 키워드(`tags`)가 "핵심 포인트"로 잘못 재사용되고 있었음(예: "네이버앱", "앱", "사용법"). 네이티브 `insights` 필드를 제대로 전달하도록 수정하고, 모든 분석 레벨(0~4)에 짧은 UI 라벨을 걸러내는 안전망(`TextHeuristics.filterInsights`) 추가.
+
 ### Chore (죽은 코드 정리)
 - **미사용 화면/모델 9개 삭제**: `settings_view`, `archive_view`, `note_detail_screen`, `thread_view`, `edit_card_screen`, `shelves_view`, `navigation_bar`, `memo_model`(+`.freezed.dart`/`.g.dart`) — 구 "Folio" 브랜드 시절 UI로, 현재 앱 어디에서도 import되지 않음을 전수 확인 후 제거 (약 3,600줄).
 - **미사용 의존성 5개 제거**: `memo_model.dart`가 유일한 사용처였던 `freezed`, `freezed_annotation`, `json_annotation`, `json_serializable`, `build_runner`를 pubspec에서 삭제. codegen 스텝 자체가 불필요해짐.
