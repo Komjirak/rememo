@@ -134,6 +134,39 @@ class AppLocalizationsKo extends AppLocalizations {
   String get detailSummaryHint => '요약을 작성하세요...';
 
   @override
+  String get detailKeyInsights => '핵심 포인트';
+
+  @override
+  String get detailShowMore => '전체 보기';
+
+  @override
+  String get detailShowLess => '접기';
+
+  @override
+  String get detailAddNote => '메모 추가';
+
+  @override
+  String get detailTranslate => '번역';
+
+  @override
+  String get detailShowOriginal => '원본 보기';
+
+  @override
+  String get detailShowTranslation => '번역 보기';
+
+  @override
+  String get msgCopied => '복사되었습니다';
+
+  @override
+  String get msgTranslationDone => '번역이 완료되었습니다.';
+
+  @override
+  String get msgTranslationNotNeeded => '번역이 필요하지 않거나 지원되지 않는 언어입니다.';
+
+  @override
+  String get msgTranslationFailed => '번역에 실패했습니다.';
+
+  @override
   String get tagAiAnalysis => 'AI 분석';
 
   @override

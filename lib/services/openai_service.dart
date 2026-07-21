@@ -405,6 +405,13 @@ Your job: Analyze the captured content and explain what this content IS and WHY 
 $contextHint
 
 ═══════════════════════════════════════
+ACCURACY RULES (most important)
+═══════════════════════════════════════
+- Use ONLY facts that appear in the provided text or image. NEVER invent names, prices, dates, or conclusions.
+- If the text is fragmented OCR, reconstruct the intended meaning, but do not add information that is not there.
+- If the content is too sparse to summarize meaningfully, describe concisely what kind of screen/page it is instead of padding.
+
+═══════════════════════════════════════
 FIELD RULES
 ═══════════════════════════════════════
 
@@ -416,16 +423,17 @@ FIELD RULES
 
 2. **summary** (2-3 sentences, user-centric)
    - Explain WHAT this content is and WHY the user would want to recall it later
-   - Write as if briefing the user: "이 내용은 ~에 대한 것으로, ~할 때 참고하면 좋습니다"
+   - Lead with the substance, not meta-description: skip openers like "이 스크린샷은", "이 내용은 ~에 대한 것입니다"
+   - Do NOT simply restate the title — every sentence must add information beyond it
    - Include the most important details (prices, dates, key facts, conclusions)
-   - NEVER pad with filler like "자세한 내용은 확인이 필요합니다"
+   - NEVER pad with filler like "자세한 내용은 확인이 필요합니다", "참고하면 좋습니다"
 
    Examples by content type:
-   - 🍽️ Restaurant: "강남역 근처 이탈리안 레스토랑 '라쿠치나'의 후기입니다. 파스타와 피자가 맛있다는 평이 많고, 런치 세트가 15,000원으로 가성비가 좋습니다."
-   - 🛍️ Shopping: "나이키 에어맥스 90이 30% 할인 중인 정보입니다. 할인 기간은 2월 말까지이며, 사이즈별 재고를 확인하고 구매를 고려해볼 만합니다."
-   - 📰 Article: "React와 Vue.js의 성능을 비교한 기술 블로그입니다. 대규모 앱에서는 React가, 소규모 프로젝트에서는 Vue가 유리하다는 결론입니다."
-   - 💼 Work: "다음 주 수요일 오후 2시 팀 미팅 일정입니다. Q1 실적 리뷰와 Q2 계획 논의가 주요 안건입니다."
-   - 📋 Recipe: "토마토 파스타 레시피입니다. 재료는 마늘, 올리브유, 토마토소스, 파르메산 치즈가 필요하며, 조리 시간은 약 20분입니다."
+   - 🍽️ Restaurant: "강남역 근처 이탈리안 '라쿠치나' 후기. 파스타와 피자가 맛있다는 평이 많고, 런치 세트가 15,000원(11:30-14:00)으로 가성비가 좋습니다."
+   - 🛍️ Shopping: "나이키 에어맥스 90이 2월 말까지 30% 할인 중입니다. 인기 사이즈는 품절이 빠르니 재고 확인 후 구매하는 것이 좋습니다."
+   - 📰 Article: "React와 Vue.js의 렌더링 성능 비교 결과, 대규모 앱에서는 React가, 소규모 프로젝트에서는 Vue가 유리하다는 결론입니다. 벤치마크 수치가 함께 제시되어 있습니다."
+   - 💼 Work: "다음 주 수요일 오후 2시 팀 미팅. Q1 실적 리뷰와 Q2 계획 논의가 주요 안건이며, 사전 자료 제출 마감은 화요일입니다."
+   - 📋 Recipe: "마늘·올리브유·토마토소스·파르메산으로 만드는 토마토 파스타 레시피. 조리 시간은 약 20분이며 소스 농도 조절 팁이 포함되어 있습니다."
 
 3. **tags** (2-5 SHORT keywords for filtering)
    - Each tag MUST be 1-2 words maximum

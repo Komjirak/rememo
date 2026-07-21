@@ -97,4 +97,96 @@ class TextHeuristics {
     if (tags.isEmpty) tags.add('Imported');
     return tags;
   }
+
+  /// UI 노이즈로 의심되는 저품질 제목 패턴 (시간·배터리·네비게이션 라벨 등)
+  static final List<RegExp> _lowQualityTitlePatterns = [
+    RegExp(r'^\d{1,2}:\d{2}(\s*(AM|PM|오전|오후))?$', caseSensitive: false), // 시간
+    RegExp(r'^\d{1,3}\s*%$'), // 배터리
+    RegExp(r'^[\d\s\.,:%\-+/]+$'), // 숫자·기호만
+    RegExp(r'^(로그인|회원가입|검색|메뉴|홈|설정|닫기|취소|확인|공유|더보기|알림|전체|뒤로)$'),
+    RegExp(r'^(login|sign\s?up|search|menu|home|settings|close|cancel|ok|share|more|back|next)$',
+        caseSensitive: false),
+    RegExp(r'^(screenshot|screen capture|new memory|new screenshot|web link|no title|제목 없음|스크린샷)$',
+        caseSensitive: false),
+  ];
+
+  /// 제목이 화면에 보여주기에 저품질인지 판정.
+  /// 분석 레벨 간 fallback 진행 여부를 결정할 때 사용한다.
+  static bool isLowQualityTitle(String title) {
+    final t = title.trim();
+    if (t.length < 4) return true;
+    return _lowQualityTitlePatterns.any((p) => p.hasMatch(t));
+  }
+
+  /// 문장 중요도 기반 추출 요약.
+  /// "앞부분 자르기" 대신 위치·길이·정보 밀도·완결성을 점수화해
+  /// 상위 문장을 원문 순서대로 조합한다. (규칙 기반 fallback 전용)
+  static String summarizeByImportance(String text, {int maxLength = 200}) {
+    final lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return '';
+
+    // 줄 → 문장 분리
+    final sentences = <({String text, int index})>[];
+    var idx = 0;
+    for (final line in lines) {
+      for (final s in line.split(RegExp(r'(?<=[.!?。！？])\s+'))) {
+        final t = s.trim();
+        if (t.length >= 8) sentences.add((text: t, index: idx++));
+      }
+    }
+    if (sentences.isEmpty) {
+      final joined = lines.join(' ');
+      return joined.length <= maxLength ? joined : '${joined.substring(0, maxLength - 3)}...';
+    }
+
+    final total = sentences.length;
+    double score(({String text, int index}) s) {
+      final t = s.text;
+      double sc = 0;
+      // 적절한 길이 (너무 짧은 조각·너무 긴 벽 회피)
+      if (t.length >= 20 && t.length <= 120) {
+        sc += 3;
+      } else if (t.length > 120) {
+        sc += 1;
+      }
+      // 위치: 앞쪽 우선
+      final rel = s.index / total;
+      if (rel < 0.33) {
+        sc += 2;
+      } else if (rel < 0.66) {
+        sc += 1;
+      }
+      // 완결된 문장
+      if (RegExp(r'(다|요|[.!?。！？])$').hasMatch(t)) sc += 1.5;
+      // 정보 밀도: 숫자·가격·날짜·단위
+      if (RegExp(r'\d').hasMatch(t)) sc += 1.0;
+      if (RegExp(r'(원|₩|\$|%|월\s*\d|일까지|시\s*\d{0,2}분?)').hasMatch(t)) sc += 0.8;
+      // UI 노이즈 감점
+      if (isLowQualityTitle(t)) sc -= 3;
+      return sc;
+    }
+
+    final ranked = [...sentences]..sort((a, b) => score(b).compareTo(score(a)));
+
+    // 상위 문장을 길이 한도 내에서 선택 후, 원문 순서로 재배열
+    final selected = <({String text, int index})>[];
+    var length = 0;
+    for (final s in ranked) {
+      if (selected.length >= 3) break;
+      if (length + s.text.length > maxLength && selected.isNotEmpty) continue;
+      selected.add(s);
+      length += s.text.length + 1;
+    }
+    selected.sort((a, b) => a.index.compareTo(b.index));
+
+    final summary = selected.map((s) => s.text).join(' ').trim();
+    if (summary.isEmpty) return '';
+    return summary.length <= maxLength + 40
+        ? summary
+        : '${summary.substring(0, maxLength + 37)}...';
+  }
 }

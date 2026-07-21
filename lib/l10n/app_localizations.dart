@@ -346,6 +346,72 @@ abstract class AppLocalizations {
   /// **'요약을 작성하세요...'**
   String get detailSummaryHint;
 
+  /// No description provided for @detailKeyInsights.
+  ///
+  /// In ko, this message translates to:
+  /// **'핵심 포인트'**
+  String get detailKeyInsights;
+
+  /// No description provided for @detailShowMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체 보기'**
+  String get detailShowMore;
+
+  /// No description provided for @detailShowLess.
+  ///
+  /// In ko, this message translates to:
+  /// **'접기'**
+  String get detailShowLess;
+
+  /// No description provided for @detailAddNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'메모 추가'**
+  String get detailAddNote;
+
+  /// No description provided for @detailTranslate.
+  ///
+  /// In ko, this message translates to:
+  /// **'번역'**
+  String get detailTranslate;
+
+  /// No description provided for @detailShowOriginal.
+  ///
+  /// In ko, this message translates to:
+  /// **'원본 보기'**
+  String get detailShowOriginal;
+
+  /// No description provided for @detailShowTranslation.
+  ///
+  /// In ko, this message translates to:
+  /// **'번역 보기'**
+  String get detailShowTranslation;
+
+  /// No description provided for @msgCopied.
+  ///
+  /// In ko, this message translates to:
+  /// **'복사되었습니다'**
+  String get msgCopied;
+
+  /// No description provided for @msgTranslationDone.
+  ///
+  /// In ko, this message translates to:
+  /// **'번역이 완료되었습니다.'**
+  String get msgTranslationDone;
+
+  /// No description provided for @msgTranslationNotNeeded.
+  ///
+  /// In ko, this message translates to:
+  /// **'번역이 필요하지 않거나 지원되지 않는 언어입니다.'**
+  String get msgTranslationNotNeeded;
+
+  /// No description provided for @msgTranslationFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'번역에 실패했습니다.'**
+  String get msgTranslationFailed;
+
   /// No description provided for @tagAiAnalysis.
   ///
   /// In ko, this message translates to:

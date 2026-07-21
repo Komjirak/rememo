@@ -134,6 +134,39 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailSummaryHint => '要約を入力してください...';
 
   @override
+  String get detailKeyInsights => 'キーポイント';
+
+  @override
+  String get detailShowMore => 'すべて表示';
+
+  @override
+  String get detailShowLess => '折りたたむ';
+
+  @override
+  String get detailAddNote => 'メモを追加';
+
+  @override
+  String get detailTranslate => '翻訳';
+
+  @override
+  String get detailShowOriginal => '原文を表示';
+
+  @override
+  String get detailShowTranslation => '翻訳を表示';
+
+  @override
+  String get msgCopied => 'コピーしました';
+
+  @override
+  String get msgTranslationDone => '翻訳が完了しました。';
+
+  @override
+  String get msgTranslationNotNeeded => '翻訳が不要か、サポートされていない言語です。';
+
+  @override
+  String get msgTranslationFailed => '翻訳に失敗しました。';
+
+  @override
   String get tagAiAnalysis => 'AI分析';
 
   @override

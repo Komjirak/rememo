@@ -359,19 +359,25 @@ class UnifiedAnalysisService {
   static bool _isValidResult(Map<String, dynamic> result) {
     final title = result['title']?.toString() ?? '';
     final summary = result['summary']?.toString() ?? '';
-
-    return title.isNotEmpty &&
-           title != '제목 없음' &&
-           title != 'New Memory' &&
-           summary.isNotEmpty;
+    return _isUsableTitleSummary(title, summary);
   }
 
   /// 분석 결과가 유효한지 확인
   static bool _isValidAnalysis(ScreenshotAnalysis analysis) {
-    return analysis.title.isNotEmpty &&
-           analysis.title != 'New Memory' &&
-           analysis.title != 'Empty Capture' &&
-           analysis.summary.isNotEmpty;
+    return _isUsableTitleSummary(analysis.title, analysis.summary);
+  }
+
+  /// 제목·요약이 사용자에게 보여줄 만한 품질인지 검증.
+  /// 저품질이면 false를 반환해 다음 레벨로 fallback이 이어지게 한다.
+  static bool _isUsableTitleSummary(String title, String summary) {
+    final t = title.trim();
+    final s = summary.trim();
+    if (t.isEmpty || s.isEmpty) return false;
+    if (TextHeuristics.isLowQualityTitle(t)) return false;
+    if (s.length < 15) return false;
+    // 요약이 제목의 단순 반복이면 무의미
+    if (s == t || (s.length < t.length + 10 && s.contains(t))) return false;
+    return true;
   }
 
   /// OCR 텍스트에서 간단한 블록 생성 (구조 힌트 포함)
@@ -436,17 +442,20 @@ class UnifiedAnalysisService {
     List<String> keyInsights = [];
 
     if (cleanedBlocks.isNotEmpty) {
-      // 제목: 상단 블록 중 가장 큰 텍스트
-      final topBlocks = cleanedBlocks.where((b) => b.boundingBox.top < 0.3).toList();
-      if (topBlocks.isNotEmpty) {
-        topBlocks.sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
-        final candidate = topBlocks.first.text.trim();
-        if (candidate.length >= 5 && candidate.length <= 80) {
+      // 제목: 상단 블록을 크기순으로 훑으며 UI 노이즈가 아닌 첫 후보 선택
+      final topBlocks = cleanedBlocks.where((b) => b.boundingBox.top < 0.3).toList()
+        ..sort((a, b) => b.boundingBox.height.compareTo(a.boundingBox.height));
+      for (final block in topBlocks) {
+        final candidate = block.text.trim();
+        if (candidate.length >= 5 &&
+            candidate.length <= 80 &&
+            !TextHeuristics.isLowQualityTitle(candidate)) {
           title = candidate;
+          break;
         }
       }
 
-      // 요약: 처음 2-3개 문단을 의미있게 조합
+      // 요약: 문단 구성 후 문장 중요도 기반 추출 (단순 앞부분 자르기 대체)
       final paragraphs = <String>[];
       String currentPara = '';
       double lastBottom = 0;
@@ -454,19 +463,21 @@ class UnifiedAnalysisService {
       for (final block in cleanedBlocks) {
         final gap = block.boundingBox.top - lastBottom;
         if (lastBottom > 0 && gap > 0.04 && currentPara.isNotEmpty) {
-          paragraphs.add(currentPara);
+          paragraphs.add(currentPara.trim());
           currentPara = '';
         }
         currentPara += '${block.text.trim()} ';
         lastBottom = block.boundingBox.bottom;
       }
-      if (currentPara.isNotEmpty) paragraphs.add(currentPara);
+      if (currentPara.isNotEmpty) paragraphs.add(currentPara.trim());
 
-      // 상위 3개 문단 선택
-      final selected = paragraphs.take(3).join(' ').trim();
-      summary = selected.length > 150
-        ? '${selected.substring(0, 147)}...'
-        : selected;
+      summary = TextHeuristics.summarizeByImportance(paragraphs.join('\n'));
+      if (summary.isEmpty) {
+        final selected = paragraphs.take(3).join(' ').trim();
+        summary = selected.length > 150
+          ? '${selected.substring(0, 147)}...'
+          : selected;
+      }
 
       // 키 인사이트: 적절한 길이의 문단
       keyInsights = paragraphs
@@ -474,17 +485,21 @@ class UnifiedAnalysisService {
         .take(3)
         .toList();
     } else if (ocrText != null && ocrText.isNotEmpty) {
-      // OCR 텍스트가 있으면 사용
-      summary = ocrText.length > 150
-        ? '${ocrText.substring(0, 147)}...'
-        : ocrText;
+      // OCR 텍스트가 있으면 문장 중요도 기반 요약 사용
+      summary = TextHeuristics.summarizeByImportance(ocrText);
+      if (summary.isEmpty) {
+        summary = ocrText.length > 150
+          ? '${ocrText.substring(0, 147)}...'
+          : ocrText;
+      }
 
-      // 첫 줄을 제목으로
+      // 첫 줄 중 저품질(UI 노이즈)이 아닌 줄을 제목으로
       final lines = ocrText.split('\n').where((l) => l.trim().isNotEmpty).toList();
-      if (lines.isNotEmpty) {
-        final firstLine = lines.first.trim();
-        if (firstLine.length >= 5 && firstLine.length <= 80) {
-          title = firstLine;
+      for (final line in lines.take(5)) {
+        final t = line.trim();
+        if (t.length >= 5 && t.length <= 80 && !TextHeuristics.isLowQualityTitle(t)) {
+          title = t;
+          break;
         }
       }
     } else {

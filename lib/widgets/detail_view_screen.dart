@@ -37,6 +37,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   bool _isUrlModified = false;
   bool _showOriginal = false; // Toggle for translation
   bool _isTranslating = false; // Loading state for manual translation
+  bool _showFullOcr = false; // 원본 텍스트 펼침 여부 (기본 접힘)
 
   @override
   void initState() {
@@ -501,12 +502,6 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
-  void _shareCard() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.msgShareComingSoon), behavior: SnackBarBehavior.floating),
-    );
-  }
-
   Future<void> _toggleFavorite() async {
     final updated = _card.copyWith(isFavorite: !_card.isFavorite);
     await DatabaseHelper.instance.update(updated);
@@ -615,12 +610,13 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                      crossAxisAlignment: CrossAxisAlignment.start,
                      children: [
                        const SizedBox(height: 24),
-                       const SizedBox(height: 24),
                        _buildTitleSection(),
                        const SizedBox(height: 8), // Adjusted spacing
                        _buildMetadataSection(),
-                       const SizedBox(height: 16),
-                       _buildTagsSection(),
+                       if (_card.tags.isNotEmpty) ...[
+                         const SizedBox(height: 16),
+                         _buildTagsSection(),
+                       ],
                        const SizedBox(height: 24),
                        _buildImageSection(), // Image moved here
                        const SizedBox(height: 24),
@@ -756,68 +752,69 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
 
   Widget _buildMetadataSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedColor = isDark ? AppTheme.textLowDark : AppTheme.textLowLight;
+    final sourceUrl = _card.sourceUrl;
+    final domain = (sourceUrl != null && sourceUrl.isNotEmpty)
+        ? _extractDomain(sourceUrl)
+        : null;
+
     return Row(
       children: [
-        Icon(
-          Icons.calendar_today, 
-          size: 16, 
-          color: isDark ? AppTheme.textLowDark : AppTheme.textLowLight
-        ),
+        Icon(Icons.calendar_today, size: 16, color: mutedColor),
         const SizedBox(width: 6),
         Text(
           _card.captureDate,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: isDark ? AppTheme.textLowDark : AppTheme.textLowLight,
+            color: mutedColor,
           ),
         ),
+        if (domain != null) ...[
+          const SizedBox(width: 12),
+          Icon(Icons.link, size: 16, color: mutedColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: GestureDetector(
+              onTap: () => widget.onOpenLink?.call(sourceUrl!),
+              child: Text(
+                domain,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: mutedColor,
+                  decoration: TextDecoration.underline,
+                  decorationColor: mutedColor.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildTagsSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Merge Manual Tags and maybe visual cue for "AI Analysis"
-    // Use localized "AI Analysis" tag if available
-    final aiTag = AppLocalizations.of(context)!.tagAiAnalysis;
-    final tags = [..._card.tags, aiTag]; // Always show AI Analysis as per design mock
-    
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: tags.map((tag) {
-        final isAiTag = tag == aiTag;
+      children: _card.tags.map((tag) {
         if (!isDark) {
-           if (isAiTag) {
-             return _buildPill(
-               label: tag, 
-               bgColor: AppTheme.primaryLight.withOpacity(0.1), 
-               textColor: AppTheme.primaryLight
-             );
-           }
            return _buildPill(
-             label: tag, 
-             bgColor: const Color(0xFFF3F4F6), 
+             label: tag,
+             bgColor: const Color(0xFFF3F4F6),
              textColor: AppTheme.textHighLight
            );
-        } else {
-           if (tag == 'Design' || isAiTag) {  
-              return _buildPill(
-                label: tag, 
-                bgColor: AppTheme.primaryDark.withOpacity(0.1), 
-                textColor: AppTheme.primaryDark,
-                borderColor: AppTheme.primaryDark.withOpacity(0.2)
-              );
-           }
-           return _buildPill(
-              label: tag, 
-              bgColor: Colors.white.withOpacity(0.05), 
-              textColor: Colors.grey.shade300,
-              borderColor: Colors.white.withOpacity(0.1)
-           );
         }
+        return _buildPill(
+            label: tag,
+            bgColor: Colors.white.withOpacity(0.05),
+            textColor: Colors.grey.shade300,
+            borderColor: Colors.white.withOpacity(0.1)
+        );
       }).toList(),
     );
   }
@@ -959,7 +956,9 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _showOriginal ? "번역 보기" : "원본 보기",
+                        _showOriginal
+                            ? AppLocalizations.of(context)!.detailShowTranslation
+                            : AppLocalizations.of(context)!.detailShowOriginal,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -990,7 +989,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                         : Icon(Icons.translate, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                       const SizedBox(width: 4),
                       Text(
-                        "번역",
+                        AppLocalizations.of(context)!.detailTranslate,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1052,16 +1051,76 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                     : AppTheme.primaryLight.withOpacity(0.1),
               ),
             ),
-            child: Text(
-              displaySummary.isEmpty
-                  ? "AI is analyzing this content..."
-                  : displaySummary,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.6,
-                fontWeight: isDark ? FontWeight.w300 : FontWeight.normal,
-                color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displaySummary.isEmpty
+                      ? "AI is analyzing this content..."
+                      : displaySummary,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.6,
+                    fontWeight: isDark ? FontWeight.w300 : FontWeight.normal,
+                    color: isDark ? Colors.grey.shade300 : AppTheme.textHighLight,
+                  ),
+                ),
+                if (_card.keyInsights.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Divider(
+                      height: 1,
+                      color: isDark
+                          ? Colors.white.withOpacity(0.08)
+                          : AppTheme.primaryLight.withOpacity(0.15),
+                    ),
+                  ),
+                  Text(
+                    AppLocalizations.of(context)!.detailKeyInsights,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: isDark ? Colors.grey.shade500 : AppTheme.primaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._card.keyInsights.take(4).map((insight) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 7),
+                              child: Container(
+                                width: 5,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark
+                                      ? AppTheme.primaryDark
+                                      : AppTheme.primaryLight,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                insight,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  height: 1.5,
+                                  color: isDark
+                                      ? Colors.grey.shade300
+                                      : AppTheme.textHighLight.withOpacity(0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ],
             ),
           ),
         ),
@@ -1099,14 +1158,14 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
           });
           widget.onUpdate?.call(updated);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('번역이 완료되었습니다.')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.msgTranslationDone)),
           );
         }
       } else {
         if (mounted) {
           setState(() => _isTranslating = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('번역이 필요하지 않거나 지원되지 않는 언어입니다.')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.msgTranslationNotNeeded)),
           );
         }
       }
@@ -1114,7 +1173,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
       if (mounted) {
         setState(() => _isTranslating = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('번역 실패: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.msgTranslationFailed)),
         );
       }
     }
@@ -1123,6 +1182,43 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
   Widget _buildPersonalNoteSection() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasNote = _card.personalNote != null && _card.personalNote!.isNotEmpty;
+
+    // 메모가 없을 때는 큰 빈 카드 대신 컴팩트한 추가 버튼만 표시
+    if (!hasNote) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _showNoteEditDialog,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.edit_note,
+                size: 20,
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                AppLocalizations.of(context)!.detailAddNote,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1218,8 +1314,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     if (text.isEmpty) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sourceUrl = _card.sourceUrl;
-    final domain = sourceUrl != null ? _extractDomain(sourceUrl) : null;
+    // 짧은 텍스트는 접기 UI 없이 그대로 표시
+    final isCollapsible = text.split('\n').length > 6 || text.length > 300;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1227,8 +1323,8 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         Row(
           children: [
              Icon(
-               Icons.description_outlined, 
-               size: 20, 
+               Icons.description_outlined,
+               size: 20,
                color: isDark ? Colors.grey : Colors.grey.shade400
              ),
              const SizedBox(width: 8),
@@ -1241,46 +1337,85 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
                  color: isDark ? Colors.grey : Colors.grey.shade500,
                ),
              ),
+             const Spacer(),
+             GestureDetector(
+               onTap: () {
+                 Clipboard.setData(ClipboardData(text: text));
+                 ScaffoldMessenger.of(context).showSnackBar(
+                   SnackBar(
+                     content: Text(AppLocalizations.of(context)!.msgCopied),
+                     duration: const Duration(seconds: 1),
+                     behavior: SnackBarBehavior.floating,
+                   ),
+                 );
+               },
+               child: Icon(
+                 Icons.copy_outlined,
+                 size: 16,
+                 color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+               ),
+             ),
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.02) : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)
-            )
-          ),
-          child: Column(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             children: [
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                    fontSize: 14,
-                    height: 1.6,
-                    fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: isCollapsible
+              ? () => setState(() => _showFullOcr = !_showFullOcr)
+              : null,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.02) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)
+              )
+            ),
+            child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                  Text(
+                    text,
+                    maxLines: (isCollapsible && !_showFullOcr) ? 6 : null,
+                    overflow: (isCollapsible && !_showFullOcr)
+                        ? TextOverflow.ellipsis
+                        : TextOverflow.visible,
+                    style: TextStyle(
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      fontSize: 14,
+                      height: 1.6,
+                      fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+                    ),
                   ),
-                ),
-                if (sourceUrl != null && sourceUrl.isNotEmpty) ...[
-                     const SizedBox(height: 16),
-                     GestureDetector(
-                         onTap: () => widget.onOpenLink?.call(sourceUrl),
-                         child: Text(
-                             "${AppLocalizations.of(context)!.detailSource}: $domain",
-                             style: const TextStyle(
-                                 fontSize: 13,
-                                 color: Colors.blue,
-                                 decoration: TextDecoration.underline,
-                             ),
-                         ),
-                     ),
-                ]
-             ],
+                  if (isCollapsible) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _showFullOcr
+                              ? AppLocalizations.of(context)!.detailShowLess
+                              : AppLocalizations.of(context)!.detailShowMore,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+                          ),
+                        ),
+                        Icon(
+                          _showFullOcr
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          size: 18,
+                          color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+                        ),
+                      ],
+                    ),
+                  ],
+               ],
+            ),
           ),
         ),
       ],

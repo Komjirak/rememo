@@ -134,6 +134,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailSummaryHint => 'Write your summary...';
 
   @override
+  String get detailKeyInsights => 'KEY POINTS';
+
+  @override
+  String get detailShowMore => 'Show all';
+
+  @override
+  String get detailShowLess => 'Collapse';
+
+  @override
+  String get detailAddNote => 'Add a note';
+
+  @override
+  String get detailTranslate => 'Translate';
+
+  @override
+  String get detailShowOriginal => 'Show original';
+
+  @override
+  String get detailShowTranslation => 'Show translation';
+
+  @override
+  String get msgCopied => 'Copied to clipboard';
+
+  @override
+  String get msgTranslationDone => 'Translation complete.';
+
+  @override
+  String get msgTranslationNotNeeded =>
+      'Translation not needed or language not supported.';
+
+  @override
+  String get msgTranslationFailed => 'Translation failed.';
+
+  @override
   String get tagAiAnalysis => 'AI Analysis';
 
   @override

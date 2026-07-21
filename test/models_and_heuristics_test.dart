@@ -59,5 +59,44 @@ void main() {
       expect(TextHeuristics.extractTags('디자인 시스템 문서'), contains('Design'));
       expect(TextHeuristics.extractTags('zzz'), ['Imported']);
     });
+
+    test('저품질 제목 판정 — UI 노이즈 패턴', () {
+      expect(TextHeuristics.isLowQualityTitle('9:41'), isTrue);
+      expect(TextHeuristics.isLowQualityTitle('100%'), isTrue);
+      expect(TextHeuristics.isLowQualityTitle('로그인'), isTrue);
+      expect(TextHeuristics.isLowQualityTitle('Search'), isTrue);
+      expect(TextHeuristics.isLowQualityTitle('ab'), isTrue); // 너무 짧음
+      expect(TextHeuristics.isLowQualityTitle('Screenshot'), isTrue);
+      expect(TextHeuristics.isLowQualityTitle('강남역 이탈리안 맛집 후기'), isFalse);
+      expect(TextHeuristics.isLowQualityTitle('Flutter 상태관리 비교'), isFalse);
+    });
+
+    test('중요도 요약 — 정보 밀도 높은 문장을 앞부분 대신 선택한다', () {
+      const text = '메뉴\n'
+          '로그인\n'
+          '강남역 이탈리안 레스토랑 라쿠치나에 다녀왔습니다.\n'
+          '런치 세트가 15,000원으로 가성비가 좋았습니다.\n'
+          '좋아요\n'
+          '댓글 달기';
+      final summary = TextHeuristics.summarizeByImportance(text);
+      expect(summary, contains('15,000원'));
+      expect(summary, isNot(contains('로그인')));
+      expect(summary, isNot(contains('댓글 달기')));
+    });
+
+    test('중요도 요약 — 원문 순서를 유지하고 길이를 제한한다', () {
+      final longText = List.generate(
+        20,
+        (i) => '이것은 ${i + 1}번째 문단으로 충분히 길고 의미가 있는 문장입니다.',
+      ).join('\n');
+      final summary = TextHeuristics.summarizeByImportance(longText, maxLength: 150);
+      expect(summary.length, lessThanOrEqualTo(190));
+      expect(summary, isNotEmpty);
+    });
+
+    test('중요도 요약 — 빈 입력은 빈 문자열', () {
+      expect(TextHeuristics.summarizeByImportance(''), isEmpty);
+      expect(TextHeuristics.summarizeByImportance('   \n  '), isEmpty);
+    });
   });
 }
