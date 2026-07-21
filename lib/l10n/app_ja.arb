@@ -95,5 +95,55 @@
   
   "msgCacheClearTitle": "キャッシュ削除",
   "msgCacheClearConfirm": "一時ファイルを削除してもよろしいですか？元のデータは保持されます。",
-  "msgCacheCleared": "キャッシュが削除されました"
+  "msgCacheCleared": "キャッシュが削除されました",
+
+  "commonTest": "テスト",
+
+  "folderEditTitle": "フォルダを編集",
+  "folderNameInputHint": "フォルダ名を入力",
+  "folderColorLabel": "フォルダの色",
+  "folderEmptyTitle": "フォルダがありません",
+  "folderEmptyHint": "+ボタンを押して新しいフォルダを作成してください",
+  "folderItemCount": "{count}件のアイテム",
+  "msgFolderNameRequired": "フォルダ名を入力してください",
+  "msgFolderDeleteTitle": "フォルダを削除",
+  "msgFolderDeleteConfirm": "「{name}」フォルダを削除しますか？\nフォルダ内のメモは保持され、フォルダ未設定の状態になります。",
+  "msgFolderDeleted": "「{name}」を削除しました",
+
+  "sheetImportImageSubtitleDesktop": "ライブラリから画像を追加",
+  "sheetImportImageSubtitleMobile": "最新のキャプチャを分析",
+  "sheetTakePhotoSubtitleDesktop": "ファイルから選択",
+  "sheetTakePhotoSubtitleMobile": "新しく写真を撮影",
+  "sheetPasteUrlSubtitle": "クリップボードのリンクを保存",
+
+  "analysisEmptyTitle": "空のスクリーンショット",
+  "analysisEmptyText": "テキストが検出されませんでした。",
+  "analysisSavedText": "スクリーンショットを保存しました。",
+
+  "msgWebLinkSaved": "ウェブリンクを保存しました。",
+  "msgSharedContentSaved": "共有されたコンテンツを保存しました。",
+  "msgSharedItemsSaved": "📥 共有された{count}件のアイテムを保存しました！",
+  "msgSharedItemsError": "共有アイテムの処理中にエラーが発生しました: {error}",
+  "msgClipboardEmpty": "クリップボードが空です。",
+  "msgInvalidUrl": "有効なURLではありません。",
+  "msgLinkSaved": "🔗 リンクを保存しました！",
+  "msgUrlProcessError": "URLの処理中にエラーが発生しました: {error}",
+  "msgMemoCreated": "✨ メモを作成しました: {title}",
+  "msgAnalysisFailed": "分析に失敗しました: {error}",
+
+  "settingsOpenAIActive": "有効 • {model}",
+  "settingsOpenAIKeyNeeded": "APIキーを設定してください",
+  "settingsConfigured": "設定済み",
+  "settingsConfigNeeded": "設定が必要",
+  "settingsModelLabel": "モデル",
+  "settingsModelSelectTitle": "モデルを選択",
+  "settingsVisionLabel": "画像分析（Vision）",
+  "settingsVisionDescription": "スクリーンショットを低解像度で一緒に送信し、分析品質を向上",
+  "settingsOpenAIPrivacyNotice": "OpenAI APIを使用すると、スクリーンショットとURLのAI要約品質が大幅に向上します。APIキーは端末のセキュアストレージ（Keychain）にのみ保存されます。\n\n⚠️ プライバシーについて: この機能をオンにすると、キャプチャしたテキスト（Vision有効時は画像も）が分析のためOpenAIサーバーに送信されます。オフにするとすべての分析は端末内でのみ行われます。デフォルトはオフです。",
+  "settingsApiKeyHelpText": "platform.openai.comでAPIキーを取得できます。",
+  "settingsDeleteExistingKey": "既存のキーを削除",
+  "msgConnectionSuccess": "✅ 接続に成功しました！",
+  "msgConnectionFailed": "❌ 接続に失敗しました。キーを確認してください。",
+  "msgApiKeyDeleted": "🗑️ APIキーを削除しました",
+  "msgApiKeySaved": "✅ APIキーを保存しました"
 }

@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final count = _pendingSharedItems.length;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('📥 $count개의 공유된 항목이 저장되었습니다!'),
+            content: Text(AppLocalizations.of(context)!.msgSharedItemsSaved(count)),
             backgroundColor: AppTheme.accentTeal,
             duration: const Duration(seconds: 3),
           ),
@@ -212,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('공유된 항목 처리 중 오류: $e'),
+            content: Text(AppLocalizations.of(context)!.msgSharedItemsError('$e')),
             backgroundColor: Colors.red,
           ),
         );
@@ -285,7 +285,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                ? '${finalOcrText.substring(0, 200)}...' 
                : finalOcrText;
         } else {
-           finalSummary = item.hasUrl ? '웹 링크가 저장되었습니다.' : '공유된 컨텐츠가 저장되었습니다.';
+           finalSummary = item.hasUrl
+               ? AppLocalizations.of(context)!.msgWebLinkSaved
+               : AppLocalizations.of(context)!.msgSharedContentSaved;
         }
     }
 
@@ -598,7 +600,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.add_photo_alternate_outlined : Icons.screenshot_monitor,
               title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetImportScreenshot,
-              subtitle: Platform.isMacOS ? "라이브러리에서 이미지 추가" : "가장 최신 캡처 분석",
+              subtitle: Platform.isMacOS
+                  ? AppLocalizations.of(context)!.sheetImportImageSubtitleDesktop
+                  : AppLocalizations.of(context)!.sheetImportImageSubtitleMobile,
               onTap: () {
                 logInfo('🟢 Import Image button tapped', name: 'Home');
                 Navigator.pop(ctx);
@@ -609,7 +613,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _buildSheetOption(
               icon: Platform.isMacOS ? Icons.photo_library_outlined : Icons.camera_alt_outlined,
               title: Platform.isMacOS ? AppLocalizations.of(context)!.sheetImportGallery : AppLocalizations.of(context)!.sheetTakePhoto,
-              subtitle: Platform.isMacOS ? "파일에서 선택" : "새로운 사진 촬영",
+              subtitle: Platform.isMacOS
+                  ? AppLocalizations.of(context)!.sheetTakePhotoSubtitleDesktop
+                  : AppLocalizations.of(context)!.sheetTakePhotoSubtitleMobile,
               onTap: () {
                 logInfo('🟡 Choose Image button tapped', name: 'Home');
                 Navigator.pop(ctx);
@@ -620,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _buildSheetOption(
               icon: Icons.link,
               title: AppLocalizations.of(context)!.sheetPasteUrl,
-              subtitle: "클립보드 링크 저장",
+              subtitle: AppLocalizations.of(context)!.sheetPasteUrlSubtitle,
               onTap: () {
                 logInfo('🔵 Paste URL button tapped', name: 'Home');
                 Navigator.pop(ctx);
@@ -738,7 +744,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (text == null || text.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('클립보드가 비어있습니다.')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.msgClipboardEmpty)),
           );
         }
         return;
@@ -749,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!urlRegExp.hasMatch(text)) {
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('유효한 URL이 아닙니다.')),
+            SnackBar(content: Text(AppLocalizations.of(context)!.msgInvalidUrl)),
           );
         }
         return;
@@ -774,8 +780,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // UI Update
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-               content: Text('🔗 링크가 저장되었습니다!'),
+            SnackBar(
+               content: Text(AppLocalizations.of(context)!.msgLinkSaved),
                backgroundColor: AppTheme.accentTeal,
             ),
          );
@@ -785,7 +791,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       logInfo('URL Paste Error: $e', name: 'Home');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('URL 처리 중 오류가 발생했습니다: $e')),
+           SnackBar(content: Text(AppLocalizations.of(context)!.msgUrlProcessError('$e'))),
         );
       }
     } finally {
@@ -920,7 +926,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('✨ 메모가 생성되었습니다: ${card.title}'),
+                content: Text(AppLocalizations.of(context)!.msgMemoCreated(card.title)),
                 backgroundColor: AppTheme.accentTeal,
               ),
             );
@@ -930,7 +936,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         logInfo('Import failed: $e', name: 'Home');
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('분석 실패: $e')),
+              SnackBar(content: Text(AppLocalizations.of(context)!.msgAnalysisFailed('$e'))),
             );
         }
       } finally {
@@ -1036,8 +1042,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }) async {
     if (ocrText.trim().isEmpty) {
       return ScreenshotAnalysis(
-        title: "빈 스크린샷",
-        summary: "텍스트가 감지되지 않았습니다.",
+        title: AppLocalizations.of(context)!.analysisEmptyTitle,
+        summary: AppLocalizations.of(context)!.analysisEmptyText,
         keyInsights: [],
       );
     }
@@ -1057,7 +1063,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (lines.isEmpty) {
         return ScreenshotAnalysis(
           title: "New Memory",
-          summary: "스크린샷이 저장되었습니다.",
+          summary: AppLocalizations.of(context)!.analysisSavedText,
           keyInsights: [],
         );
       }

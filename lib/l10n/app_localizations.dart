@@ -609,6 +609,270 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'캐시가 삭제되었습니다'**
   String get msgCacheCleared;
+
+  /// No description provided for @commonTest.
+  ///
+  /// In ko, this message translates to:
+  /// **'테스트'**
+  String get commonTest;
+
+  /// No description provided for @folderEditTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더 편집'**
+  String get folderEditTitle;
+
+  /// No description provided for @folderNameInputHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더 이름 입력'**
+  String get folderNameInputHint;
+
+  /// No description provided for @folderColorLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더 색상'**
+  String get folderColorLabel;
+
+  /// No description provided for @folderEmptyTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더가 없습니다'**
+  String get folderEmptyTitle;
+
+  /// No description provided for @folderEmptyHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'+ 버튼을 눌러 새 폴더를 만드세요'**
+  String get folderEmptyHint;
+
+  /// No description provided for @folderItemCount.
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}개 항목'**
+  String folderItemCount(Object count);
+
+  /// No description provided for @msgFolderNameRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더 이름을 입력하세요'**
+  String get msgFolderNameRequired;
+
+  /// No description provided for @msgFolderDeleteTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'폴더 삭제'**
+  String get msgFolderDeleteTitle;
+
+  /// No description provided for @msgFolderDeleteConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'{name} 폴더를 삭제하시겠습니까?\n폴더 안의 메모는 유지되며, 폴더가 지정되지 않은 상태로 변경됩니다.'**
+  String msgFolderDeleteConfirm(Object name);
+
+  /// No description provided for @msgFolderDeleted.
+  ///
+  /// In ko, this message translates to:
+  /// **'{name} 삭제됨'**
+  String msgFolderDeleted(Object name);
+
+  /// No description provided for @sheetImportImageSubtitleDesktop.
+  ///
+  /// In ko, this message translates to:
+  /// **'라이브러리에서 이미지 추가'**
+  String get sheetImportImageSubtitleDesktop;
+
+  /// No description provided for @sheetImportImageSubtitleMobile.
+  ///
+  /// In ko, this message translates to:
+  /// **'가장 최신 캡처 분석'**
+  String get sheetImportImageSubtitleMobile;
+
+  /// No description provided for @sheetTakePhotoSubtitleDesktop.
+  ///
+  /// In ko, this message translates to:
+  /// **'파일에서 선택'**
+  String get sheetTakePhotoSubtitleDesktop;
+
+  /// No description provided for @sheetTakePhotoSubtitleMobile.
+  ///
+  /// In ko, this message translates to:
+  /// **'새로운 사진 촬영'**
+  String get sheetTakePhotoSubtitleMobile;
+
+  /// No description provided for @sheetPasteUrlSubtitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'클립보드 링크 저장'**
+  String get sheetPasteUrlSubtitle;
+
+  /// No description provided for @analysisEmptyTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'빈 스크린샷'**
+  String get analysisEmptyTitle;
+
+  /// No description provided for @analysisEmptyText.
+  ///
+  /// In ko, this message translates to:
+  /// **'텍스트가 감지되지 않았습니다.'**
+  String get analysisEmptyText;
+
+  /// No description provided for @analysisSavedText.
+  ///
+  /// In ko, this message translates to:
+  /// **'스크린샷이 저장되었습니다.'**
+  String get analysisSavedText;
+
+  /// No description provided for @msgWebLinkSaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'웹 링크가 저장되었습니다.'**
+  String get msgWebLinkSaved;
+
+  /// No description provided for @msgSharedContentSaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'공유된 컨텐츠가 저장되었습니다.'**
+  String get msgSharedContentSaved;
+
+  /// No description provided for @msgSharedItemsSaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'📥 {count}개의 공유된 항목이 저장되었습니다!'**
+  String msgSharedItemsSaved(Object count);
+
+  /// No description provided for @msgSharedItemsError.
+  ///
+  /// In ko, this message translates to:
+  /// **'공유된 항목 처리 중 오류: {error}'**
+  String msgSharedItemsError(Object error);
+
+  /// No description provided for @msgClipboardEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'클립보드가 비어있습니다.'**
+  String get msgClipboardEmpty;
+
+  /// No description provided for @msgInvalidUrl.
+  ///
+  /// In ko, this message translates to:
+  /// **'유효한 URL이 아닙니다.'**
+  String get msgInvalidUrl;
+
+  /// No description provided for @msgLinkSaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'🔗 링크가 저장되었습니다!'**
+  String get msgLinkSaved;
+
+  /// No description provided for @msgUrlProcessError.
+  ///
+  /// In ko, this message translates to:
+  /// **'URL 처리 중 오류가 발생했습니다: {error}'**
+  String msgUrlProcessError(Object error);
+
+  /// No description provided for @msgMemoCreated.
+  ///
+  /// In ko, this message translates to:
+  /// **'✨ 메모가 생성되었습니다: {title}'**
+  String msgMemoCreated(Object title);
+
+  /// No description provided for @msgAnalysisFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'분석 실패: {error}'**
+  String msgAnalysisFailed(Object error);
+
+  /// No description provided for @settingsOpenAIActive.
+  ///
+  /// In ko, this message translates to:
+  /// **'활성화됨 • {model}'**
+  String settingsOpenAIActive(Object model);
+
+  /// No description provided for @settingsOpenAIKeyNeeded.
+  ///
+  /// In ko, this message translates to:
+  /// **'API Key를 설정하세요'**
+  String get settingsOpenAIKeyNeeded;
+
+  /// No description provided for @settingsConfigured.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정됨'**
+  String get settingsConfigured;
+
+  /// No description provided for @settingsConfigNeeded.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정 필요'**
+  String get settingsConfigNeeded;
+
+  /// No description provided for @settingsModelLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'모델'**
+  String get settingsModelLabel;
+
+  /// No description provided for @settingsModelSelectTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'모델 선택'**
+  String get settingsModelSelectTitle;
+
+  /// No description provided for @settingsVisionLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'이미지 분석 (Vision)'**
+  String get settingsVisionLabel;
+
+  /// No description provided for @settingsVisionDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'스크린샷 이미지를 저해상도로 함께 전송해 분석 품질 향상'**
+  String get settingsVisionDescription;
+
+  /// No description provided for @settingsOpenAIPrivacyNotice.
+  ///
+  /// In ko, this message translates to:
+  /// **'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. API Key는 기기의 보안 저장소(Keychain)에만 저장됩니다.\n\n⚠️ 프라이버시 안내: 이 기능을 켜면 캡처한 텍스트(및 Vision 활성 시 이미지)가 분석을 위해 OpenAI 서버로 전송됩니다. 기능을 끄면 모든 분석은 기기 안에서만 수행됩니다. 기본값은 꺼짐입니다.'**
+  String get settingsOpenAIPrivacyNotice;
+
+  /// No description provided for @settingsApiKeyHelpText.
+  ///
+  /// In ko, this message translates to:
+  /// **'platform.openai.com에서 API Key를 발급받을 수 있습니다.'**
+  String get settingsApiKeyHelpText;
+
+  /// No description provided for @settingsDeleteExistingKey.
+  ///
+  /// In ko, this message translates to:
+  /// **'기존 Key 삭제'**
+  String get settingsDeleteExistingKey;
+
+  /// No description provided for @msgConnectionSuccess.
+  ///
+  /// In ko, this message translates to:
+  /// **'✅ 연결 성공!'**
+  String get msgConnectionSuccess;
+
+  /// No description provided for @msgConnectionFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'❌ 연결 실패. Key를 확인하세요.'**
+  String get msgConnectionFailed;
+
+  /// No description provided for @msgApiKeyDeleted.
+  ///
+  /// In ko, this message translates to:
+  /// **'🗑️ API Key가 삭제되었습니다'**
+  String get msgApiKeyDeleted;
+
+  /// No description provided for @msgApiKeySaved.
+  ///
+  /// In ko, this message translates to:
+  /// **'✅ API Key가 저장되었습니다'**
+  String get msgApiKeySaved;
 }
 
 class _AppLocalizationsDelegate

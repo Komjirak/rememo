@@ -95,5 +95,55 @@
   
   "msgCacheClearTitle": "캐시 삭제",
   "msgCacheClearConfirm": "임시 파일들을 삭제하시겠습니까? 원본 데이터는 유지됩니다.",
-  "msgCacheCleared": "캐시가 삭제되었습니다"
+  "msgCacheCleared": "캐시가 삭제되었습니다",
+
+  "commonTest": "테스트",
+
+  "folderEditTitle": "폴더 편집",
+  "folderNameInputHint": "폴더 이름 입력",
+  "folderColorLabel": "폴더 색상",
+  "folderEmptyTitle": "폴더가 없습니다",
+  "folderEmptyHint": "+ 버튼을 눌러 새 폴더를 만드세요",
+  "folderItemCount": "{count}개 항목",
+  "msgFolderNameRequired": "폴더 이름을 입력하세요",
+  "msgFolderDeleteTitle": "폴더 삭제",
+  "msgFolderDeleteConfirm": "{name} 폴더를 삭제하시겠습니까?\n폴더 안의 메모는 유지되며, 폴더가 지정되지 않은 상태로 변경됩니다.",
+  "msgFolderDeleted": "{name} 삭제됨",
+
+  "sheetImportImageSubtitleDesktop": "라이브러리에서 이미지 추가",
+  "sheetImportImageSubtitleMobile": "가장 최신 캡처 분석",
+  "sheetTakePhotoSubtitleDesktop": "파일에서 선택",
+  "sheetTakePhotoSubtitleMobile": "새로운 사진 촬영",
+  "sheetPasteUrlSubtitle": "클립보드 링크 저장",
+
+  "analysisEmptyTitle": "빈 스크린샷",
+  "analysisEmptyText": "텍스트가 감지되지 않았습니다.",
+  "analysisSavedText": "스크린샷이 저장되었습니다.",
+
+  "msgWebLinkSaved": "웹 링크가 저장되었습니다.",
+  "msgSharedContentSaved": "공유된 컨텐츠가 저장되었습니다.",
+  "msgSharedItemsSaved": "📥 {count}개의 공유된 항목이 저장되었습니다!",
+  "msgSharedItemsError": "공유된 항목 처리 중 오류: {error}",
+  "msgClipboardEmpty": "클립보드가 비어있습니다.",
+  "msgInvalidUrl": "유효한 URL이 아닙니다.",
+  "msgLinkSaved": "🔗 링크가 저장되었습니다!",
+  "msgUrlProcessError": "URL 처리 중 오류가 발생했습니다: {error}",
+  "msgMemoCreated": "✨ 메모가 생성되었습니다: {title}",
+  "msgAnalysisFailed": "분석 실패: {error}",
+
+  "settingsOpenAIActive": "활성화됨 • {model}",
+  "settingsOpenAIKeyNeeded": "API Key를 설정하세요",
+  "settingsConfigured": "설정됨",
+  "settingsConfigNeeded": "설정 필요",
+  "settingsModelLabel": "모델",
+  "settingsModelSelectTitle": "모델 선택",
+  "settingsVisionLabel": "이미지 분석 (Vision)",
+  "settingsVisionDescription": "스크린샷 이미지를 저해상도로 함께 전송해 분석 품질 향상",
+  "settingsOpenAIPrivacyNotice": "OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. API Key는 기기의 보안 저장소(Keychain)에만 저장됩니다.\n\n⚠️ 프라이버시 안내: 이 기능을 켜면 캡처한 텍스트(및 Vision 활성 시 이미지)가 분석을 위해 OpenAI 서버로 전송됩니다. 기능을 끄면 모든 분석은 기기 안에서만 수행됩니다. 기본값은 꺼짐입니다.",
+  "settingsApiKeyHelpText": "platform.openai.com에서 API Key를 발급받을 수 있습니다.",
+  "settingsDeleteExistingKey": "기존 Key 삭제",
+  "msgConnectionSuccess": "✅ 연결 성공!",
+  "msgConnectionFailed": "❌ 연결 실패. Key를 확인하세요.",
+  "msgApiKeyDeleted": "🗑️ API Key가 삭제되었습니다",
+  "msgApiKeySaved": "✅ API Key가 저장되었습니다"
 }

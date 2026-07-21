@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "新しい記憶を撮影するためにカメラへのアクセスが必要です。";
+"NSPhotoLibraryAddUsageDescription" = "撮影した画像を写真ライブラリに保存するために権限が必要です。";
+"NSPhotoLibraryUsageDescription" = "最新のスクリーンショットを検出・分析するために写真ライブラリへのアクセスが必要です。";
+"NSAppleIntelligenceUsageDescription" = "スクリーンショットの内容を分析し、タイトル・要約・タグを自動生成します。";

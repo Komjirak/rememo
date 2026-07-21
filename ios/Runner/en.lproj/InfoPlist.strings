@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Rememo needs camera access to capture new memories.";
+"NSPhotoLibraryAddUsageDescription" = "Rememo needs permission to save captured images to your photo library.";
+"NSPhotoLibraryUsageDescription" = "Rememo needs access to your photo library to detect and analyze your latest screenshots.";
+"NSAppleIntelligenceUsageDescription" = "Analyzes screenshot content to automatically generate a title, summary, and tags.";

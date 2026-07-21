@@ -40,8 +40,12 @@ class OpenAIService {
     {'id': 'gpt-4o', 'name': 'GPT-4o', 'description': '최고 품질, 비용 높음'},
   ];
 
+  // iOS: first_unlock_this_device로 iCloud Keychain 동기화를 막아 API 키가
+  // 이 기기 밖으로 나가지 않도록 한다 (기본값은 다른 기기로 동기화될 수 있는
+  // first_unlock 계열).
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
   );
 
   // 캐싱된 설정값

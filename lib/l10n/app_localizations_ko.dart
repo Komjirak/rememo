@@ -265,4 +265,156 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get msgCacheCleared => '캐시가 삭제되었습니다';
+
+  @override
+  String get commonTest => '테스트';
+
+  @override
+  String get folderEditTitle => '폴더 편집';
+
+  @override
+  String get folderNameInputHint => '폴더 이름 입력';
+
+  @override
+  String get folderColorLabel => '폴더 색상';
+
+  @override
+  String get folderEmptyTitle => '폴더가 없습니다';
+
+  @override
+  String get folderEmptyHint => '+ 버튼을 눌러 새 폴더를 만드세요';
+
+  @override
+  String folderItemCount(Object count) {
+    return '$count개 항목';
+  }
+
+  @override
+  String get msgFolderNameRequired => '폴더 이름을 입력하세요';
+
+  @override
+  String get msgFolderDeleteTitle => '폴더 삭제';
+
+  @override
+  String msgFolderDeleteConfirm(Object name) {
+    return '$name 폴더를 삭제하시겠습니까?\n폴더 안의 메모는 유지되며, 폴더가 지정되지 않은 상태로 변경됩니다.';
+  }
+
+  @override
+  String msgFolderDeleted(Object name) {
+    return '$name 삭제됨';
+  }
+
+  @override
+  String get sheetImportImageSubtitleDesktop => '라이브러리에서 이미지 추가';
+
+  @override
+  String get sheetImportImageSubtitleMobile => '가장 최신 캡처 분석';
+
+  @override
+  String get sheetTakePhotoSubtitleDesktop => '파일에서 선택';
+
+  @override
+  String get sheetTakePhotoSubtitleMobile => '새로운 사진 촬영';
+
+  @override
+  String get sheetPasteUrlSubtitle => '클립보드 링크 저장';
+
+  @override
+  String get analysisEmptyTitle => '빈 스크린샷';
+
+  @override
+  String get analysisEmptyText => '텍스트가 감지되지 않았습니다.';
+
+  @override
+  String get analysisSavedText => '스크린샷이 저장되었습니다.';
+
+  @override
+  String get msgWebLinkSaved => '웹 링크가 저장되었습니다.';
+
+  @override
+  String get msgSharedContentSaved => '공유된 컨텐츠가 저장되었습니다.';
+
+  @override
+  String msgSharedItemsSaved(Object count) {
+    return '📥 $count개의 공유된 항목이 저장되었습니다!';
+  }
+
+  @override
+  String msgSharedItemsError(Object error) {
+    return '공유된 항목 처리 중 오류: $error';
+  }
+
+  @override
+  String get msgClipboardEmpty => '클립보드가 비어있습니다.';
+
+  @override
+  String get msgInvalidUrl => '유효한 URL이 아닙니다.';
+
+  @override
+  String get msgLinkSaved => '🔗 링크가 저장되었습니다!';
+
+  @override
+  String msgUrlProcessError(Object error) {
+    return 'URL 처리 중 오류가 발생했습니다: $error';
+  }
+
+  @override
+  String msgMemoCreated(Object title) {
+    return '✨ 메모가 생성되었습니다: $title';
+  }
+
+  @override
+  String msgAnalysisFailed(Object error) {
+    return '분석 실패: $error';
+  }
+
+  @override
+  String settingsOpenAIActive(Object model) {
+    return '활성화됨 • $model';
+  }
+
+  @override
+  String get settingsOpenAIKeyNeeded => 'API Key를 설정하세요';
+
+  @override
+  String get settingsConfigured => '설정됨';
+
+  @override
+  String get settingsConfigNeeded => '설정 필요';
+
+  @override
+  String get settingsModelLabel => '모델';
+
+  @override
+  String get settingsModelSelectTitle => '모델 선택';
+
+  @override
+  String get settingsVisionLabel => '이미지 분석 (Vision)';
+
+  @override
+  String get settingsVisionDescription => '스크린샷 이미지를 저해상도로 함께 전송해 분석 품질 향상';
+
+  @override
+  String get settingsOpenAIPrivacyNotice =>
+      'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. API Key는 기기의 보안 저장소(Keychain)에만 저장됩니다.\n\n⚠️ 프라이버시 안내: 이 기능을 켜면 캡처한 텍스트(및 Vision 활성 시 이미지)가 분석을 위해 OpenAI 서버로 전송됩니다. 기능을 끄면 모든 분석은 기기 안에서만 수행됩니다. 기본값은 꺼짐입니다.';
+
+  @override
+  String get settingsApiKeyHelpText =>
+      'platform.openai.com에서 API Key를 발급받을 수 있습니다.';
+
+  @override
+  String get settingsDeleteExistingKey => '기존 Key 삭제';
+
+  @override
+  String get msgConnectionSuccess => '✅ 연결 성공!';
+
+  @override
+  String get msgConnectionFailed => '❌ 연결 실패. Key를 확인하세요.';
+
+  @override
+  String get msgApiKeyDeleted => '🗑️ API Key가 삭제되었습니다';
+
+  @override
+  String get msgApiKeySaved => '✅ API Key가 저장되었습니다';
 }

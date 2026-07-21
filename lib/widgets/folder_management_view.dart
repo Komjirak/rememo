@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
 import 'package:stribe/widgets/folder_dialog.dart';
@@ -86,7 +87,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           ),
         ),
         title: Text(
-          '폴더 삭제',
+          AppLocalizations.of(context)!.msgFolderDeleteTitle,
           style: TextStyle(
             color: Theme.of(context).textTheme.titleLarge?.color,
             fontSize: 18,
@@ -94,7 +95,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           ),
         ),
         content: Text(
-          '${folder.name} 폴더를 삭제하시겠습니까?\n폴더 안의 메모는 유지되며, 폴더가 지정되지 않은 상태로 변경됩니다.',
+          AppLocalizations.of(context)!.msgFolderDeleteConfirm(folder.name),
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyMedium?.color,
             fontSize: 14,
@@ -104,7 +105,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
-              '취소',
+              AppLocalizations.of(context)!.commonCancel,
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color,
                 fontSize: 14,
@@ -117,9 +118,9 @@ class _FolderManagementViewState extends State<FolderManagementView> {
             style: TextButton.styleFrom(
               backgroundColor: Colors.red.withAlpha(26),
             ),
-            child: const Text(
-              '삭제',
-              style: TextStyle(
+            child: Text(
+              AppLocalizations.of(context)!.commonDelete,
+              style: const TextStyle(
                 color: Colors.red,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -137,7 +138,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${folder.name} 삭제됨'),
+            content: Text(AppLocalizations.of(context)!.msgFolderDeleted(folder.name)),
             backgroundColor: Theme.of(context).cardColor,
             behavior: SnackBarBehavior.floating,
           ),
@@ -158,7 +159,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          '폴더 관리',
+          AppLocalizations.of(context)!.folderManage,
           style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -195,7 +196,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           ),
           const SizedBox(height: 16),
           Text(
-            '폴더가 없습니다',
+            AppLocalizations.of(context)!.folderEmptyTitle,
             style: TextStyle(
               color: Theme.of(context).textTheme.bodyMedium?.color,
               fontSize: 16,
@@ -204,7 +205,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           ),
           const SizedBox(height: 8),
           Text(
-            '+ 버튼을 눌러 새 폴더를 만드세요',
+            AppLocalizations.of(context)!.folderEmptyHint,
             style: TextStyle(
               color: Theme.of(context).disabledColor,
               fontSize: 14,
@@ -260,7 +261,7 @@ class _FolderManagementViewState extends State<FolderManagementView> {
           ),
         ),
         subtitle: Text(
-          '${folder.itemCount}개 항목',
+          AppLocalizations.of(context)!.folderItemCount(folder.itemCount),
           style: TextStyle(
             color: Theme.of(context).disabledColor,
             fontSize: 13,

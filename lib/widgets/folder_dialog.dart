@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
 
@@ -62,7 +63,9 @@ class _FolderDialogState extends State<FolderDialog> {
         ),
       ),
       title: Text(
-        widget.folder == null ? '새 폴더' : '폴더 편집',
+        widget.folder == null
+            ? AppLocalizations.of(context)!.folderNew
+            : AppLocalizations.of(context)!.folderEditTitle,
         style: const TextStyle(
           color: Colors.white,
           fontSize: 20,
@@ -75,7 +78,7 @@ class _FolderDialogState extends State<FolderDialog> {
         children: [
           // Name input
           Text(
-            '폴더 이름',
+            AppLocalizations.of(context)!.folderNameHint,
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 14,
@@ -91,7 +94,7 @@ class _FolderDialogState extends State<FolderDialog> {
               fontSize: 16,
             ),
             decoration: InputDecoration(
-              hintText: '폴더 이름 입력',
+              hintText: AppLocalizations.of(context)!.folderNameInputHint,
               hintStyle: TextStyle(
                 color: AppTheme.textMuted,
               ),
@@ -126,7 +129,7 @@ class _FolderDialogState extends State<FolderDialog> {
 
           // Color picker
           Text(
-            '폴더 색상',
+            AppLocalizations.of(context)!.folderColorLabel,
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 14,
@@ -171,7 +174,7 @@ class _FolderDialogState extends State<FolderDialog> {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: Text(
-            '취소',
+            AppLocalizations.of(context)!.commonCancel,
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 14,
@@ -185,7 +188,7 @@ class _FolderDialogState extends State<FolderDialog> {
             if (name.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('폴더 이름을 입력하세요'),
+                  content: Text(AppLocalizations.of(context)!.msgFolderNameRequired),
                   backgroundColor: AppTheme.cardDark,
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -199,7 +202,7 @@ class _FolderDialogState extends State<FolderDialog> {
             backgroundColor: _hexToColor(_selectedColor).withAlpha(51),
           ),
           child: Text(
-            '저장',
+            AppLocalizations.of(context)!.commonSave,
             style: TextStyle(
               color: _hexToColor(_selectedColor),
               fontSize: 14,

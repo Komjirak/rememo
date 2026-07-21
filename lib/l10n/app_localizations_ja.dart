@@ -264,4 +264,155 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get msgCacheCleared => 'キャッシュが削除されました';
+
+  @override
+  String get commonTest => 'テスト';
+
+  @override
+  String get folderEditTitle => 'フォルダを編集';
+
+  @override
+  String get folderNameInputHint => 'フォルダ名を入力';
+
+  @override
+  String get folderColorLabel => 'フォルダの色';
+
+  @override
+  String get folderEmptyTitle => 'フォルダがありません';
+
+  @override
+  String get folderEmptyHint => '+ボタンを押して新しいフォルダを作成してください';
+
+  @override
+  String folderItemCount(Object count) {
+    return '$count件のアイテム';
+  }
+
+  @override
+  String get msgFolderNameRequired => 'フォルダ名を入力してください';
+
+  @override
+  String get msgFolderDeleteTitle => 'フォルダを削除';
+
+  @override
+  String msgFolderDeleteConfirm(Object name) {
+    return '「$name」フォルダを削除しますか？\nフォルダ内のメモは保持され、フォルダ未設定の状態になります。';
+  }
+
+  @override
+  String msgFolderDeleted(Object name) {
+    return '「$name」を削除しました';
+  }
+
+  @override
+  String get sheetImportImageSubtitleDesktop => 'ライブラリから画像を追加';
+
+  @override
+  String get sheetImportImageSubtitleMobile => '最新のキャプチャを分析';
+
+  @override
+  String get sheetTakePhotoSubtitleDesktop => 'ファイルから選択';
+
+  @override
+  String get sheetTakePhotoSubtitleMobile => '新しく写真を撮影';
+
+  @override
+  String get sheetPasteUrlSubtitle => 'クリップボードのリンクを保存';
+
+  @override
+  String get analysisEmptyTitle => '空のスクリーンショット';
+
+  @override
+  String get analysisEmptyText => 'テキストが検出されませんでした。';
+
+  @override
+  String get analysisSavedText => 'スクリーンショットを保存しました。';
+
+  @override
+  String get msgWebLinkSaved => 'ウェブリンクを保存しました。';
+
+  @override
+  String get msgSharedContentSaved => '共有されたコンテンツを保存しました。';
+
+  @override
+  String msgSharedItemsSaved(Object count) {
+    return '📥 共有された$count件のアイテムを保存しました！';
+  }
+
+  @override
+  String msgSharedItemsError(Object error) {
+    return '共有アイテムの処理中にエラーが発生しました: $error';
+  }
+
+  @override
+  String get msgClipboardEmpty => 'クリップボードが空です。';
+
+  @override
+  String get msgInvalidUrl => '有効なURLではありません。';
+
+  @override
+  String get msgLinkSaved => '🔗 リンクを保存しました！';
+
+  @override
+  String msgUrlProcessError(Object error) {
+    return 'URLの処理中にエラーが発生しました: $error';
+  }
+
+  @override
+  String msgMemoCreated(Object title) {
+    return '✨ メモを作成しました: $title';
+  }
+
+  @override
+  String msgAnalysisFailed(Object error) {
+    return '分析に失敗しました: $error';
+  }
+
+  @override
+  String settingsOpenAIActive(Object model) {
+    return '有効 • $model';
+  }
+
+  @override
+  String get settingsOpenAIKeyNeeded => 'APIキーを設定してください';
+
+  @override
+  String get settingsConfigured => '設定済み';
+
+  @override
+  String get settingsConfigNeeded => '設定が必要';
+
+  @override
+  String get settingsModelLabel => 'モデル';
+
+  @override
+  String get settingsModelSelectTitle => 'モデルを選択';
+
+  @override
+  String get settingsVisionLabel => '画像分析（Vision）';
+
+  @override
+  String get settingsVisionDescription => 'スクリーンショットを低解像度で一緒に送信し、分析品質を向上';
+
+  @override
+  String get settingsOpenAIPrivacyNotice =>
+      'OpenAI APIを使用すると、スクリーンショットとURLのAI要約品質が大幅に向上します。APIキーは端末のセキュアストレージ（Keychain）にのみ保存されます。\n\n⚠️ プライバシーについて: この機能をオンにすると、キャプチャしたテキスト（Vision有効時は画像も）が分析のためOpenAIサーバーに送信されます。オフにするとすべての分析は端末内でのみ行われます。デフォルトはオフです。';
+
+  @override
+  String get settingsApiKeyHelpText => 'platform.openai.comでAPIキーを取得できます。';
+
+  @override
+  String get settingsDeleteExistingKey => '既存のキーを削除';
+
+  @override
+  String get msgConnectionSuccess => '✅ 接続に成功しました！';
+
+  @override
+  String get msgConnectionFailed => '❌ 接続に失敗しました。キーを確認してください。';
+
+  @override
+  String get msgApiKeyDeleted => '🗑️ APIキーを削除しました';
+
+  @override
+  String get msgApiKeySaved => '✅ APIキーを保存しました';
 }

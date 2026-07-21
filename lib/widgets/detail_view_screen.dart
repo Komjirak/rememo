@@ -1765,19 +1765,26 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
     );
   }
 
+  // 상세 화면 히어로 이미지(최대 높이 400)에 맞춘 디코드 해상도 제한.
+  // 원본 스크린샷 해상도를 그대로 디코드하면 불필요한 메모리를 사용한다.
   Widget _buildImage(String url) {
+    final cacheWidth = (MediaQuery.of(context).size.width *
+            MediaQuery.of(context).devicePixelRatio)
+        .round();
+
     if (url.startsWith('http')) {
       return Image.network(
         url,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        cacheWidth: cacheWidth,
         errorBuilder: (_, __, ___) => Container(color: Colors.grey, child: const Icon(Icons.broken_image)),
       );
     } else {
       final file = File(url);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
+        return Image.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity, cacheWidth: cacheWidth);
       }
       return Container(color: Colors.grey, child: const Icon(Icons.broken_image));
     }

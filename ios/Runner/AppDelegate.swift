@@ -308,7 +308,7 @@ import WebKit
     manager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: options) { [weak self] (image, info) in
       guard let self = self, let image = image else { return }
 
-      guard let data = image.jpegData(compressionQuality: 0.8),
+      guard let data = self.resizeForStorage(image).jpegData(compressionQuality: 0.85),
             let path = self.saveToTemp(data: data) else { return }
 
       // ✨ Apple Intelligence 통합: Bounding Box + ContentAnalyzerAdapter
@@ -412,7 +412,7 @@ import WebKit
                 return
             }
             
-            guard let data = image.jpegData(compressionQuality: 0.8),
+            guard let data = self.resizeForStorage(image).jpegData(compressionQuality: 0.85),
                   let path = self.saveToTemp(data: data) else {
                  result(FlutterError(code: "SAVE_FAILED", message: "Failed to save temp file", details: nil))
                  return
@@ -614,6 +614,25 @@ import WebKit
     
     // ... saveToTemp and recognizeText remain same ...
 
+
+    /// 저장/썸네일 표시용으로 이미지를 다운스케일한다.
+    /// OCR 분석은 원본 `image`(최대 해상도)를 그대로 사용하므로 인식 정확도에는 영향이 없다.
+    /// 다운스케일 없이 최대 해상도 스크린샷을 그대로 저장하면 디스크 사용량이 커지고,
+    /// 리스트/그리드에서 매번 큰 원본을 디코드하느라 스크롤 성능이 저하된다.
+    private func resizeForStorage(_ image: UIImage, maxDimension: CGFloat = 1600) -> UIImage {
+        let size = image.size
+        let longSide = max(size.width, size.height)
+        guard longSide > maxDimension else { return image }
+
+        let scale = maxDimension / longSide
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: newSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
 
     private func saveToTemp(data: Data) -> String? {
         let tempDir = NSTemporaryDirectory()
@@ -914,7 +933,10 @@ extension AppDelegate {
 
   /// Fetch URL metadata (title, description, image) using WKWebView
   func fetchURLMetadata(urlString: String, result: @escaping FlutterResult) {
-    guard let url = URL(string: urlString) else {
+    guard let url = URL(string: urlString),
+          let scheme = url.scheme?.lowercased(),
+          scheme == "http" || scheme == "https" else {
+      // http/https만 허용 — file:// 등 로컬 스킴을 WKWebView에 로드하지 않도록 방어
       result(FlutterError(code: "INVALID_URL", message: "Invalid URL", details: nil))
       return
     }

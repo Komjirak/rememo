@@ -95,5 +95,55 @@
   
   "msgCacheClearTitle": "Clear Cache",
   "msgCacheClearConfirm": "Are you sure you want to clear temporary files? Original data will safely remain.",
-  "msgCacheCleared": "Cache cleared"
+  "msgCacheCleared": "Cache cleared",
+
+  "commonTest": "Test",
+
+  "folderEditTitle": "Edit Folder",
+  "folderNameInputHint": "Enter folder name",
+  "folderColorLabel": "Folder Color",
+  "folderEmptyTitle": "No folders yet",
+  "folderEmptyHint": "Tap the + button to create a new folder",
+  "folderItemCount": "{count} items",
+  "msgFolderNameRequired": "Please enter a folder name",
+  "msgFolderDeleteTitle": "Delete Folder",
+  "msgFolderDeleteConfirm": "Delete the folder \"{name}\"?\nMemos inside will be kept and become unassigned.",
+  "msgFolderDeleted": "\"{name}\" deleted",
+
+  "sheetImportImageSubtitleDesktop": "Add image from library",
+  "sheetImportImageSubtitleMobile": "Analyze latest capture",
+  "sheetTakePhotoSubtitleDesktop": "Choose from files",
+  "sheetTakePhotoSubtitleMobile": "Take a new photo",
+  "sheetPasteUrlSubtitle": "Save link from clipboard",
+
+  "analysisEmptyTitle": "Empty Screenshot",
+  "analysisEmptyText": "No text detected.",
+  "analysisSavedText": "Screenshot saved.",
+
+  "msgWebLinkSaved": "Web link saved.",
+  "msgSharedContentSaved": "Shared content saved.",
+  "msgSharedItemsSaved": "📥 {count} shared items saved!",
+  "msgSharedItemsError": "Error processing shared items: {error}",
+  "msgClipboardEmpty": "Clipboard is empty.",
+  "msgInvalidUrl": "Not a valid URL.",
+  "msgLinkSaved": "🔗 Link saved!",
+  "msgUrlProcessError": "An error occurred while processing the URL: {error}",
+  "msgMemoCreated": "✨ Memo created: {title}",
+  "msgAnalysisFailed": "Analysis failed: {error}",
+
+  "settingsOpenAIActive": "Active • {model}",
+  "settingsOpenAIKeyNeeded": "Set up your API Key",
+  "settingsConfigured": "Configured",
+  "settingsConfigNeeded": "Setup needed",
+  "settingsModelLabel": "Model",
+  "settingsModelSelectTitle": "Select Model",
+  "settingsVisionLabel": "Image Analysis (Vision)",
+  "settingsVisionDescription": "Send a low-res copy of the screenshot to improve analysis quality",
+  "settingsOpenAIPrivacyNotice": "Using the OpenAI API greatly improves AI summary quality for screenshots and URLs. Your API Key is stored only in the device's secure storage (Keychain).\n\n⚠️ Privacy notice: Turning this on sends captured text (and images, if Vision is enabled) to OpenAI's servers for analysis. Turning it off keeps all analysis on-device. Off by default.",
+  "settingsApiKeyHelpText": "You can get an API Key at platform.openai.com.",
+  "settingsDeleteExistingKey": "Delete Existing Key",
+  "msgConnectionSuccess": "✅ Connected successfully!",
+  "msgConnectionFailed": "❌ Connection failed. Check your key.",
+  "msgApiKeyDeleted": "🗑️ API Key deleted",
+  "msgApiKeySaved": "✅ API Key saved"
 }

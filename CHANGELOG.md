@@ -1,6 +1,24 @@
 ## [Unreleased]
 
-### Enhanced (AI 요약 품질 2차)
+### Chore (죽은 코드 정리)
+- **미사용 화면/모델 9개 삭제**: `settings_view`, `archive_view`, `note_detail_screen`, `thread_view`, `edit_card_screen`, `shelves_view`, `navigation_bar`, `memo_model`(+`.freezed.dart`/`.g.dart`) — 구 "Folio" 브랜드 시절 UI로, 현재 앱 어디에서도 import되지 않음을 전수 확인 후 제거 (약 3,600줄).
+- **미사용 의존성 5개 제거**: `memo_model.dart`가 유일한 사용처였던 `freezed`, `freezed_annotation`, `json_annotation`, `json_serializable`, `build_runner`를 pubspec에서 삭제. codegen 스텝 자체가 불필요해짐.
+
+### Security (경미한 하드닝)
+- **Keychain 접근성 명시**: OpenAI API 키 저장 시 iOS `first_unlock_this_device`를 명시해 iCloud 키체인을 통해 다른 기기로 동기화되지 않도록 함(기존엔 기본값 사용).
+- **URL 스킴 검증 추가**: `fetchURLMetadata`(AppDelegate.swift)가 http/https 스킴만 허용하도록 변경 — WKWebView가 `file://` 등 로컬 스킴을 로드할 가능성을 사전 차단(방어적 조치, 기존 호출 경로는 이미 http(s) 정규식으로 필터링되어 있었음).
+- 전체 보안 점검 결과: SQL 인젝션·평문 HTTP·TLS 검증 우회·분석 SDK 데이터 유출·OCR/개인메모 원문 로깅 등 주요 항목은 모두 문제없음을 확인.
+
+### Localization (스토어 등록 대비 다국어 점검)
+- **하드코딩 문자열 제거**: `home_screen`, `settings_screen`, `folder_dialog`, `folder_management_view`, `library_list_view`에 남아있던 한국어 하드코딩 UI 문자열(스낵바, 다이얼로그, 시트 서브타이틀 등) 43개를 `AppLocalizations` 키로 전환. ko/en/ja ARB 129개 키 완전 동기화 확인(누락 0건).
+- **iOS 네이티브 권한 문구 지역화**: `NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription`/`NSPhotoLibraryAddUsageDescription`/`NSAppleIntelligenceUsageDescription`이 영어/한국어 혼용이었던 문제 수정. `en.lproj`/`ko.lproj`/`ja.lproj`의 `InfoPlist.strings`로 분리해 기기 언어에 맞는 시스템 권한 다이얼로그가 표시되도록 Xcode 프로젝트에 등록(`knownRegions`에 ko/ja 추가).
+
+### Performance (이미지)
+- **그리드/리스트 썸네일 디코드 크기 제한**: `library_list_view`(80×96), `shelves_view`(160 폭), 상세화면 히어로 이미지에 `cacheWidth`/`cacheHeight` 적용. 기존에는 원본 스크린샷 전체 해상도를 썸네일 크기로 그대로 디코드해 수천 장 스크롤 시 메모리 압박과 프레임 드랍이 발생하던 문제 완화.
+- **저장 이미지 다운스케일**: iOS 스크린샷 캡처 시 `PHImageManagerMaximumSize`(기기 최대 해상도)를 리사이즈 없이 JPEG 0.8 압축만 해서 저장하던 로직을 수정. 저장/표시용 사본은 최대 1600px로 다운스케일하되, OCR 분석에는 원본 최대 해상도 이미지를 그대로 사용해 인식 정확도는 유지.
+
+### Reviewed (Android 이식 가능성 검토)
+- 스크린샷 자동 감지용 `MainActivity.kt` 스캐폴드는 존재하나 MethodChannel 이름이 iOS(`com.rememo.komjirak/vision`)와 불일치(`com.komjirak.stribe/vision`)하여 현재 비활성 상태. OCR(`analyzeImageWithBoxes`)·온디바이스 LLM(`llm` 채널)·Share Extension(URL 공유) 이식은 전무. Paddle-Lite Android 라이브러리도 아직 없음. 상세는 대화 내 리포트 참고 — 코드 변경 없음(검토만 수행).
 - **분석 결과 품질 게이트 강화**: 시간·배터리·"로그인" 등 UI 노이즈성 제목, 15자 미만 요약, 제목을 반복하기만 하는 요약을 저품질로 판정해 다음 분석 레벨로 fallback하도록 개선 (`TextHeuristics.isLowQualityTitle` + `UnifiedAnalysisService._isUsableTitleSummary`).
 - **Level 4 폴백 요약 개선**: "앞 문단 150자 자르기" 대신 문장 중요도(위치·길이·정보 밀도·완결성) 점수 기반 추출 요약 도입 (`TextHeuristics.summarizeByImportance`). 제목 후보도 UI 노이즈를 건너뛰고 선택.
 - **OpenAI 프롬프트 개선**: 환각 방지 규칙(ACCURACY RULES) 명시, 요약이 제목을 반복하거나 메타 서술("이 스크린샷은~")로 시작하지 않도록 지침 추가, 예시 요약을 정보 밀도 높은 형태로 교체.

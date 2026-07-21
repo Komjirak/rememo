@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/models/memo_card.dart';
 import 'package:stribe/models/folder.dart';
 import 'package:stribe/theme/app_theme.dart';
@@ -345,13 +346,13 @@ class _LibraryCardItem extends StatelessWidget {
         break;
       case 'photo':
         icon = Icons.camera_alt;
-        label = '사진';
+        label = AppLocalizations.of(context)!.typePhoto;
         color = const Color(0xFF34D399); // Green
         break;
       case 'screenshot':
       default:
         icon = Icons.smartphone;
-        label = '스크린샷';
+        label = AppLocalizations.of(context)!.typeScreenshot;
         color = const Color(0xFF8B5CF6); // Purple
         break;
     }
@@ -447,14 +448,26 @@ class _LibraryCardItem extends StatelessWidget {
     return const Color(0xFF9CA3AF); // Gray (default)
   }
 
+  // 썸네일 표시 크기(80x96 논리 픽셀)에 맞춰 디코드 해상도를 제한한다.
+  // cacheWidth/cacheHeight가 없으면 원본 풀해상도 스크린샷을 그대로 디코드해
+  // 리스트를 스크롤할 때마다 불필요한 메모리·CPU 부하가 발생한다.
+  static const double _thumbnailWidth = 80;
+  static const double _thumbnailHeight = 96;
+
   Widget _buildThumbnail(BuildContext context, String url, {String? sourceUrl, bool isProcessing = false}) {
     if (url.isNotEmpty) {
+        final dpr = MediaQuery.of(context).devicePixelRatio;
+        final cacheWidth = (_thumbnailWidth * dpr).round();
+        final cacheHeight = (_thumbnailHeight * dpr).round();
+
         if (url.startsWith('http')) {
         return Image.network(
             url,
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             opacity: const AlwaysStoppedAnimation(0.9),
             errorBuilder: (_, __, ___) => _buildPlaceholder(context, hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
         );
@@ -466,6 +479,8 @@ class _LibraryCardItem extends StatelessWidget {
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
             opacity: const AlwaysStoppedAnimation(0.9),
             errorBuilder: (_, __, ___) => _buildPlaceholder(context, hasUrl: sourceUrl != null && sourceUrl.isNotEmpty),
             );

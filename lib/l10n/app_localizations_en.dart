@@ -268,4 +268,157 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get msgCacheCleared => 'Cache cleared';
+
+  @override
+  String get commonTest => 'Test';
+
+  @override
+  String get folderEditTitle => 'Edit Folder';
+
+  @override
+  String get folderNameInputHint => 'Enter folder name';
+
+  @override
+  String get folderColorLabel => 'Folder Color';
+
+  @override
+  String get folderEmptyTitle => 'No folders yet';
+
+  @override
+  String get folderEmptyHint => 'Tap the + button to create a new folder';
+
+  @override
+  String folderItemCount(Object count) {
+    return '$count items';
+  }
+
+  @override
+  String get msgFolderNameRequired => 'Please enter a folder name';
+
+  @override
+  String get msgFolderDeleteTitle => 'Delete Folder';
+
+  @override
+  String msgFolderDeleteConfirm(Object name) {
+    return 'Delete the folder \"$name\"?\nMemos inside will be kept and become unassigned.';
+  }
+
+  @override
+  String msgFolderDeleted(Object name) {
+    return '\"$name\" deleted';
+  }
+
+  @override
+  String get sheetImportImageSubtitleDesktop => 'Add image from library';
+
+  @override
+  String get sheetImportImageSubtitleMobile => 'Analyze latest capture';
+
+  @override
+  String get sheetTakePhotoSubtitleDesktop => 'Choose from files';
+
+  @override
+  String get sheetTakePhotoSubtitleMobile => 'Take a new photo';
+
+  @override
+  String get sheetPasteUrlSubtitle => 'Save link from clipboard';
+
+  @override
+  String get analysisEmptyTitle => 'Empty Screenshot';
+
+  @override
+  String get analysisEmptyText => 'No text detected.';
+
+  @override
+  String get analysisSavedText => 'Screenshot saved.';
+
+  @override
+  String get msgWebLinkSaved => 'Web link saved.';
+
+  @override
+  String get msgSharedContentSaved => 'Shared content saved.';
+
+  @override
+  String msgSharedItemsSaved(Object count) {
+    return '📥 $count shared items saved!';
+  }
+
+  @override
+  String msgSharedItemsError(Object error) {
+    return 'Error processing shared items: $error';
+  }
+
+  @override
+  String get msgClipboardEmpty => 'Clipboard is empty.';
+
+  @override
+  String get msgInvalidUrl => 'Not a valid URL.';
+
+  @override
+  String get msgLinkSaved => '🔗 Link saved!';
+
+  @override
+  String msgUrlProcessError(Object error) {
+    return 'An error occurred while processing the URL: $error';
+  }
+
+  @override
+  String msgMemoCreated(Object title) {
+    return '✨ Memo created: $title';
+  }
+
+  @override
+  String msgAnalysisFailed(Object error) {
+    return 'Analysis failed: $error';
+  }
+
+  @override
+  String settingsOpenAIActive(Object model) {
+    return 'Active • $model';
+  }
+
+  @override
+  String get settingsOpenAIKeyNeeded => 'Set up your API Key';
+
+  @override
+  String get settingsConfigured => 'Configured';
+
+  @override
+  String get settingsConfigNeeded => 'Setup needed';
+
+  @override
+  String get settingsModelLabel => 'Model';
+
+  @override
+  String get settingsModelSelectTitle => 'Select Model';
+
+  @override
+  String get settingsVisionLabel => 'Image Analysis (Vision)';
+
+  @override
+  String get settingsVisionDescription =>
+      'Send a low-res copy of the screenshot to improve analysis quality';
+
+  @override
+  String get settingsOpenAIPrivacyNotice =>
+      'Using the OpenAI API greatly improves AI summary quality for screenshots and URLs. Your API Key is stored only in the device\'s secure storage (Keychain).\n\n⚠️ Privacy notice: Turning this on sends captured text (and images, if Vision is enabled) to OpenAI\'s servers for analysis. Turning it off keeps all analysis on-device. Off by default.';
+
+  @override
+  String get settingsApiKeyHelpText =>
+      'You can get an API Key at platform.openai.com.';
+
+  @override
+  String get settingsDeleteExistingKey => 'Delete Existing Key';
+
+  @override
+  String get msgConnectionSuccess => '✅ Connected successfully!';
+
+  @override
+  String get msgConnectionFailed => '❌ Connection failed. Check your key.';
+
+  @override
+  String get msgApiKeyDeleted => '🗑️ API Key deleted';
+
+  @override
+  String get msgApiKeySaved => '✅ API Key saved';
 }

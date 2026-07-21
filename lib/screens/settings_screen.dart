@@ -290,7 +290,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Text('OpenAI GPT', style: TextStyle(fontSize: 16, color: textColor, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
                               Text(
-                                _openaiHasKey ? '활성화됨 • $_openaiModel' : 'API Key를 설정하세요',
+                                _openaiHasKey
+                                    ? AppLocalizations.of(context)!.settingsOpenAIActive(_openaiModel)
+                                    : AppLocalizations.of(context)!.settingsOpenAIKeyNeeded,
                                 style: TextStyle(fontSize: 12, color: _openaiHasKey ? const Color(0xFF10A37F) : secondaryTextColor),
                               ),
                             ],
@@ -332,10 +334,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   color: const Color(0xFF10A37F).withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text('설정됨', style: TextStyle(fontSize: 12, color: Color(0xFF10A37F), fontWeight: FontWeight.w500)),
+                                child: Text(AppLocalizations.of(context)!.settingsConfigured, style: const TextStyle(fontSize: 12, color: Color(0xFF10A37F), fontWeight: FontWeight.w500)),
                               )
                             else
-                              Text('설정 필요', style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                              Text(AppLocalizations.of(context)!.settingsConfigNeeded, style: TextStyle(fontSize: 13, color: secondaryTextColor)),
                             const SizedBox(width: 4),
                             Icon(Icons.chevron_right, color: secondaryTextColor, size: 20),
                           ],
@@ -356,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Icon(Icons.smart_toy, color: secondaryTextColor, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text('모델', style: TextStyle(fontSize: 15, color: textColor)),
+                              child: Text(AppLocalizations.of(context)!.settingsModelLabel, style: TextStyle(fontSize: 15, color: textColor)),
                             ),
                             Text(
                               OpenAIService.availableModels.firstWhere(
@@ -385,10 +387,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('이미지 분석 (Vision)', style: TextStyle(fontSize: 15, color: textColor)),
+                                Text(AppLocalizations.of(context)!.settingsVisionLabel, style: TextStyle(fontSize: 15, color: textColor)),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '스크린샷 이미지를 저해상도로 함께 전송해 분석 품질 향상',
+                                  AppLocalizations.of(context)!.settingsVisionDescription,
                                   style: TextStyle(fontSize: 11, color: secondaryTextColor),
                                 ),
                               ],
@@ -411,11 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
-                  'OpenAI API를 사용하면 스크린샷 및 URL의 AI 요약 품질이 크게 향상됩니다. '
-                  'API Key는 기기의 보안 저장소(Keychain)에만 저장됩니다.\n\n'
-                  '⚠️ 프라이버시 안내: 이 기능을 켜면 캡처한 텍스트(및 Vision 활성 시 이미지)가 '
-                  '분석을 위해 OpenAI 서버로 전송됩니다. 기능을 끄면 모든 분석은 기기 안에서만 수행됩니다. '
-                  '기본값은 꺼짐입니다.',
+                  AppLocalizations.of(context)!.settingsOpenAIPrivacyNotice,
                   style: TextStyle(fontSize: 12, color: secondaryTextColor, height: 1.4),
                 ),
               ),
@@ -791,7 +789,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'platform.openai.com에서 API Key를 발급받을 수 있습니다.',
+                      AppLocalizations.of(context)!.settingsApiKeyHelpText,
                       style: TextStyle(fontSize: 13, color: secondaryTextColor, height: 1.4),
                     ),
                     const SizedBox(height: 16),
@@ -823,7 +821,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            testResult == 'success' ? '✅ 연결 성공!' : '❌ 연결 실패. Key를 확인하세요.',
+                            testResult == 'success'
+                                ? AppLocalizations.of(context)!.msgConnectionSuccess
+                                : AppLocalizations.of(context)!.msgConnectionFailed,
                             style: TextStyle(
                               fontSize: 13,
                               color: testResult == 'success' ? const Color(0xFF10A37F) : Colors.red,
@@ -841,12 +841,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _loadOpenAISettings();
                           if (mounted) {
                             ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(content: Text('🗑️ API Key가 삭제되었습니다'), backgroundColor: AppTheme.accentTeal),
+                              SnackBar(content: Text(AppLocalizations.of(this.context)!.msgApiKeyDeleted), backgroundColor: AppTheme.accentTeal),
                             );
                           }
                         },
                         icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                        label: const Text('기존 Key 삭제', style: TextStyle(color: Colors.red, fontSize: 13)),
+                        label: Text(AppLocalizations.of(context)!.settingsDeleteExistingKey, style: const TextStyle(color: Colors.red, fontSize: 13)),
                       ),
                     ],
                   ],
@@ -855,7 +855,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: Text('취소', style: TextStyle(color: secondaryTextColor)),
+                  child: Text(AppLocalizations.of(context)!.commonCancel, style: TextStyle(color: secondaryTextColor)),
                 ),
                 // 테스트 버튼
                 TextButton(
@@ -874,7 +874,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   child: isTesting
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10A37F)))
-                      : const Text('테스트', style: TextStyle(color: Color(0xFF10A37F))),
+                      : Text(AppLocalizations.of(context)!.commonTest, style: const TextStyle(color: Color(0xFF10A37F))),
                 ),
                 // 저장 버튼
                 TextButton(
@@ -892,11 +892,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _loadOpenAISettings();
                     if (mounted) {
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(content: Text('✅ API Key가 저장되었습니다'), backgroundColor: AppTheme.accentTeal),
+                        SnackBar(content: Text(AppLocalizations.of(this.context)!.msgApiKeySaved), backgroundColor: AppTheme.accentTeal),
                       );
                     }
                   },
-                  child: const Text('저장', style: TextStyle(color: Color(0xFF10A37F), fontWeight: FontWeight.w600)),
+                  child: Text(AppLocalizations.of(context)!.commonSave, style: const TextStyle(color: Color(0xFF10A37F), fontWeight: FontWeight.w600)),
                 ),
               ],
             );
@@ -917,7 +917,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               const Icon(Icons.smart_toy, color: Color(0xFF10A37F), size: 24),
               const SizedBox(width: 8),
-              Text('모델 선택', style: TextStyle(color: textColor, fontSize: 18)),
+              Text(AppLocalizations.of(dialogContext)!.settingsModelSelectTitle, style: TextStyle(color: textColor, fontSize: 18)),
             ],
           ),
           content: SizedBox(
