@@ -100,12 +100,6 @@ abstract class AppLocalizations {
     Locale('ko'),
   ];
 
-  /// No description provided for @appTitle.
-  ///
-  /// In ko, this message translates to:
-  /// **'Rememo'**
-  String get appTitle;
-
   /// No description provided for @commonCancel.
   ///
   /// In ko, this message translates to:
@@ -130,29 +124,11 @@ abstract class AppLocalizations {
   /// **'삭제'**
   String get commonDelete;
 
-  /// No description provided for @commonClose.
-  ///
-  /// In ko, this message translates to:
-  /// **'닫기'**
-  String get commonClose;
-
-  /// No description provided for @commonConfirm.
-  ///
-  /// In ko, this message translates to:
-  /// **'확인'**
-  String get commonConfirm;
-
   /// No description provided for @commonEdit.
   ///
   /// In ko, this message translates to:
   /// **'편집'**
   String get commonEdit;
-
-  /// No description provided for @commonError.
-  ///
-  /// In ko, this message translates to:
-  /// **'오류'**
-  String get commonError;
 
   /// No description provided for @commonNone.
   ///
@@ -226,23 +202,35 @@ abstract class AppLocalizations {
   /// **'\"{query}\"에 대한 결과를 찾을 수 없습니다.'**
   String searchNoResult(Object query);
 
-  /// No description provided for @emptyMemories.
-  ///
-  /// In ko, this message translates to:
-  /// **'메모가 없습니다.'**
-  String get emptyMemories;
-
   /// No description provided for @emptyFilter.
   ///
   /// In ko, this message translates to:
   /// **'조건에 맞는 메모가 없습니다.'**
   String get emptyFilter;
 
-  /// No description provided for @sheetNewMemory.
+  /// No description provided for @emptyStateTitle.
   ///
   /// In ko, this message translates to:
-  /// **'새 메모'**
-  String get sheetNewMemory;
+  /// **'여기서 기억이 시작돼요'**
+  String get emptyStateTitle;
+
+  /// No description provided for @emptyStateDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'어디서든 스크린샷을 캡처하면 Rememo가 자동으로 정리하고 검색 가능한 지식으로 만들어드려요.'**
+  String get emptyStateDescription;
+
+  /// No description provided for @emptyStateAction.
+  ///
+  /// In ko, this message translates to:
+  /// **'첫 메모 추가하기'**
+  String get emptyStateAction;
+
+  /// No description provided for @emptyStateLearnMore.
+  ///
+  /// In ko, this message translates to:
+  /// **'사용법 알아보기'**
+  String get emptyStateLearnMore;
 
   /// No description provided for @sheetImportScreenshot.
   ///
@@ -297,24 +285,6 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'원본 메시지'**
   String get detailOriginalMessage;
-
-  /// No description provided for @detailSource.
-  ///
-  /// In ko, this message translates to:
-  /// **'출처'**
-  String get detailSource;
-
-  /// No description provided for @detailTags.
-  ///
-  /// In ko, this message translates to:
-  /// **'태그'**
-  String get detailTags;
-
-  /// No description provided for @detailTitleEdit.
-  ///
-  /// In ko, this message translates to:
-  /// **'제목 편집'**
-  String get detailTitleEdit;
 
   /// No description provided for @detailTitleHint.
   ///
@@ -412,12 +382,6 @@ abstract class AppLocalizations {
   /// **'번역에 실패했습니다.'**
   String get msgTranslationFailed;
 
-  /// No description provided for @tagAiAnalysis.
-  ///
-  /// In ko, this message translates to:
-  /// **'AI 분석'**
-  String get tagAiAnalysis;
-
   /// No description provided for @menuFavorite.
   ///
   /// In ko, this message translates to:
@@ -457,20 +421,14 @@ abstract class AppLocalizations {
   /// No description provided for @msgDeleteConfirm.
   ///
   /// In ko, this message translates to:
-  /// **'이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'**
-  String get msgDeleteConfirm;
+  /// **'\'{title}\' 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'**
+  String msgDeleteConfirm(Object title);
 
-  /// No description provided for @msgShareComingSoon.
+  /// No description provided for @msgMemoDeleted.
   ///
   /// In ko, this message translates to:
-  /// **'공유 기능은 준비 중입니다.'**
-  String get msgShareComingSoon;
-
-  /// No description provided for @folderSelect.
-  ///
-  /// In ko, this message translates to:
-  /// **'폴더 선택'**
-  String get folderSelect;
+  /// **'{title} 삭제됨'**
+  String msgMemoDeleted(Object title);
 
   /// No description provided for @folderNew.
   ///
@@ -508,12 +466,6 @@ abstract class AppLocalizations {
   /// **'화면 설정'**
   String get settingsAppearance;
 
-  /// No description provided for @settingsDarkMode.
-  ///
-  /// In ko, this message translates to:
-  /// **'다크 모드'**
-  String get settingsDarkMode;
-
   /// No description provided for @settingsOrganization.
   ///
   /// In ko, this message translates to:
@@ -529,14 +481,8 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearCache.
   ///
   /// In ko, this message translates to:
-  /// **'캐시 삭제'**
+  /// **'모든 데이터 삭제'**
   String get settingsClearCache;
-
-  /// No description provided for @settingsStorageUsed.
-  ///
-  /// In ko, this message translates to:
-  /// **'사용된 저장 공간'**
-  String get settingsStorageUsed;
 
   /// No description provided for @settingsInfo.
   ///
@@ -583,7 +529,7 @@ abstract class AppLocalizations {
   /// No description provided for @msgCacheClearDesc.
   ///
   /// In ko, this message translates to:
-  /// **'캐시를 삭제하면 모든 임시 이미지가 제거됩니다. 이 작업은 되돌릴 수 없습니다.'**
+  /// **'저장된 모든 메모와 이미지가 기기에서 영구적으로 삭제됩니다.'**
   String get msgCacheClearDesc;
 
   /// No description provided for @errUrlLaunch.
@@ -592,23 +538,23 @@ abstract class AppLocalizations {
   /// **'웹사이트를 열 수 없습니다.'**
   String get errUrlLaunch;
 
-  /// No description provided for @msgCacheClearTitle.
+  /// No description provided for @msgClearAllDataTitle.
   ///
   /// In ko, this message translates to:
-  /// **'캐시 삭제'**
-  String get msgCacheClearTitle;
+  /// **'모든 데이터를 삭제하시겠습니까?'**
+  String get msgClearAllDataTitle;
 
-  /// No description provided for @msgCacheClearConfirm.
+  /// No description provided for @msgClearAllDataConfirm.
   ///
   /// In ko, this message translates to:
-  /// **'임시 파일들을 삭제하시겠습니까? 원본 데이터는 유지됩니다.'**
-  String get msgCacheClearConfirm;
+  /// **'{count}개 항목이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'**
+  String msgClearAllDataConfirm(Object count);
 
-  /// No description provided for @msgCacheCleared.
+  /// No description provided for @msgAllDataCleared.
   ///
   /// In ko, this message translates to:
-  /// **'캐시가 삭제되었습니다'**
-  String get msgCacheCleared;
+  /// **'✅ 모든 데이터가 삭제되었습니다'**
+  String get msgAllDataCleared;
 
   /// No description provided for @commonTest.
   ///
@@ -783,6 +729,48 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'분석 실패: {error}'**
   String msgAnalysisFailed(Object error);
+
+  /// No description provided for @msgTitleUpdated.
+  ///
+  /// In ko, this message translates to:
+  /// **'제목이 수정되었습니다'**
+  String get msgTitleUpdated;
+
+  /// No description provided for @errNoScreenshotFound.
+  ///
+  /// In ko, this message translates to:
+  /// **'스크린샷을 찾을 수 없습니다.'**
+  String get errNoScreenshotFound;
+
+  /// No description provided for @splashTagline.
+  ///
+  /// In ko, this message translates to:
+  /// **'당신의 AI 메모리'**
+  String get splashTagline;
+
+  /// No description provided for @settingsAISectionHeader.
+  ///
+  /// In ko, this message translates to:
+  /// **'AI 분석'**
+  String get settingsAISectionHeader;
+
+  /// No description provided for @titleWebLink.
+  ///
+  /// In ko, this message translates to:
+  /// **'웹 링크'**
+  String get titleWebLink;
+
+  /// No description provided for @titleNewItem.
+  ///
+  /// In ko, this message translates to:
+  /// **'새 항목'**
+  String get titleNewItem;
+
+  /// No description provided for @titleNewMemo.
+  ///
+  /// In ko, this message translates to:
+  /// **'새 메모'**
+  String get titleNewMemo;
 
   /// No description provided for @settingsOpenAIActive.
   ///

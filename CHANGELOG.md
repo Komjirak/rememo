@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+### Fixed (다국어 2차 점검 — UX Writing)
+- **스와이프 삭제 확인 다이얼로그 미번역**: 홈 화면 리스트에서 항목을 스와이프해 삭제할 때 뜨는 "Delete Memory" 다이얼로그가 완전히 영문 하드코딩 상태였음(제목/본문/버튼/완료 스낵바 전부). 기존 상세화면 삭제 다이얼로그가 쓰던 키를 재사용하되, 삭제 대상 제목을 확인 문구에 포함하도록 개선(`msgDeleteConfirm`에 `{title}` 파라미터 추가 — 폴더 삭제 확인과 동일한 패턴으로 통일, 한국어는 조사 중의성을 피하기 위해 "'{title}' 메모를" 형태로 구성).
+- **빈 상태 화면(`empty_state_view.dart`) 전체 미번역 + 옛 브랜드명 잔존**: 앱 최초 실행 시 보이는 첫 화면이 100% 영문 하드코딩이었고, 설명 문구에 옛 앱 이름 "Folio"가 그대로 남아있었음("Rememo will..." → "Folio will..."). 전체 로케일화 및 브랜드명 수정.
+- **설정 화면 제목이 영어에서 "Data"로 잘못 표시**: `settingsTitle`의 영어 값이 다른 키("설정 데이터" 섹션)의 값과 뒤바뀌어 있어, 영어 사용자에게는 설정 화면 AppBar 제목이 "Settings"가 아닌 "Data"로 보이던 버그.
+- **"캐시 삭제" 라벨과 실제 동작 불일치(데이터 손실 위험)**: 설정의 "캐시 삭제" 메뉴가 실제로는 임시 캐시가 아니라 **전체 메모 라이브러리를 영구 삭제**하는 기능이었음에도, 라벨과 안내 문구는 "임시 파일만 삭제되고 원본은 유지된다"고 안내하고 있었음(하드코딩된 실제 다이얼로그는 정확했으나 번역 안 됨). 라벨을 "모든 데이터 삭제"로, 설명 문구를 실제 동작(영구 삭제)에 맞게 수정하고 3개 언어 모두 정확한 경고 문구로 번역.
+- **스플래시 태그라인("YOUR AI MEMORY") 미번역**
+- **나머지 하드코딩 문자열**: "Memo created from screenshot!", "Title updated", 설정의 "AI ANALYSIS" 섹션 헤더, 스크린샷/텍스트 분석 실패 시 예외 메시지("No screenshot found" 등이 번역된 문구와 섞여 "분석 실패: Exception: No screenshot found" 식으로 표시되던 문제) 전부 로케일화.
+- **`ShareService`(BuildContext 없는 순수 서비스) 폴백 제목 미번역**: 공유 항목의 제목을 못 찾았을 때 쓰는 "Web Link"/"New Item"/"New Note" 폴백이 항상 영문으로 표시되던 문제. `lookupAppLocalizations`로 현재 기기 로케일을 직접 조회하는 헬퍼를 추가해 해결(BuildContext 불필요). 이 값과 문자열 비교하던 `home_screen.dart`의 로직도 함께 갱신해 회귀 방지.
+- **미사용(orphan) 번역 키 17개 정리**: 이전 세션의 죽은 코드 제거(구 "Folio" UI 파일 9개 삭제) 이후 참조를 잃은 키들. ko/en/ja 전부 127개 키로 완전 동기화 확인.
+
+### Documentation
+- **PRD.md 전면 갱신**: 실제 코드 기준으로 재작성. 5단계 AI 분석 파이프라인(OpenAI opt-in → Apple Foundation Models → 규칙 기반 폴백), 존재하지 않는 "Paddle OCR/Gemma 2B" 표기 정정(실제로는 Apple Vision Framework + Foundation Models), 핵심 포인트/번역/FTS5 검색 등 신규 기능 반영, Android 미작동 상태 명시, 다국어(ko/en/ja)·보안(Keychain/네트워크) 현황 반영, 버전 정보 1.0.0(Build 36)로 갱신.
+
 ### Performance (로컬 분석 파이프라인)
 - **Level 2("온디바이스 LLM") 무의미한 IPC 왕복 제거**: Dart가 native `analyzeSummary` 채널에 `title/paragraphs/keyPoints` 형태로 호출했지만 native 핸들러는 `textBlocks/imageSize`를 요구해 항상 `INVALID_ARGS`로 실패하고 있었음(실제 "Gemma 2B" 모델도 프로젝트에 존재하지 않음). 성공할 수 없는 MethodChannel 왕복을 없애고 규칙 기반 폴백으로 바로 진입하도록 변경.
 - **Vision 분석 이미지 다운스케일 누락 수정**: `recognizeTextWithEnhancedAnalysis`(PaddleOCRHelper.swift)가 원본 최대 해상도 이미지에 OCR+레이아웃+세일리언시 3개 Vision 요청을 그대로 실행하고 있었음. 다른 OCR 경로처럼 2048px로 축소 후 처리하도록 통일해 스크린샷마다 분석 시간을 단축.

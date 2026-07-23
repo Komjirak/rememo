@@ -1,8 +1,22 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/services.dart';
+import 'package:stribe/l10n/app_localizations.dart';
+import 'package:stribe/l10n/app_localizations_en.dart';
 import 'package:stribe/services/unified_analysis_service.dart';
 import 'package:stribe/utils/app_logger.dart';
 import 'package:stribe/utils/text_heuristics.dart';
+
+/// ShareService는 BuildContext가 없는 순수 서비스 클래스라 위젯 트리를 통해
+/// AppLocalizations.of(context)를 쓸 수 없다. 대신 현재 기기 로케일에 맞는
+/// 번역 객체를 직접 조회한다(지원하지 않는 로케일이면 영어로 폴백).
+AppLocalizations _currentL10n() {
+  try {
+    return lookupAppLocalizations(PlatformDispatcher.instance.locale);
+  } catch (_) {
+    return AppLocalizationsEn();
+  }
+}
 
 /// Model for shared content received from Share Extension
 class SharedItem {
@@ -95,12 +109,12 @@ class SharedItem {
       return title!;
     }
     if (type == 'url' && url != null) {
-      return Uri.tryParse(url!)?.host ?? 'Web Link';
+      return Uri.tryParse(url!)?.host ?? _currentL10n().titleWebLink;
     }
     if (type == 'text' && text != null) {
       return text!.length > 30 ? '${text!.substring(0, 30)}...' : text!;
     }
-    return 'New Item';
+    return _currentL10n().titleNewItem;
   }
 
   /// Get source URL for "Return to Original" feature
@@ -518,9 +532,9 @@ class ShareService {
       if (host.isNotEmpty) {
         return host[0].toUpperCase() + host.substring(1);
       }
-      return 'Web Link';
+      return _currentL10n().titleWebLink;
     } catch (e) {
-      return 'Web Link';
+      return _currentL10n().titleWebLink;
     }
   }
 
@@ -537,7 +551,7 @@ class ShareService {
   /// Generate title from text
   String _generateTitleFromText(String text) {
     final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    if (lines.isEmpty) return 'New Note';
+    if (lines.isEmpty) return _currentL10n().titleNewMemo;
 
     final firstLine = lines.first.trim();
     if (firstLine.length <= 30) return firstLine;

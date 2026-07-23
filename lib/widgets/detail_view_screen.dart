@@ -483,7 +483,7 @@ class _DetailViewScreenState extends State<DetailViewScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(AppLocalizations.of(context)!.msgDeleteTitle, style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
         content: Text(
-          AppLocalizations.of(context)!.msgDeleteConfirm,
+          AppLocalizations.of(context)!.msgDeleteConfirm(_card.title),
           style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
         ),
         actions: [

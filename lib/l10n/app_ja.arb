@@ -1,15 +1,11 @@
 {
   "@@locale": "ja",
-  "appTitle": "Rememo",
 
   "commonCancel": "キャンセル",
   "commonSave": "保存",
   "commonCreate": "作成",
   "commonDelete": "削除",
-  "commonClose": "閉じる",
-  "commonConfirm": "確認",
   "commonEdit": "編集",
-  "commonError": "エラー",
   "commonNone": "なし",
   "commonColor": "カラー",
   "commonMove": "移動",
@@ -25,10 +21,12 @@
 
   "searchHint": "メモを検索...",
   "searchNoResult": "\"{query}\" の検索結果はありません。",
-  "emptyMemories": "メモがありません。",
   "emptyFilter": "条件に一致するメモがありません。",
-  
-  "sheetNewMemory": "新しいメモ",
+  "emptyStateTitle": "ここから記憶が始まります",
+  "emptyStateDescription": "どこでもスクリーンショットを撮るだけで、Rememoが自動的に整理し、検索できるナレッジに変えます。",
+  "emptyStateAction": "最初のメモを追加",
+  "emptyStateLearnMore": "使い方を見る",
+
   "sheetImportScreenshot": "スクリーンショットをインポート",
   "sheetTakePhoto": "写真を撮る",
   "sheetImportGallery": "ギャラリーからインポート",
@@ -39,9 +37,6 @@
   "detailPersonalNote": "パーソナルメモ",
   "detailPersonalNoteHint": "考えを入力してください...",
   "detailOriginalMessage": "オリジナルメッセージ",
-  "detailSource": "ソース",
-  "detailTags": "タグ",
-  "detailTitleEdit": "タイトルの編集",
   "detailTitleHint": "タイトルを入力",
   "detailEditTitle": "タイトルの編集",
   "detailEditSummary": "要約の編集",
@@ -58,19 +53,17 @@
   "msgTranslationDone": "翻訳が完了しました。",
   "msgTranslationNotNeeded": "翻訳が不要か、サポートされていない言語です。",
   "msgTranslationFailed": "翻訳に失敗しました。",
-  "tagAiAnalysis": "AI分析",
 
   "menuFavorite": "お気に入り",
   "menuMoveFolder": "フォルダへ移動",
   "menuDelete": "削除",
-  
+
   "msgFavoriteAdded": "お気に入りに追加しました",
   "msgFavoriteRemoved": "お気に入りを解除しました",
   "msgDeleteTitle": "メモの削除",
-  "msgDeleteConfirm": "このメモを削除してもよろしいですか？この操作は取り消せません。",
-  "msgShareComingSoon": "共有機能は準備中です。",
-  
-  "folderSelect": "フォルダ選択",
+  "msgDeleteConfirm": "「{title}」を削除してもよろしいですか？この操作は取り消せません。",
+  "msgMemoDeleted": "「{title}」を削除しました",
+
   "folderNew": "新しいフォルダ",
   "folderNameHint": "フォルダ名",
   "folderManage": "フォルダ管理",
@@ -78,11 +71,9 @@
   
   "settingsTitle": "設定",
   "settingsAppearance": "画面設定",
-  "settingsDarkMode": "ダークモード",
   "settingsOrganization": "管理",
   "settingsData": "データ",
-  "settingsClearCache": "キャッシュ削除",
-  "settingsStorageUsed": "使用中のストレージ",
+  "settingsClearCache": "すべてのデータを削除",
   "settingsInfo": "情報",
   "settingsVersion": "バージョン",
   "settingsTheme": "テーマ",
@@ -90,12 +81,12 @@
   "settingsThemeDark": "ダーク",
   "settingsThemeSystem": "システム",
   "commonLoading": "読み込み中...",
-  "msgCacheClearDesc": "キャッシュをクリアすると、すべての一時画像が削除されます。この操作は取り消せません。",
+  "msgCacheClearDesc": "保存されたすべてのメモと画像が端末から完全に削除されます。",
   "errUrlLaunch": "ウェブサイトを開けませんでした。",
-  
-  "msgCacheClearTitle": "キャッシュ削除",
-  "msgCacheClearConfirm": "一時ファイルを削除してもよろしいですか？元のデータは保持されます。",
-  "msgCacheCleared": "キャッシュが削除されました",
+
+  "msgClearAllDataTitle": "すべてのデータを削除しますか？",
+  "msgClearAllDataConfirm": "{count}件のアイテムが完全に削除されます。この操作は取り消せません。",
+  "msgAllDataCleared": "✅ すべてのデータを削除しました",
 
   "commonTest": "テスト",
 
@@ -130,6 +121,15 @@
   "msgUrlProcessError": "URLの処理中にエラーが発生しました: {error}",
   "msgMemoCreated": "✨ メモを作成しました: {title}",
   "msgAnalysisFailed": "分析に失敗しました: {error}",
+  "msgTitleUpdated": "タイトルを更新しました",
+  "errNoScreenshotFound": "スクリーンショットが見つかりません。",
+
+  "splashTagline": "あなたのAIメモリー",
+  "settingsAISectionHeader": "AI分析",
+
+  "titleWebLink": "ウェブリンク",
+  "titleNewItem": "新しいアイテム",
+  "titleNewMemo": "新しいメモ",
 
   "settingsOpenAIActive": "有効 • {model}",
   "settingsOpenAIKeyNeeded": "APIキーを設定してください",

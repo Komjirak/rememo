@@ -260,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // ============================================
               // OpenAI API 설정 섹션
               // ============================================
-              _buildSectionHeader('AI ANALYSIS', secondaryTextColor),
+              _buildSectionHeader(AppLocalizations.of(context)!.settingsAISectionHeader, secondaryTextColor),
               Container(
                 decoration: BoxDecoration(
                   color: cardColor,
@@ -711,12 +711,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Clear All Data?"),
-        content: Text("This will permanently delete $_totalItems items. This action cannot be undone."),
+        title: Text(AppLocalizations.of(context)!.msgClearAllDataTitle),
+        content: Text(AppLocalizations.of(context)!.msgClearAllDataConfirm(_totalItems)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: Text(AppLocalizations.of(context)!.commonCancel),
           ),
           TextButton(
             onPressed: () {
@@ -724,7 +724,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _clearAllData();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text("Delete"),
+            child: Text(AppLocalizations.of(context)!.commonDelete),
           ),
         ],
       ),
@@ -748,8 +748,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ All data cleared"),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.msgAllDataCleared),
           backgroundColor: AppTheme.accentTeal,
         ),
       );

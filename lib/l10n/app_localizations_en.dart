@@ -9,9 +9,6 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Rememo';
-
-  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -24,16 +21,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonDelete => 'Delete';
 
   @override
-  String get commonClose => 'Close';
-
-  @override
-  String get commonConfirm => 'Confirm';
-
-  @override
   String get commonEdit => 'Edit';
-
-  @override
-  String get commonError => 'Error';
 
   @override
   String get commonNone => 'None';
@@ -74,13 +62,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get emptyMemories => 'No memories yet.';
-
-  @override
   String get emptyFilter => 'No memories match your filter.';
 
   @override
-  String get sheetNewMemory => 'New Memory';
+  String get emptyStateTitle => 'Your memory starts here';
+
+  @override
+  String get emptyStateDescription =>
+      'Capture screenshots anywhere and Rememo will automatically turn them into organized, searchable knowledge.';
+
+  @override
+  String get emptyStateAction => 'Add your first memory';
+
+  @override
+  String get emptyStateLearnMore => 'Learn how it works';
 
   @override
   String get sheetImportScreenshot => 'Import Screenshot';
@@ -108,15 +103,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get detailOriginalMessage => 'ORIGINAL MESSAGE';
-
-  @override
-  String get detailSource => 'Source';
-
-  @override
-  String get detailTags => 'TAGS';
-
-  @override
-  String get detailTitleEdit => 'Edit Title';
 
   @override
   String get detailTitleHint => 'Enter title';
@@ -168,9 +154,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get msgTranslationFailed => 'Translation failed.';
 
   @override
-  String get tagAiAnalysis => 'AI Analysis';
-
-  @override
   String get menuFavorite => 'Favorite';
 
   @override
@@ -189,14 +172,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get msgDeleteTitle => 'Delete Memory';
 
   @override
-  String get msgDeleteConfirm =>
-      'Are you sure you want to delete this memory? This action cannot be undone.';
+  String msgDeleteConfirm(Object title) {
+    return 'Delete \"$title\"? This action cannot be undone.';
+  }
 
   @override
-  String get msgShareComingSoon => 'Share functionality coming soon.';
-
-  @override
-  String get folderSelect => 'Select Folder';
+  String msgMemoDeleted(Object title) {
+    return '\"$title\" deleted';
+  }
 
   @override
   String get folderNew => 'New Folder';
@@ -211,13 +194,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get folderCreateEdit => 'Create & Edit folders';
 
   @override
-  String get settingsTitle => 'Data';
+  String get settingsTitle => 'Settings';
 
   @override
   String get settingsAppearance => 'Appearance';
-
-  @override
-  String get settingsDarkMode => 'Dark Mode';
 
   @override
   String get settingsOrganization => 'Organization';
@@ -226,10 +206,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsData => 'Data';
 
   @override
-  String get settingsClearCache => 'Clear Cache';
-
-  @override
-  String get settingsStorageUsed => 'Storage Used';
+  String get settingsClearCache => 'Clear All Data';
 
   @override
   String get settingsInfo => 'Info';
@@ -254,20 +231,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get msgCacheClearDesc =>
-      'Clearing cache will remove all temporary images. This action cannot be undone.';
+      'Permanently deletes all saved memories and images from this device.';
 
   @override
   String get errUrlLaunch => 'Could not open website.';
 
   @override
-  String get msgCacheClearTitle => 'Clear Cache';
+  String get msgClearAllDataTitle => 'Clear All Data?';
 
   @override
-  String get msgCacheClearConfirm =>
-      'Are you sure you want to clear temporary files? Original data will safely remain.';
+  String msgClearAllDataConfirm(Object count) {
+    return 'This will permanently delete $count items. This action cannot be undone.';
+  }
 
   @override
-  String get msgCacheCleared => 'Cache cleared';
+  String get msgAllDataCleared => '✅ All data cleared';
 
   @override
   String get commonTest => 'Test';
@@ -371,6 +349,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String msgAnalysisFailed(Object error) {
     return 'Analysis failed: $error';
   }
+
+  @override
+  String get msgTitleUpdated => 'Title updated';
+
+  @override
+  String get errNoScreenshotFound => 'No screenshot found.';
+
+  @override
+  String get splashTagline => 'YOUR AI MEMORY';
+
+  @override
+  String get settingsAISectionHeader => 'AI ANALYSIS';
+
+  @override
+  String get titleWebLink => 'Web Link';
+
+  @override
+  String get titleNewItem => 'New Item';
+
+  @override
+  String get titleNewMemo => 'New Memo';
 
   @override
   String settingsOpenAIActive(Object model) {

@@ -1,15 +1,11 @@
 {
   "@@locale": "ko",
-  "appTitle": "Rememo",
 
   "commonCancel": "취소",
   "commonSave": "저장",
   "commonCreate": "생성",
   "commonDelete": "삭제",
-  "commonClose": "닫기",
-  "commonConfirm": "확인",
   "commonEdit": "편집",
-  "commonError": "오류",
   "commonNone": "없음",
   "commonColor": "색상",
   "commonMove": "이동",
@@ -25,10 +21,12 @@
 
   "searchHint": "메모 검색...",
   "searchNoResult": "\"{query}\"에 대한 결과를 찾을 수 없습니다.",
-  "emptyMemories": "메모가 없습니다.",
   "emptyFilter": "조건에 맞는 메모가 없습니다.",
-  
-  "sheetNewMemory": "새 메모",
+  "emptyStateTitle": "여기서 기억이 시작돼요",
+  "emptyStateDescription": "어디서든 스크린샷을 캡처하면 Rememo가 자동으로 정리하고 검색 가능한 지식으로 만들어드려요.",
+  "emptyStateAction": "첫 메모 추가하기",
+  "emptyStateLearnMore": "사용법 알아보기",
+
   "sheetImportScreenshot": "스크린샷 가져오기",
   "sheetTakePhoto": "사진 촬영",
   "sheetImportGallery": "갤러리에서 가져오기",
@@ -39,9 +37,6 @@
   "detailPersonalNote": "개인 메모",
   "detailPersonalNoteHint": "생각을 남겨보세요...",
   "detailOriginalMessage": "원본 메시지",
-  "detailSource": "출처",
-  "detailTags": "태그",
-  "detailTitleEdit": "제목 편집",
   "detailTitleHint": "제목 입력",
   "detailEditTitle": "제목 편집",
   "detailEditSummary": "요약 편집",
@@ -58,19 +53,17 @@
   "msgTranslationDone": "번역이 완료되었습니다.",
   "msgTranslationNotNeeded": "번역이 필요하지 않거나 지원되지 않는 언어입니다.",
   "msgTranslationFailed": "번역에 실패했습니다.",
-  "tagAiAnalysis": "AI 분석",
 
   "menuFavorite": "즐겨찾기",
   "menuMoveFolder": "폴더로 이동",
   "menuDelete": "삭제",
-  
+
   "msgFavoriteAdded": "즐겨찾기에 추가되었습니다",
   "msgFavoriteRemoved": "즐겨찾기에서 제거되었습니다",
   "msgDeleteTitle": "메모 삭제",
-  "msgDeleteConfirm": "이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
-  "msgShareComingSoon": "공유 기능은 준비 중입니다.",
-  
-  "folderSelect": "폴더 선택",
+  "msgDeleteConfirm": "'{title}' 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+  "msgMemoDeleted": "{title} 삭제됨",
+
   "folderNew": "새 폴더",
   "folderNameHint": "폴더 이름",
   "folderManage": "폴더 관리",
@@ -78,11 +71,9 @@
   
   "settingsTitle": "설정",
   "settingsAppearance": "화면 설정",
-  "settingsDarkMode": "다크 모드",
   "settingsOrganization": "관리",
   "settingsData": "데이터",
-  "settingsClearCache": "캐시 삭제",
-  "settingsStorageUsed": "사용된 저장 공간",
+  "settingsClearCache": "모든 데이터 삭제",
   "settingsInfo": "정보",
   "settingsVersion": "버전",
   "settingsTheme": "테마",
@@ -90,12 +81,12 @@
   "settingsThemeDark": "다크",
   "settingsThemeSystem": "시스템",
   "commonLoading": "로딩 중...",
-  "msgCacheClearDesc": "캐시를 삭제하면 모든 임시 이미지가 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "msgCacheClearDesc": "저장된 모든 메모와 이미지가 기기에서 영구적으로 삭제됩니다.",
   "errUrlLaunch": "웹사이트를 열 수 없습니다.",
-  
-  "msgCacheClearTitle": "캐시 삭제",
-  "msgCacheClearConfirm": "임시 파일들을 삭제하시겠습니까? 원본 데이터는 유지됩니다.",
-  "msgCacheCleared": "캐시가 삭제되었습니다",
+
+  "msgClearAllDataTitle": "모든 데이터를 삭제하시겠습니까?",
+  "msgClearAllDataConfirm": "{count}개 항목이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "msgAllDataCleared": "✅ 모든 데이터가 삭제되었습니다",
 
   "commonTest": "테스트",
 
@@ -130,6 +121,15 @@
   "msgUrlProcessError": "URL 처리 중 오류가 발생했습니다: {error}",
   "msgMemoCreated": "✨ 메모가 생성되었습니다: {title}",
   "msgAnalysisFailed": "분석 실패: {error}",
+  "msgTitleUpdated": "제목이 수정되었습니다",
+  "errNoScreenshotFound": "스크린샷을 찾을 수 없습니다.",
+
+  "splashTagline": "당신의 AI 메모리",
+  "settingsAISectionHeader": "AI 분석",
+
+  "titleWebLink": "웹 링크",
+  "titleNewItem": "새 항목",
+  "titleNewMemo": "새 메모",
 
   "settingsOpenAIActive": "활성화됨 • {model}",
   "settingsOpenAIKeyNeeded": "API Key를 설정하세요",

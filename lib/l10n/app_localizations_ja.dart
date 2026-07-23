@@ -9,9 +9,6 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
-  String get appTitle => 'Rememo';
-
-  @override
   String get commonCancel => 'キャンセル';
 
   @override
@@ -24,16 +21,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonDelete => '削除';
 
   @override
-  String get commonClose => '閉じる';
-
-  @override
-  String get commonConfirm => '確認';
-
-  @override
   String get commonEdit => '編集';
-
-  @override
-  String get commonError => 'エラー';
 
   @override
   String get commonNone => 'なし';
@@ -74,13 +62,20 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get emptyMemories => 'メモがありません。';
-
-  @override
   String get emptyFilter => '条件に一致するメモがありません。';
 
   @override
-  String get sheetNewMemory => '新しいメモ';
+  String get emptyStateTitle => 'ここから記憶が始まります';
+
+  @override
+  String get emptyStateDescription =>
+      'どこでもスクリーンショットを撮るだけで、Rememoが自動的に整理し、検索できるナレッジに変えます。';
+
+  @override
+  String get emptyStateAction => '最初のメモを追加';
+
+  @override
+  String get emptyStateLearnMore => '使い方を見る';
 
   @override
   String get sheetImportScreenshot => 'スクリーンショットをインポート';
@@ -108,15 +103,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get detailOriginalMessage => 'オリジナルメッセージ';
-
-  @override
-  String get detailSource => 'ソース';
-
-  @override
-  String get detailTags => 'タグ';
-
-  @override
-  String get detailTitleEdit => 'タイトルの編集';
 
   @override
   String get detailTitleHint => 'タイトルを入力';
@@ -167,9 +153,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get msgTranslationFailed => '翻訳に失敗しました。';
 
   @override
-  String get tagAiAnalysis => 'AI分析';
-
-  @override
   String get menuFavorite => 'お気に入り';
 
   @override
@@ -188,13 +171,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get msgDeleteTitle => 'メモの削除';
 
   @override
-  String get msgDeleteConfirm => 'このメモを削除してもよろしいですか？この操作は取り消せません。';
+  String msgDeleteConfirm(Object title) {
+    return '「$title」を削除してもよろしいですか？この操作は取り消せません。';
+  }
 
   @override
-  String get msgShareComingSoon => '共有機能は準備中です。';
-
-  @override
-  String get folderSelect => 'フォルダ選択';
+  String msgMemoDeleted(Object title) {
+    return '「$title」を削除しました';
+  }
 
   @override
   String get folderNew => '新しいフォルダ';
@@ -215,19 +199,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsAppearance => '画面設定';
 
   @override
-  String get settingsDarkMode => 'ダークモード';
-
-  @override
   String get settingsOrganization => '管理';
 
   @override
   String get settingsData => 'データ';
 
   @override
-  String get settingsClearCache => 'キャッシュ削除';
-
-  @override
-  String get settingsStorageUsed => '使用中のストレージ';
+  String get settingsClearCache => 'すべてのデータを削除';
 
   @override
   String get settingsInfo => '情報';
@@ -251,19 +229,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonLoading => '読み込み中...';
 
   @override
-  String get msgCacheClearDesc => 'キャッシュをクリアすると、すべての一時画像が削除されます。この操作は取り消せません。';
+  String get msgCacheClearDesc => '保存されたすべてのメモと画像が端末から完全に削除されます。';
 
   @override
   String get errUrlLaunch => 'ウェブサイトを開けませんでした。';
 
   @override
-  String get msgCacheClearTitle => 'キャッシュ削除';
+  String get msgClearAllDataTitle => 'すべてのデータを削除しますか？';
 
   @override
-  String get msgCacheClearConfirm => '一時ファイルを削除してもよろしいですか？元のデータは保持されます。';
+  String msgClearAllDataConfirm(Object count) {
+    return '$count件のアイテムが完全に削除されます。この操作は取り消せません。';
+  }
 
   @override
-  String get msgCacheCleared => 'キャッシュが削除されました';
+  String get msgAllDataCleared => '✅ すべてのデータを削除しました';
 
   @override
   String get commonTest => 'テスト';
@@ -367,6 +347,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String msgAnalysisFailed(Object error) {
     return '分析に失敗しました: $error';
   }
+
+  @override
+  String get msgTitleUpdated => 'タイトルを更新しました';
+
+  @override
+  String get errNoScreenshotFound => 'スクリーンショットが見つかりません。';
+
+  @override
+  String get splashTagline => 'あなたのAIメモリー';
+
+  @override
+  String get settingsAISectionHeader => 'AI分析';
+
+  @override
+  String get titleWebLink => 'ウェブリンク';
+
+  @override
+  String get titleNewItem => '新しいアイテム';
+
+  @override
+  String get titleNewMemo => '新しいメモ';
 
   @override
   String settingsOpenAIActive(Object model) {

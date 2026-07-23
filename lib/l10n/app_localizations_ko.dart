@@ -9,9 +9,6 @@ class AppLocalizationsKo extends AppLocalizations {
   AppLocalizationsKo([String locale = 'ko']) : super(locale);
 
   @override
-  String get appTitle => 'Rememo';
-
-  @override
   String get commonCancel => '취소';
 
   @override
@@ -24,16 +21,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get commonDelete => '삭제';
 
   @override
-  String get commonClose => '닫기';
-
-  @override
-  String get commonConfirm => '확인';
-
-  @override
   String get commonEdit => '편집';
-
-  @override
-  String get commonError => '오류';
 
   @override
   String get commonNone => '없음';
@@ -74,13 +62,20 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get emptyMemories => '메모가 없습니다.';
-
-  @override
   String get emptyFilter => '조건에 맞는 메모가 없습니다.';
 
   @override
-  String get sheetNewMemory => '새 메모';
+  String get emptyStateTitle => '여기서 기억이 시작돼요';
+
+  @override
+  String get emptyStateDescription =>
+      '어디서든 스크린샷을 캡처하면 Rememo가 자동으로 정리하고 검색 가능한 지식으로 만들어드려요.';
+
+  @override
+  String get emptyStateAction => '첫 메모 추가하기';
+
+  @override
+  String get emptyStateLearnMore => '사용법 알아보기';
 
   @override
   String get sheetImportScreenshot => '스크린샷 가져오기';
@@ -108,15 +103,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get detailOriginalMessage => '원본 메시지';
-
-  @override
-  String get detailSource => '출처';
-
-  @override
-  String get detailTags => '태그';
-
-  @override
-  String get detailTitleEdit => '제목 편집';
 
   @override
   String get detailTitleHint => '제목 입력';
@@ -167,9 +153,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get msgTranslationFailed => '번역에 실패했습니다.';
 
   @override
-  String get tagAiAnalysis => 'AI 분석';
-
-  @override
   String get menuFavorite => '즐겨찾기';
 
   @override
@@ -188,13 +171,14 @@ class AppLocalizationsKo extends AppLocalizations {
   String get msgDeleteTitle => '메모 삭제';
 
   @override
-  String get msgDeleteConfirm => '이 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.';
+  String msgDeleteConfirm(Object title) {
+    return '\'$title\' 메모를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.';
+  }
 
   @override
-  String get msgShareComingSoon => '공유 기능은 준비 중입니다.';
-
-  @override
-  String get folderSelect => '폴더 선택';
+  String msgMemoDeleted(Object title) {
+    return '$title 삭제됨';
+  }
 
   @override
   String get folderNew => '새 폴더';
@@ -215,19 +199,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsAppearance => '화면 설정';
 
   @override
-  String get settingsDarkMode => '다크 모드';
-
-  @override
   String get settingsOrganization => '관리';
 
   @override
   String get settingsData => '데이터';
 
   @override
-  String get settingsClearCache => '캐시 삭제';
-
-  @override
-  String get settingsStorageUsed => '사용된 저장 공간';
+  String get settingsClearCache => '모든 데이터 삭제';
 
   @override
   String get settingsInfo => '정보';
@@ -251,20 +229,21 @@ class AppLocalizationsKo extends AppLocalizations {
   String get commonLoading => '로딩 중...';
 
   @override
-  String get msgCacheClearDesc =>
-      '캐시를 삭제하면 모든 임시 이미지가 제거됩니다. 이 작업은 되돌릴 수 없습니다.';
+  String get msgCacheClearDesc => '저장된 모든 메모와 이미지가 기기에서 영구적으로 삭제됩니다.';
 
   @override
   String get errUrlLaunch => '웹사이트를 열 수 없습니다.';
 
   @override
-  String get msgCacheClearTitle => '캐시 삭제';
+  String get msgClearAllDataTitle => '모든 데이터를 삭제하시겠습니까?';
 
   @override
-  String get msgCacheClearConfirm => '임시 파일들을 삭제하시겠습니까? 원본 데이터는 유지됩니다.';
+  String msgClearAllDataConfirm(Object count) {
+    return '$count개 항목이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.';
+  }
 
   @override
-  String get msgCacheCleared => '캐시가 삭제되었습니다';
+  String get msgAllDataCleared => '✅ 모든 데이터가 삭제되었습니다';
 
   @override
   String get commonTest => '테스트';
@@ -368,6 +347,27 @@ class AppLocalizationsKo extends AppLocalizations {
   String msgAnalysisFailed(Object error) {
     return '분석 실패: $error';
   }
+
+  @override
+  String get msgTitleUpdated => '제목이 수정되었습니다';
+
+  @override
+  String get errNoScreenshotFound => '스크린샷을 찾을 수 없습니다.';
+
+  @override
+  String get splashTagline => '당신의 AI 메모리';
+
+  @override
+  String get settingsAISectionHeader => 'AI 분석';
+
+  @override
+  String get titleWebLink => '웹 링크';
+
+  @override
+  String get titleNewItem => '새 항목';
+
+  @override
+  String get titleNewMemo => '새 메모';
 
   @override
   String settingsOpenAIActive(Object model) {

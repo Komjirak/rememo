@@ -162,13 +162,13 @@ class _LibraryCardItem extends StatelessWidget {
                 ),
               ),
               title: Text(
-                'Delete Memory',
+                AppLocalizations.of(context)!.msgDeleteTitle,
                 style: TextStyle(
                   color: Theme.of(context).textTheme.titleLarge?.color,
                 ),
               ),
               content: Text(
-                'Are you sure you want to delete this memory?',
+                AppLocalizations.of(context)!.msgDeleteConfirm(card.title),
                 style: TextStyle(
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
@@ -176,14 +176,14 @@ class _LibraryCardItem extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text('Cancel', style: TextStyle(color: Theme.of(context).disabledColor)),
+                  child: Text(AppLocalizations.of(context)!.commonCancel, style: TextStyle(color: Theme.of(context).disabledColor)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.red.withOpacity(0.1),
                   ),
-                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  child: Text(AppLocalizations.of(context)!.commonDelete, style: const TextStyle(color: Colors.red)),
                 ),
               ],
             );
@@ -194,7 +194,7 @@ class _LibraryCardItem extends StatelessWidget {
         onDelete?.call(card);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${card.title} deleted'),
+            content: Text(AppLocalizations.of(context)!.msgMemoDeleted(card.title)),
             backgroundColor: Theme.of(context).cardColor,
           ),
         );

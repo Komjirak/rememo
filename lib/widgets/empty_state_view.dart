@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/theme/app_theme.dart';
 
 class EmptyStateView extends StatelessWidget {
@@ -131,7 +132,7 @@ class EmptyStateView extends StatelessWidget {
     return Column(
       children: [
         Text(
-          "Your memory starts here",
+          AppLocalizations.of(context)!.emptyStateTitle,
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
             color: Theme.of(context).textTheme.titleLarge?.color, // Adjusted for light theme visibility
             letterSpacing: -0.5,
@@ -140,7 +141,7 @@ class EmptyStateView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          "Capture screenshots anywhere and Folio will automatically turn them into organized, searchable knowledge.",
+          AppLocalizations.of(context)!.emptyStateDescription,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: Theme.of(context).textTheme.bodyMedium?.color,
             height: 1.6,
@@ -176,7 +177,7 @@ class EmptyStateView extends StatelessWidget {
               }),
             ),
             child: Text(
-              "Add your first memory",
+              AppLocalizations.of(context)!.emptyStateAction,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onPrimary,
                 fontWeight: FontWeight.w600,
@@ -191,7 +192,7 @@ class EmptyStateView extends StatelessWidget {
         TextButton(
           onPressed: onLearnMore,
           child: Text(
-            "Learn how it works",
+            AppLocalizations.of(context)!.emptyStateLearnMore,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).disabledColor,
               fontWeight: FontWeight.w500,

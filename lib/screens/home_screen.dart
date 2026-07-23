@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 // If parser generated a more comprehensive summary (or if original was empty)
                 finalSummary = analysis.summary;
             }
-            if (finalTitle.isEmpty || finalTitle == 'Web Link') {
+            if (finalTitle.isEmpty || finalTitle == AppLocalizations.of(context)!.titleWebLink) {
                 finalTitle = analysis.title;
             }
             finalInsights = analysis.keyInsights;
@@ -928,7 +928,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final analysisData = await NativeService.getLastScreenshotAnalysisEnhanced();
         
         if (analysisData.isEmpty) {
-          throw Exception('No screenshot found');
+          throw Exception(AppLocalizations.of(context)!.errNoScreenshotFound);
         }
         
         // 2. OCR 블록 변환
@@ -937,7 +937,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             .toList() ?? [];
         
         if (ocrBlocks.isEmpty) {
-          throw Exception('No text detected');
+          throw Exception(AppLocalizations.of(context)!.analysisEmptyText);
         }
         
         // Image Path Handling (분석 전에 복사해 Vision 분석에 사용)
@@ -1072,10 +1072,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _cards.insert(0, newCard);
           });
           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(
-               content: Text('Memo created from screenshot!'),
+             SnackBar(
+               content: Text(AppLocalizations.of(context)!.msgMemoCreated(newCard.title)),
                backgroundColor: AppTheme.accentTeal,
-               duration: Duration(seconds: 2),
+               duration: const Duration(seconds: 2),
              ),
           );
       }
@@ -1226,11 +1226,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
              // Fallback if native analysis fails
              logInfo('🔴 Native analysis returned null', name: 'Home');
              await _createCardFromAnalysis(
-                permanentPath, 
-                "", 
-                ['Photo'], 
+                permanentPath,
+                "",
+                ['Photo'],
                 'Inbox',
-                suggestedTitle: 'New Photo',
+                suggestedTitle: AppLocalizations.of(context)!.titleNewMemo,
                 sourceType: 'photo',
              );
         }
@@ -1772,7 +1772,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
          if (index != -1) _cards[index] = updatedCard;
        });
        ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: const Text('Title updated'), backgroundColor: Theme.of(context).cardColor)
+         SnackBar(content: Text(AppLocalizations.of(context)!.msgTitleUpdated), backgroundColor: Theme.of(context).cardColor)
        );
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:stribe/l10n/app_localizations.dart';
 import 'package:stribe/theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -118,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                 // Tagline
                 Text(
-                  'YOUR AI MEMORY',
+                  AppLocalizations.of(context)!.splashTagline,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
