@@ -417,4 +417,85 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get msgApiKeySaved => '✅ API Key가 저장되었습니다';
+
+  @override
+  String get settingsExportObsidian => '옵시디언으로 내보내기';
+
+  @override
+  String get settingsExportObsidianDesc =>
+      '모든 메모를 마크다운(.md) 파일로 변환해 zip으로 내보냅니다. 저장 위치로 iCloud Drive의 Vault 폴더를 선택하면 PC와 자동으로 동기화됩니다.';
+
+  @override
+  String get msgExportPreparing => '내보낼 파일을 준비하는 중...';
+
+  @override
+  String get msgExportEmpty => '내보낼 메모가 없습니다.';
+
+  @override
+  String msgExportFailed(Object error) {
+    return '내보내기 실패: $error';
+  }
+
+  @override
+  String get exportPeriodTitle => '내보낼 기간 선택';
+
+  @override
+  String get exportPeriodAll => '전체';
+
+  @override
+  String get exportPeriodLast7Days => '최근 7일';
+
+  @override
+  String get exportPeriodLast30Days => '최근 30일';
+
+  @override
+  String get exportPeriodLast90Days => '최근 90일';
+
+  @override
+  String get settingsAutoExport => '자동 내보내기';
+
+  @override
+  String get settingsVaultFolder => 'Vault 폴더';
+
+  @override
+  String get settingsVaultFolderNotSet => '선택 안 됨';
+
+  @override
+  String get settingsAutoExportToggle => '자동 내보내기';
+
+  @override
+  String get settingsRunAutoExportNow => '지금 내보내기';
+
+  @override
+  String get settingsAutoExportNeverRun => '아직 실행되지 않음';
+
+  @override
+  String settingsAutoExportLastRun(Object date) {
+    return '마지막 실행: $date';
+  }
+
+  @override
+  String get settingsAutoExportDesc =>
+      '선택한 주기가 지나면 새 메모를 Vault 폴더에 자동으로 씁니다. iOS는 정확한 실행 시각을 보장하지 않으며, 기기 사용 패턴에 따라 결정합니다 — 앱을 자주 열수록 더 안정적으로 동작합니다.';
+
+  @override
+  String get msgSelectFolderFirst => '먼저 Vault 폴더를 선택해주세요.';
+
+  @override
+  String get settingsAutoExportFrequencyTitle => '내보내기 주기 선택';
+
+  @override
+  String get msgAutoExportSuccess => '✅ 내보내기 완료';
+
+  @override
+  String get msgAutoExportFailed => '내보내기 실패. 폴더 접근 권한을 확인해주세요.';
+
+  @override
+  String get autoExportFrequencyDaily => '매일';
+
+  @override
+  String get autoExportFrequencyWeekly => '매주';
+
+  @override
+  String get autoExportFrequencyMonthly => '매월';
 }

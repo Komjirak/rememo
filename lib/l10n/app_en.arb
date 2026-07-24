@@ -145,5 +145,33 @@
   "msgConnectionSuccess": "✅ Connected successfully!",
   "msgConnectionFailed": "❌ Connection failed. Check your key.",
   "msgApiKeyDeleted": "🗑️ API Key deleted",
-  "msgApiKeySaved": "✅ API Key saved"
+  "msgApiKeySaved": "✅ API Key saved",
+
+  "settingsExportObsidian": "Export to Obsidian",
+  "settingsExportObsidianDesc": "Converts all memos into Markdown (.md) files and exports them as a zip. Save to your Vault folder in iCloud Drive to sync automatically with your PC.",
+  "msgExportPreparing": "Preparing files to export...",
+  "msgExportEmpty": "No memories to export.",
+  "msgExportFailed": "Export failed: {error}",
+
+  "exportPeriodTitle": "Select period to export",
+  "exportPeriodAll": "All",
+  "exportPeriodLast7Days": "Last 7 days",
+  "exportPeriodLast30Days": "Last 30 days",
+  "exportPeriodLast90Days": "Last 90 days",
+
+  "settingsAutoExport": "Auto Export",
+  "settingsVaultFolder": "Vault Folder",
+  "settingsVaultFolderNotSet": "Not set",
+  "settingsAutoExportToggle": "Auto Export",
+  "settingsRunAutoExportNow": "Export Now",
+  "settingsAutoExportNeverRun": "Never run yet",
+  "settingsAutoExportLastRun": "Last run: {date}",
+  "settingsAutoExportDesc": "Automatically writes new memos to your Vault folder once the selected interval has passed. iOS does not guarantee exact timing — it decides based on your usage pattern, so opening the app regularly makes it more reliable.",
+  "msgSelectFolderFirst": "Please select a Vault folder first.",
+  "settingsAutoExportFrequencyTitle": "Select export frequency",
+  "msgAutoExportSuccess": "✅ Export complete",
+  "msgAutoExportFailed": "Export failed. Please check folder access permission.",
+  "autoExportFrequencyDaily": "Daily",
+  "autoExportFrequencyWeekly": "Weekly",
+  "autoExportFrequencyMonthly": "Monthly"
 }

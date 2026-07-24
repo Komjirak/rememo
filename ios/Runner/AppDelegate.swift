@@ -4,6 +4,7 @@ import Photos
 import Vision
 import NaturalLanguage
 import WebKit
+import workmanager
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, PHPhotoLibraryChangeObserver, WKNavigationDelegate {
@@ -202,8 +203,63 @@ import WebKit
     })
 
 
+    // Obsidian 내보내기: Vault 폴더 선택/북마크/쓰기 채널
+    let obsidianChannel = FlutterMethodChannel(name: "com.rememo.komjirak/obsidian_folder",
+                                                binaryMessenger: controller.binaryMessenger)
+    obsidianChannel.setMethodCallHandler({ [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard let self = self else { return }
+      switch call.method {
+      case "pickFolder":
+        guard let rootVC = self.window?.rootViewController else {
+          result(FlutterError(code: "NO_VIEW_CONTROLLER", message: "No root view controller", details: nil))
+          return
+        }
+        ObsidianExportHelper.shared.pickFolder(from: rootVC) { success, folderName in
+          DispatchQueue.main.async {
+            result(["success": success, "folderName": folderName as Any])
+          }
+        }
+      case "hasFolder":
+        result(ObsidianExportHelper.shared.hasFolder)
+      case "folderName":
+        result(ObsidianExportHelper.shared.folderDisplayName)
+      case "clearFolder":
+        ObsidianExportHelper.shared.clearFolder()
+        result(true)
+      case "writeFiles":
+        guard let args = call.arguments as? [String: Any],
+              let rawFiles = args["files"] as? [[String: Any]] else {
+          result(FlutterError(code: "INVALID_ARGS", message: "files required", details: nil))
+          return
+        }
+        var files: [(path: String, data: Data)] = []
+        for raw in rawFiles {
+          guard let path = raw["path"] as? String,
+                let bytes = raw["bytes"] as? FlutterStandardTypedData else { continue }
+          files.append((path: path, data: bytes.data))
+        }
+        DispatchQueue.global(qos: .utility).async {
+          let success = ObsidianExportHelper.shared.writeFiles(files)
+          DispatchQueue.main.async { result(success) }
+        }
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Obsidian 자동 내보내기용 백그라운드 작업(BGAppRefreshTask) 등록.
+    // 실제 실행 주기는 iOS가 사용 패턴에 따라 결정하며(최소 간격 힌트만 제공),
+    // 정확한 "매일/매주/매월" 실행 시각을 사용자가 고른 주기는 Dart 쪽에서
+    // 마지막 실행 시각을 저장해두고 판단한다.
+    if #available(iOS 13.0, *) {
+      SwiftWorkmanagerPlugin.registerPeriodicTask(
+        withIdentifier: "com.rememo.komjirak.obsidianAutoExport",
+        frequency: NSNumber(value: 4 * 60 * 60)
+      )
+    }
+
     GeneratedPluginRegistrant.register(with: self)
-    
+
     // ✨ Apple Intelligence 테스트
     testAppleIntelligence()
     

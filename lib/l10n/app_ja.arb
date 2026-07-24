@@ -145,5 +145,33 @@
   "msgConnectionSuccess": "✅ 接続に成功しました！",
   "msgConnectionFailed": "❌ 接続に失敗しました。キーを確認してください。",
   "msgApiKeyDeleted": "🗑️ APIキーを削除しました",
-  "msgApiKeySaved": "✅ APIキーを保存しました"
+  "msgApiKeySaved": "✅ APIキーを保存しました",
+
+  "settingsExportObsidian": "Obsidianにエクスポート",
+  "settingsExportObsidianDesc": "すべてのメモをMarkdown（.md）ファイルに変換してzipで書き出します。保存先にiCloud DriveのVaultフォルダを選ぶと、PCと自動的に同期されます。",
+  "msgExportPreparing": "書き出すファイルを準備しています...",
+  "msgExportEmpty": "書き出すメモがありません。",
+  "msgExportFailed": "エクスポートに失敗しました: {error}",
+
+  "exportPeriodTitle": "書き出す期間を選択",
+  "exportPeriodAll": "すべて",
+  "exportPeriodLast7Days": "過去7日間",
+  "exportPeriodLast30Days": "過去30日間",
+  "exportPeriodLast90Days": "過去90日間",
+
+  "settingsAutoExport": "自動エクスポート",
+  "settingsVaultFolder": "Vaultフォルダ",
+  "settingsVaultFolderNotSet": "未設定",
+  "settingsAutoExportToggle": "自動エクスポート",
+  "settingsRunAutoExportNow": "今すぐエクスポート",
+  "settingsAutoExportNeverRun": "まだ実行されていません",
+  "settingsAutoExportLastRun": "最終実行: {date}",
+  "settingsAutoExportDesc": "選択した間隔が経過すると、新しいメモをVaultフォルダに自動で書き込みます。iOSは正確な実行時刻を保証せず、使用状況に応じて判断します — アプリをこまめに開くほど安定して動作します。",
+  "msgSelectFolderFirst": "先にVaultフォルダを選択してください。",
+  "settingsAutoExportFrequencyTitle": "エクスポート頻度を選択",
+  "msgAutoExportSuccess": "✅ エクスポート完了",
+  "msgAutoExportFailed": "エクスポートに失敗しました。フォルダへのアクセス権限をご確認ください。",
+  "autoExportFrequencyDaily": "毎日",
+  "autoExportFrequencyWeekly": "毎週",
+  "autoExportFrequencyMonthly": "毎月"
 }

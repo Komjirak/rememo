@@ -420,4 +420,86 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get msgApiKeySaved => '✅ API Key saved';
+
+  @override
+  String get settingsExportObsidian => 'Export to Obsidian';
+
+  @override
+  String get settingsExportObsidianDesc =>
+      'Converts all memos into Markdown (.md) files and exports them as a zip. Save to your Vault folder in iCloud Drive to sync automatically with your PC.';
+
+  @override
+  String get msgExportPreparing => 'Preparing files to export...';
+
+  @override
+  String get msgExportEmpty => 'No memories to export.';
+
+  @override
+  String msgExportFailed(Object error) {
+    return 'Export failed: $error';
+  }
+
+  @override
+  String get exportPeriodTitle => 'Select period to export';
+
+  @override
+  String get exportPeriodAll => 'All';
+
+  @override
+  String get exportPeriodLast7Days => 'Last 7 days';
+
+  @override
+  String get exportPeriodLast30Days => 'Last 30 days';
+
+  @override
+  String get exportPeriodLast90Days => 'Last 90 days';
+
+  @override
+  String get settingsAutoExport => 'Auto Export';
+
+  @override
+  String get settingsVaultFolder => 'Vault Folder';
+
+  @override
+  String get settingsVaultFolderNotSet => 'Not set';
+
+  @override
+  String get settingsAutoExportToggle => 'Auto Export';
+
+  @override
+  String get settingsRunAutoExportNow => 'Export Now';
+
+  @override
+  String get settingsAutoExportNeverRun => 'Never run yet';
+
+  @override
+  String settingsAutoExportLastRun(Object date) {
+    return 'Last run: $date';
+  }
+
+  @override
+  String get settingsAutoExportDesc =>
+      'Automatically writes new memos to your Vault folder once the selected interval has passed. iOS does not guarantee exact timing — it decides based on your usage pattern, so opening the app regularly makes it more reliable.';
+
+  @override
+  String get msgSelectFolderFirst => 'Please select a Vault folder first.';
+
+  @override
+  String get settingsAutoExportFrequencyTitle => 'Select export frequency';
+
+  @override
+  String get msgAutoExportSuccess => '✅ Export complete';
+
+  @override
+  String get msgAutoExportFailed =>
+      'Export failed. Please check folder access permission.';
+
+  @override
+  String get autoExportFrequencyDaily => 'Daily';
+
+  @override
+  String get autoExportFrequencyWeekly => 'Weekly';
+
+  @override
+  String get autoExportFrequencyMonthly => 'Monthly';
 }

@@ -861,6 +861,156 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'✅ API Key가 저장되었습니다'**
   String get msgApiKeySaved;
+
+  /// No description provided for @settingsExportObsidian.
+  ///
+  /// In ko, this message translates to:
+  /// **'옵시디언으로 내보내기'**
+  String get settingsExportObsidian;
+
+  /// No description provided for @settingsExportObsidianDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'모든 메모를 마크다운(.md) 파일로 변환해 zip으로 내보냅니다. 저장 위치로 iCloud Drive의 Vault 폴더를 선택하면 PC와 자동으로 동기화됩니다.'**
+  String get settingsExportObsidianDesc;
+
+  /// No description provided for @msgExportPreparing.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보낼 파일을 준비하는 중...'**
+  String get msgExportPreparing;
+
+  /// No description provided for @msgExportEmpty.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보낼 메모가 없습니다.'**
+  String get msgExportEmpty;
+
+  /// No description provided for @msgExportFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보내기 실패: {error}'**
+  String msgExportFailed(Object error);
+
+  /// No description provided for @exportPeriodTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보낼 기간 선택'**
+  String get exportPeriodTitle;
+
+  /// No description provided for @exportPeriodAll.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체'**
+  String get exportPeriodAll;
+
+  /// No description provided for @exportPeriodLast7Days.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 7일'**
+  String get exportPeriodLast7Days;
+
+  /// No description provided for @exportPeriodLast30Days.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 30일'**
+  String get exportPeriodLast30Days;
+
+  /// No description provided for @exportPeriodLast90Days.
+  ///
+  /// In ko, this message translates to:
+  /// **'최근 90일'**
+  String get exportPeriodLast90Days;
+
+  /// No description provided for @settingsAutoExport.
+  ///
+  /// In ko, this message translates to:
+  /// **'자동 내보내기'**
+  String get settingsAutoExport;
+
+  /// No description provided for @settingsVaultFolder.
+  ///
+  /// In ko, this message translates to:
+  /// **'Vault 폴더'**
+  String get settingsVaultFolder;
+
+  /// No description provided for @settingsVaultFolderNotSet.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택 안 됨'**
+  String get settingsVaultFolderNotSet;
+
+  /// No description provided for @settingsAutoExportToggle.
+  ///
+  /// In ko, this message translates to:
+  /// **'자동 내보내기'**
+  String get settingsAutoExportToggle;
+
+  /// No description provided for @settingsRunAutoExportNow.
+  ///
+  /// In ko, this message translates to:
+  /// **'지금 내보내기'**
+  String get settingsRunAutoExportNow;
+
+  /// No description provided for @settingsAutoExportNeverRun.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 실행되지 않음'**
+  String get settingsAutoExportNeverRun;
+
+  /// No description provided for @settingsAutoExportLastRun.
+  ///
+  /// In ko, this message translates to:
+  /// **'마지막 실행: {date}'**
+  String settingsAutoExportLastRun(Object date);
+
+  /// No description provided for @settingsAutoExportDesc.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택한 주기가 지나면 새 메모를 Vault 폴더에 자동으로 씁니다. iOS는 정확한 실행 시각을 보장하지 않으며, 기기 사용 패턴에 따라 결정합니다 — 앱을 자주 열수록 더 안정적으로 동작합니다.'**
+  String get settingsAutoExportDesc;
+
+  /// No description provided for @msgSelectFolderFirst.
+  ///
+  /// In ko, this message translates to:
+  /// **'먼저 Vault 폴더를 선택해주세요.'**
+  String get msgSelectFolderFirst;
+
+  /// No description provided for @settingsAutoExportFrequencyTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보내기 주기 선택'**
+  String get settingsAutoExportFrequencyTitle;
+
+  /// No description provided for @msgAutoExportSuccess.
+  ///
+  /// In ko, this message translates to:
+  /// **'✅ 내보내기 완료'**
+  String get msgAutoExportSuccess;
+
+  /// No description provided for @msgAutoExportFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'내보내기 실패. 폴더 접근 권한을 확인해주세요.'**
+  String get msgAutoExportFailed;
+
+  /// No description provided for @autoExportFrequencyDaily.
+  ///
+  /// In ko, this message translates to:
+  /// **'매일'**
+  String get autoExportFrequencyDaily;
+
+  /// No description provided for @autoExportFrequencyWeekly.
+  ///
+  /// In ko, this message translates to:
+  /// **'매주'**
+  String get autoExportFrequencyWeekly;
+
+  /// No description provided for @autoExportFrequencyMonthly.
+  ///
+  /// In ko, this message translates to:
+  /// **'매월'**
+  String get autoExportFrequencyMonthly;
 }
 
 class _AppLocalizationsDelegate

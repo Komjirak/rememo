@@ -20,6 +20,7 @@
 		9F4FD2C2AF25A0EE7ED5E7D7 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CF70F2DDDED5B41DE5F7737B /* Pods_Runner.framework */; };
 		AC5E88932F1E5D4F003BEC48 /* libpaddle_api_light_bundled.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AC5E88922F1E5D4F003BEC48 /* libpaddle_api_light_bundled.a */; };
 		AC91F8462F1E5F820009D04D /* PaddleOCRHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC91F8452F1E5F810009D04D /* PaddleOCRHelper.swift */; };
+		26B2E75DA3FFF46B83B19F20 /* ObsidianExportHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B29213DDB39804CEFE133606 /* ObsidianExportHelper.swift */; };
 		AC91F8482F1F2A000009D04D /* OnDeviceLLM.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC91F8472F1F29FF009D04D /* OnDeviceLLM.swift */; };
 		AC91F84A2F1F2B000009D04D /* PaddleOCRWrapper.mm in Sources */ = {isa = PBXBuildFile; fileRef = AC91F8492F1F2AFF009D04D /* PaddleOCRWrapper.mm */; };
 		AC91F84D2F1F3A010009D04D /* PaddleOCR in Resources */ = {isa = PBXBuildFile; fileRef = AC91F84C2F1F3A000009D04D /* PaddleOCR */; };
@@ -98,6 +99,7 @@
 		A5BEDFE5F6039103041E74AA /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC5E88922F1E5D4F003BEC48 /* libpaddle_api_light_bundled.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libpaddle_api_light_bundled.a; sourceTree = "<group>"; };
 		AC91F8452F1E5F810009D04D /* PaddleOCRHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaddleOCRHelper.swift; sourceTree = "<group>"; };
+		B29213DDB39804CEFE133606 /* ObsidianExportHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObsidianExportHelper.swift; sourceTree = "<group>"; };
 		AC91F8472F1F29FF009D04D /* OnDeviceLLM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceLLM.swift; sourceTree = "<group>"; };
 		AC91F8492F1F2AFF009D04D /* PaddleOCRWrapper.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = PaddleOCRWrapper.mm; sourceTree = "<group>"; };
 		AC91F84B2F1F2AFF009D04D /* PaddleOCRWrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PaddleOCRWrapper.h; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				AC91F8472F1F29FF009D04D /* OnDeviceLLM.swift */,
 				AC91F8452F1E5F810009D04D /* PaddleOCRHelper.swift */,
+				B29213DDB39804CEFE133606 /* ObsidianExportHelper.swift */,
 				ACFM00022F2500000002D04D /* FoundationModelsAnalyzer.swift */,
 				ACCA00022F2500000004D04D /* ContentAnalyzerAdapter.swift */,
 				ACRFM0022F2500000006D04D /* RealFoundationModelsAnalyzer.swift */,
@@ -558,6 +561,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				AC91F8482F1F2A000009D04D /* OnDeviceLLM.swift in Sources */,
 				AC91F8462F1E5F820009D04D /* PaddleOCRHelper.swift in Sources */,
+				26B2E75DA3FFF46B83B19F20 /* ObsidianExportHelper.swift in Sources */,
 				ACFM00012F2500000001D04D /* FoundationModelsAnalyzer.swift in Sources */,
 				ACCA00012F2500000003D04D /* ContentAnalyzerAdapter.swift in Sources */,
 				ACRFM0012F2500000005D04D /* RealFoundationModelsAnalyzer.swift in Sources */,

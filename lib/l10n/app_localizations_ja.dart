@@ -416,4 +416,85 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get msgApiKeySaved => '✅ APIキーを保存しました';
+
+  @override
+  String get settingsExportObsidian => 'Obsidianにエクスポート';
+
+  @override
+  String get settingsExportObsidianDesc =>
+      'すべてのメモをMarkdown（.md）ファイルに変換してzipで書き出します。保存先にiCloud DriveのVaultフォルダを選ぶと、PCと自動的に同期されます。';
+
+  @override
+  String get msgExportPreparing => '書き出すファイルを準備しています...';
+
+  @override
+  String get msgExportEmpty => '書き出すメモがありません。';
+
+  @override
+  String msgExportFailed(Object error) {
+    return 'エクスポートに失敗しました: $error';
+  }
+
+  @override
+  String get exportPeriodTitle => '書き出す期間を選択';
+
+  @override
+  String get exportPeriodAll => 'すべて';
+
+  @override
+  String get exportPeriodLast7Days => '過去7日間';
+
+  @override
+  String get exportPeriodLast30Days => '過去30日間';
+
+  @override
+  String get exportPeriodLast90Days => '過去90日間';
+
+  @override
+  String get settingsAutoExport => '自動エクスポート';
+
+  @override
+  String get settingsVaultFolder => 'Vaultフォルダ';
+
+  @override
+  String get settingsVaultFolderNotSet => '未設定';
+
+  @override
+  String get settingsAutoExportToggle => '自動エクスポート';
+
+  @override
+  String get settingsRunAutoExportNow => '今すぐエクスポート';
+
+  @override
+  String get settingsAutoExportNeverRun => 'まだ実行されていません';
+
+  @override
+  String settingsAutoExportLastRun(Object date) {
+    return '最終実行: $date';
+  }
+
+  @override
+  String get settingsAutoExportDesc =>
+      '選択した間隔が経過すると、新しいメモをVaultフォルダに自動で書き込みます。iOSは正確な実行時刻を保証せず、使用状況に応じて判断します — アプリをこまめに開くほど安定して動作します。';
+
+  @override
+  String get msgSelectFolderFirst => '先にVaultフォルダを選択してください。';
+
+  @override
+  String get settingsAutoExportFrequencyTitle => 'エクスポート頻度を選択';
+
+  @override
+  String get msgAutoExportSuccess => '✅ エクスポート完了';
+
+  @override
+  String get msgAutoExportFailed => 'エクスポートに失敗しました。フォルダへのアクセス権限をご確認ください。';
+
+  @override
+  String get autoExportFrequencyDaily => '毎日';
+
+  @override
+  String get autoExportFrequencyWeekly => '毎週';
+
+  @override
+  String get autoExportFrequencyMonthly => '毎月';
 }
