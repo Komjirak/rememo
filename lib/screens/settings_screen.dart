@@ -873,7 +873,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final zipFile = await ObsidianExportService.exportToZip(cards, folders: folders);
 
       if (!mounted) return;
-      await Share.shareXFiles([XFile(zipFile.path)]);
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.shareXFiles(
+        [XFile(zipFile.path)],
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null,
+      );
     } catch (e) {
       logInfo('❌ Obsidian export 실패: $e', name: 'Settings');
       if (mounted) {
